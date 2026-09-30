@@ -472,6 +472,9 @@ make_space_gemm_meta(
       [](auto tup) { return to_gemm_meta(tup); });
   return tuple_filter(gemm_meta_space, [](auto const tup) {
     auto meta = to_gemm_meta(tup);
+    if constexpr (meta.sm_core() == _RTX5090{} && meta.arch() != _Sm89{}) {
+      return false;
+    }
     if constexpr (not detail::filter_fast_accum(meta)) {
       return false;
     }

@@ -139,6 +139,29 @@ test_gemm_hparams() {
   FLUX_CHECK_EQ(unified_hparams.raster_order(), _RasterHeuristic{}());
   FLUX_CHECK_EQ(unified_hparams.mainloop_stage(), 0);
 }
+void
+test_rtx5090_compatibility() {
+  static_assert(kernel_arch_for_cuda_arch(120) == ArchEnum::Sm89);
+  static_assert(kernel_arch_for_cuda_arch(80) == ArchEnum::Sm80);
+  static_assert(kernel_arch_for_cuda_arch(89) == ArchEnum::Sm89);
+  static_assert(kernel_arch_for_cuda_arch(90) == ArchEnum::Sm90);
+  auto space = make_space_gemm_meta(
+      cute::make_tuple(_FP16{}, _BF16{}),
+      cute::make_tuple(_Sm80{}, _Sm89{}),
+      cute::make_tuple(_RTX5090{}),
+      cute::make_tuple(_CommNone{}),
+      cute::make_tuple(_RCR{}),
+      cute::make_tuple(_GemmV2{}));
+  static_assert(cute::tuple_size<decltype(space)>::value == 2);
+  tuple_for_each(space, [](auto meta) {
+    auto hparams = materialize_hparams(meta, _AutoHParams{});
+    FLUX_CHECK(detail::filter_smem(meta, hparams));
+    auto unified_meta = unify_type(meta);
+    FLUX_CHECK_EQ(unified_meta.arch(), kernel_arch_for_cuda_arch(120));
+    FLUX_CHECK_EQ(static_cast<int>(unified_meta.sm_core()), 170);
+    FLUX_CHECK(to_make_constexpr(unified_meta).find("_RTX5090") != std::string::npos);
+  });
+}
 }  // namespace bytedance::flux
 
 int
@@ -150,6 +173,7 @@ main() {
   test_tuple_split_slice();
   test_return_if();
   test_gemm_meta();
+  test_rtx5090_compatibility();
   test_gemm_hparams();
   test_tuple_has_elem();
   return 0;

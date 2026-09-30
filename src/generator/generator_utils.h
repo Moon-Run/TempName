@@ -273,7 +273,7 @@ main_template(
   std::vector<std::string> archs_vec = parse_semicolon_seperated(options.archs);
   for (auto arch : archs_vec) {
     int arch_num = std::stoi(arch);
-    archs.insert(ArchEnum(arch_num));
+    archs.insert(kernel_arch_for_cuda_arch(arch_num));
   }
 
   std::set<int> sm_cores_set;

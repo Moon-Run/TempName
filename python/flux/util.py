@@ -29,10 +29,12 @@ import torch.distributed
 
 
 def get_arch():
+    """Return the Flux kernel architecture; RTX 5090 uses the Ada V2 path."""
     properties = torch.cuda.get_device_properties(torch.cuda.current_device())
     major = properties.major
     minor = properties.minor
-    return major * 10 + minor
+    arch = major * 10 + minor
+    return 89 if arch == 120 else arch
 
 
 def torch_allclose(x, y, rtol, atol, verbose=True):

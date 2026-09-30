@@ -462,10 +462,15 @@ tuple_has_elem(cute::tuple<Ts...> const &tup, Elem const &e) {
 /////////////////////////////////////////////////////
 enum class DataTypeEnum : int8_t { Void, FP16, BF16, FP32, E4M3, E5M2, S8, S32 };
 enum class ArchEnum : int { Sm80 = 80, Sm89 = 89, Sm90 = 90 };
-// Use CUDA cores per SM to denote different GPU device, in order to separate GPU with same
-// ArchEnum, e.g. both H20 and H800 use SM90, could replace ArchEnum later. Currently limited to
-// below 4 GPU devices.
-enum class SMCoreEnum : int { L20 = 92, A100 = 108, H20 = 78, H800 = 132 };
+// Number of SMs distinguishes devices using the same kernel architecture.
+enum class SMCoreEnum : int { L20 = 92, A100 = 108, H20 = 78, H800 = 132, RTX5090 = 170 };
+
+// SM120 uses the existing Ada MMA kernels, compiled for the actual CUDA target.
+// Keep generator and runtime dispatch aligned; SM90 kernels require Hopper GMMA.
+constexpr ArchEnum
+kernel_arch_for_cuda_arch(int cuda_arch) {
+  return cuda_arch == 120 ? ArchEnum::Sm89 : static_cast<ArchEnum>(cuda_arch);
+}
 enum class CommOpEnum : int8_t {
   CommNone,                   // gemm only, wo/ communication
   AllGather,                  // tp allgather + gemm, comm not fused into gemm kernel
@@ -535,6 +540,7 @@ using _L20 = cute::C<SMCoreEnum::L20>;
 using _A100 = cute::C<SMCoreEnum::A100>;
 using _H20 = cute::C<SMCoreEnum::H20>;
 using _H800 = cute::C<SMCoreEnum::H800>;
+using _RTX5090 = cute::C<SMCoreEnum::RTX5090>;
 
 using _GemmV2 = cute::C<ImplEnum::GemmV2>;
 using _GemmV3 = cute::C<ImplEnum::GemmV3>;
@@ -790,6 +796,7 @@ enum_to_string(SMCoreEnum sm_core) {
     case SMCoreEnum::A100: return "A100";
     case SMCoreEnum::H20: return "H20";
     case SMCoreEnum::H800: return "H800";
+    case SMCoreEnum::RTX5090: return "RTX5090";
     default: return "UNK";
   }
 }

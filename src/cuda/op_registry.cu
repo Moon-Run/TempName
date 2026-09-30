@@ -36,9 +36,9 @@ init_device_properties() {
   cudaDeviceGetAttribute(&major, cudaDevAttrComputeCapabilityMajor, 0);
   cudaDeviceGetAttribute(&minor, cudaDevAttrComputeCapabilityMinor, 0);
   int arch_num = major * 10 + minor;
-  FLUX_CHECK(arch_num == 80 || arch_num == 89 || arch_num == 90)
+  FLUX_CHECK(arch_num == 80 || arch_num == 89 || arch_num == 90 || arch_num == 120)
       << "unsupported arch: " << arch_num;
-  arch = ArchEnum{arch_num};
+  arch = kernel_arch_for_cuda_arch(arch_num);
 
   int sm_count;
   cudaDeviceGetAttribute(&sm_count, cudaDevAttrMultiProcessorCount, 0);
@@ -48,6 +48,7 @@ init_device_properties() {
     case 108: sm_core = SMCoreEnum::A100; break;
     case 78: sm_core = SMCoreEnum::H20; break;
     case 132: sm_core = SMCoreEnum::H800; break;
+    case 170: sm_core = SMCoreEnum::RTX5090; break;
     default: FLUX_CHECK(false) << "Unsupported SM count for SMCoreEnum: " << sm_count; break;
   }
 }

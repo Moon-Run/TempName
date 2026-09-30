@@ -55,7 +55,31 @@ git clone --recursive https://github.com/bytedance/flux.git && cd flux
 ./build.sh --arch 89 --nvshmem
 # For Hopper(sm90) GPU
 ./build.sh --arch 90 --nvshmem
+# For Blackwell RTX 5090(sm120) GPU (experimental compatibility support)
+./build.sh --arch 120 --nvshmem
 ```
+
+RTX 5090 requires [CUDA Toolkit 12.8 or newer](https://developer.nvidia.com/blog/cuda-toolkit-12-8-delivers-nvidia-blackwell-support/)
+and a PyTorch build with Blackwell support, such as [PyTorch 2.7 with CUDA 12.8](https://pytorch.org/blog/pytorch-2-7/).
+Install the CUDA Toolkit separately; the PyTorch wheel does not include `nvcc`.
+The CUDA 12.4 / PyTorch 2.6 environment below is for the older GPUs.
+For RTX 5090, use:
+
+```bash
+pip3 install packaging ninja
+pip3 install torch==2.7.0 torchvision==0.22.0 torchaudio==2.7.0 --index-url https://download.pytorch.org/whl/cu128
+export CUDA_HOME=/usr/local/cuda-12.8 # Adjust to your CUDA Toolkit installation
+./build.sh --arch 120 --nvshmem --package
+```
+
+This target compiles the existing Ada/CUTLASS V2 kernels for `sm120` and registers
+them for RTX 5090's 170 SMs. Kernel metadata uses `Sm89` with device `RTX5090`;
+the generated CUDA machine code targets `sm120`. Hopper-only V3/GMMA operators
+are not supported by this compatibility path. Multi-GPU communication still
+requires a working peer-access/NVSHMEM configuration. Full compilation and
+execution on RTX 5090 hardware have not yet been validated.
+For cross-compilation, the 170-SM configuration is included automatically with
+`--arch 120`; `--sm-cores 170` can also select it explicitly.
 
 #### Install in a virtual environment
 Here is a snippet to install Flux in a virtual environment. Let's finish the installation in an virtual environment with CUDA 12.4, torch 2.6.0 and python 3.11.
@@ -101,7 +125,7 @@ Flux depends on `NCCL` and `CUTLASS`, which are located under `3rdparty/`, and `
 Below are commands to run some basic demos once you have installed Flux successfully.
 ```bash
 # gemm only
-python3 test/python/gemm_only/test_gemm_only.py 4096 12288 6144 --dtype=float16
+python3 test/python/gemm_only/test_gemm_only.py 4096 12288 6144 --input_dtype=float16 --weight_dtype=float16
 
 # all-gather fused with gemm (dense MLP layer0)
 ./launch.sh test/python/ag_gemm/test_ag_kernel.py 4096 49152 12288 --dtype=float16 --iters=10

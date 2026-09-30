@@ -34,6 +34,7 @@
 namespace bytedance::flux {
 
 // get arch of current device
+// Kernel dispatch architecture (SM120 currently uses the Sm89 compatibility path).
 ArchEnum get_arch();
 // get sm core count of current device
 SMCoreEnum get_sm_core();

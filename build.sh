@@ -3,7 +3,7 @@ set -x
 set -e
 
 ## Change export PATH if cuda is not at default path
-export PATH=/usr/local/cuda/bin:$PATH
+export PATH=${CUDA_HOME:-/usr/local/cuda}/bin:$PATH
 CMAKE=${CMAKE:-cmake}
 
 ARCH=""
@@ -101,6 +101,14 @@ cd ${PROJECT_ROOT}
 
 if [[ -n $ARCH ]]; then
     build_args=" --arch ${ARCH}"
+    if [[ ";${ARCH};" == *";120;"* ]]; then
+        # Existing release wheels do not contain the RTX 5090 compatibility kernels.
+        export FLUX_FORCE_BUILD=1
+        if ! nvcc --list-gpu-code | grep -qx 'sm_120'; then
+            echo "RTX 5090 (sm120) requires CUDA Toolkit >= 12.8. Set CUDA_HOME to a supported toolkit." >&2
+            exit 1
+        fi
+    fi
 fi
 
 if [[ -z $JOBS ]]; then
@@ -185,7 +193,7 @@ function build_flux_cuda() {
             )
             export PYTHONPATH=$PYTHONPATH:$PROJECT_ROOT/python
         fi
-        ${CMAKE} .. ${CMAKE_ARGS[@]}
+        ${CMAKE} .. "${CMAKE_ARGS[@]}"
     fi
     make -j${JOBS} VERBOSE=1
     make install
