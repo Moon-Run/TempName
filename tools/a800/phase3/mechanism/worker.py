@@ -63,6 +63,11 @@ if instrumented:
  stamps=timer.cpu().tolist();ratio=(stamps[1]-stamps[0])/(a.elapsed_time(b)*1e6)
  assert .8<ratio<1.05,ratio
  report['clock_ratio']=ratio
+ # A first marker launch can lazily load its kernel and synchronize the context.
+ # Load it before any observer can wait for work on the producer stream.
+ for index in (0,1):check(lib.mech_mark(markers.data_ptr(),index,torch.cuda.current_stream().cuda_stream))
+ torch.cuda.synchronize()
+ report['marker_prewarmed']=True
 
 @torch.no_grad()
 def run_case(m,n,k):
@@ -100,6 +105,11 @@ def run_case(m,n,k):
   modes=[('off',0,False),('producer_sparse',1,False),('publication_sparse',2,False),('receiver_sparse',2,True),('receiver_dense',2,True)]
   # Identical physical output coordinates across all policies. The final offset includes the N edge.
   offsets=[0,per//4,per//2,3*per//4,per-1]
+  # Materialize timing events before launching a polling kernel. Reuse them only
+  # after done.synchronize(), so no event allocation is needed in the overlap.
+  start,stop,done=[torch.cuda.Event(enable_timing=True) for _ in range(3)]
+  for event in (start,stop,done):event.record()
+  done.synchronize()
   for repeat in range(repeats):
    order=list(modes);random.Random(100+block*1000+repeat).shuffle(order)
    for label,mode,observe in order:
@@ -121,7 +131,6 @@ def run_case(m,n,k):
      check(lib.mech_observe(flags.data_ptr(),indices.data_ptr(),len(slots),seen.data_ptr(),status.data_ptr(),epoch,observer.cuda_stream))
     stream=torch.cuda.current_stream().cuda_stream
     check(lib.mech_mark(markers.data_ptr(),0,stream))
-    start,stop,done=[torch.cuda.Event(enable_timing=True) for _ in range(3)]
     start.record();y=forward();check(lib.mech_mark(markers.data_ptr(),1,stream));stop.record()
     if observe:torch.cuda.current_stream().wait_stream(observer)
     done.record();done.synchronize();correct(y)
@@ -135,7 +144,13 @@ def run_case(m,n,k):
      assert all(raw[i,f,5].item()==tile//per for i,tile in enumerate(selected) for f in range(fragments)),(label,'destination mismatch')
      sample['producer']=[dict(tile=t,fragment=f,values=raw[i,f].tolist()) for i,t in enumerate(selected) for f in range(fragments)]
     if observe:
-     st=status.cpu().tolist();assert st[2]==0 and st[3]==len(slots),(label,st[:4],len(slots))
+     st=status.cpu().tolist()
+     if st[2]!=0 or st[3]!=len(slots):
+      (out/f'{prefix}-rank{rank}-observer-failure.json').write_text(json.dumps(dict(
+       M=m,N=n,K_global=k,repeat=repeat,epoch=epoch,mode=label,selected_tiles=selected,
+       observer_status=st,expected=len(slots),local_markers=sample['local_markers'],
+       forward_us=sample['forward_us'],envelope_us=sample['envelope_us']),indent=2)+'\n')
+     assert st[2]==0 and st[3]==len(slots),(label,st[:4],len(slots))
      values=seen.reshape(-1)[indices].cpu().tolist();assert all(v!=0 for v in values)
      sample.update(observer_status=st[:4],max_poll_cycle_ns=max(st[4:]),
                    receiver=[dict(source=s//SLOTS,tile=s%SLOTS//FRAGS,fragment=s%FRAGS,observed_ns=v) for s,v in zip(slots,values)])

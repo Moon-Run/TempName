@@ -23,6 +23,14 @@ if not smoke:
  (OUT/'counter-capability.json').write_text(json.dumps(dict(returncode=result.returncode,
       permission_denied='ERR_NVGPUCTRPERM' in text,available=result.returncode==0),indent=2)+'\n')
  print('COUNTER PROBE',result.returncode,flush=True)
+ # Separate processes keep the cold and prewarmed marker paths independent.
+ path=BUILD/'interleaved'
+ env=dict(os.environ,MECH_LIBRARY=str(path/'libflux_cuda.so'),PYTHONPATH=str(path/'python'),
+          LD_LIBRARY_PATH=f'{path}:/data/apps/cuda/12.8/lib64')
+ for mode in ('cold','warm'):
+  with (OUT/f'startup-{mode}.log').open('w') as f:
+   subprocess.run([sys.executable,str(SCRIPTS/'startup_probe.py'),mode],env=env,stdout=f,stderr=subprocess.STDOUT,check=True)
+  print('STARTUP PROBE',mode,(OUT/f'startup-{mode}.json').read_text().strip(),flush=True)
 for block,order in enumerate(config['orders'][:1] if smoke else config['orders']):
  for policy in order:
   for kind in ['vanilla_before','instrumented','vanilla_after']:
