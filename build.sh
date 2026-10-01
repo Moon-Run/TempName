@@ -138,6 +138,10 @@ function build_protobuf() {
 }
 
 function build_nccl() {
+    local nccl_debug=0
+    if [ "$FLUX_DEBUG" == "ON" ]; then
+        nccl_debug=1
+    fi
     pushd $NCCL_ROOT
     export BUILDDIR=${NCCL_ROOT}/build
     export PREFIX=${BUILDDIR}/local
@@ -149,9 +153,9 @@ function build_nccl() {
         for arch in "${arch_list[@]}"; do
             NCCL_COMPILE_OPTIONS_ARCH="-gencode=arch=compute_${arch},code=sm_${arch} ${NCCL_COMPILE_OPTIONS_ARCH}"
         done
-        make -j${nproc} src.staticlib NVCC_GENCODE="${NCCL_COMPILE_OPTIONS_ARCH}" VERBOSE=1
+        make -j${JOBS} src.staticlib DEBUG=${nccl_debug} NVCC_GENCODE="${NCCL_COMPILE_OPTIONS_ARCH}" VERBOSE=1
     else
-        make -j${nproc} src.staticlib VERBOSE=1
+        make -j${JOBS} src.staticlib DEBUG=${nccl_debug} VERBOSE=1
     fi
     # only install static lib
     mkdir -p ${PREFIX}/lib

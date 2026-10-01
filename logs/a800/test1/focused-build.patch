@@ -1,0 +1,63 @@
+--- a/src/CMakeLists.txt
++++ b/src/CMakeLists.txt
+@@ -44,7 +44,7 @@
+ )
+ 
+ execute_process(
+-  COMMAND ${CMAKE_COMMAND} --build . --parallel 8
++  COMMAND ${CMAKE_COMMAND} --build . --parallel 2
+   WORKING_DIRECTORY ${FLUX_GENERATOR_BINARY_DIR}
+   COMMAND_ERROR_IS_FATAL ANY
+ )
+@@ -66,17 +66,17 @@
+   add_definitions(-DFLUX_WITH_TRITON_AOT)
+ endif()
+ 
+-add_subdirectory(comm_none)
++# Omitted from focused GEMM-RS validation: comm_none
+ add_subdirectory(coll)
+-add_subdirectory(ag_gemm)
++# Omitted from focused GEMM-RS validation: ag_gemm
+ add_subdirectory(gemm_rs)
+-add_subdirectory(gemm_a2a_transpose)
+-add_subdirectory(a2a_transpose_gemm)
+-add_subdirectory(inplace_cast)
++# Omitted from focused GEMM-RS validation: gemm_a2a_transpose
++# Omitted from focused GEMM-RS validation: a2a_transpose_gemm
++# Omitted from focused GEMM-RS validation: inplace_cast
+ 
+ find_package(CUDAToolkit REQUIRED)
+ if(CUDAToolkit_VERSION VERSION_GREATER_EQUAL "12.3")
+-  add_subdirectory(quantization)
++  # Omitted from focused GEMM-RS validation: quantization
+ endif()
+ 
+ if(ENABLE_NVSHMEM)
+--- a/src/generator/CMakeLists.txt
++++ b/src/generator/CMakeLists.txt
+@@ -17,10 +17,4 @@
+   ${FLUX_PROJECT_DIR}/3rdparty/cutlass/tools/util/include
+ )
+ 
+-add_executable(gen_comm_none gen_comm_none.cc)
+-add_executable(gen_ag_gemm gen_ag_gemm.cc)
+ add_executable(gen_gemm_rs gen_gemm_rs.cc)
+-add_executable(gen_a2a_transpose_gemm gen_a2a_transpose_gemm.cc)
+-add_executable(gen_moe_ag_scatter gen_moe_ag_scatter.cc)
+-add_executable(gen_moe_gather_rs gen_moe_gather_rs.cc)
+-add_executable(gen_gemm_a2a_transpose gen_gemm_a2a_transpose.cc)
+--- a/src/gemm_rs/CMakeLists.txt
++++ b/src/gemm_rs/CMakeLists.txt
+@@ -9,6 +9,12 @@
+ )
+ 
+ file(GLOB OP_REGS ${CMAKE_CURRENT_BINARY_DIR}/registers/*.cu)
++# Fixed validation path: BF16, no bias, RCR, SM80, intra-node NVLink.
++list(FILTER OP_REGS INCLUDE REGEX "bf16_bf16_void_bf16.*_rcr_.*_intranode[.]cu$")
++list(LENGTH OP_REGS VALIDATION_REG_COUNT)
++if(NOT VALIDATION_REG_COUNT EQUAL 1)
++  message(FATAL_ERROR "Expected one BF16 RCR intra-node registration, got ${OP_REGS}")
++endif()
+ file(GLOB TUNING_CONFIGS tuning_config/*.cu)
+ set(CU_FILES
+   bsr_reduce.cu
