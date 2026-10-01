@@ -1,0 +1,42 @@
+TP4 three-way comparison, jobs 178474 / 178475 (2026-10-01)
+
+Both COMPLETED, exit 0:0, 5m31s / 5m26s on d1n41a28g02.
+Same four GPU UUIDs and driver 580.105.08; not a cross-node replication.
+Each job: 7 shapes, all 6 permutations of original/remote_first/interleaved,
+126 formal plus 21 independent diagnostic shape-policy windows, 1764 correctness
+records against BF16/FP32 references. Total 3528 PASS.
+All mapping/hparams/grid/resource/loaded library checks PASS.
+All original CUDA binaries unchanged; same fixed IPC wrapper for all policies.
+
+Latency reduction relative to original, negative means regression:
+
+| M | N | 全局K | 远端候选：178474 / 178475 | 交替版：178474 / 178475 |
+| ---: | ---: | ---: | ---: | ---: |
+| 1024 | 4096 | 2048 | +0.45% / +0.71% | +1.19% / +1.57% |
+| 4096 | 4096 | 2048 | +1.27% / +1.35% | +3.88% / +4.39% |
+| 8192 | 4096 | 2048 | +0.41% / +0.42% | +5.84% / +5.88% |
+| 1024 | 4096 | 8192 | +0.30% / +0.75% | +0.27% / +0.05% |
+| 4096 | 4096 | 8192 | +2.65% / +2.59% | +2.53% / +2.37% |
+| 8192 | 4096 | 8192 | -0.77% / -0.62% | +2.95% / +2.92% |
+| 4096 | 4160 | 8192 | +0.49% / +0.58% | -0.23% / -0.23% |
+
+Interleaved beats original and remote_first in 12/12 paired blocks for
+M4096/K2048 and M8192 at both K values. M8192/K2048 improves 5.84%-5.88%.
+M4096/K8192: both candidates improve; remote_first point estimate is only
+0.13%/0.23% ahead of interleaved; see policy_pairs.csv for direct paired intervals.
+N4160: interleaved about -0.23% both jobs, second descriptive interval crosses 1.
+Keep noise flags: original/remote CV reaches 7.46%/7.06% for M4096/K2048
+in job 178475; remote M1024/K8192 reaches 5.78%; remote M4096/K8192 in
+178474 reaches 5.27%. No sample was discarded.
+
+Interleaved cycles all four destinations and changes partition-local traversal
+to row-major. This is not a locality-preserving ablation. Padded cohort slots
+are rejected; the declared N tail case is supported. The TP2 negative result
+cannot be generalized to TP4; TP changes local K as well as remote count.
+Next: extend TP2-only arrival sampling to four sources, compare same output
+coordinates across policies, quantify instrumentation, measure cache/memory
+separately, and relate last-contribution arrival to whole-operator latency.
+Only after that assess Q/DQ net cost/error budget; no selective FP8 yet.
+
+Sources: each job's summary.csv, policy_pairs.csv, mapping_summary.csv,
+diagnostic_stages.csv, analysis.json, manifest.json, scripts/, and Slurm records.

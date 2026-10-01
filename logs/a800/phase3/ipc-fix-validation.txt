@@ -1,0 +1,47 @@
+CUDA IPC device mismatch: diagnosis and validation (2026-10-01)
+
+Failure: job 178449, FAILED 1:0, 21:52:15-21:52:51 on d1n41a18g02.
+GemmRS construction failed before GEMM correctness or timing.
+Actual exception: Specified device cuda:0 does not match device of data cuda:1.
+
+Cause: cudaipc_create_tensor_list supplied the importing device in TensorOptions,
+but left from_blob's target_device unspecified. PyTorch 2.6 TensorMaker inferred
+the exporting device from the imported pointer and rejected the mismatch.
+The old library was reproduced in jobs 178461 and 178462; captured C++ stack:
+cudaipc_create_tensor_list -> at::from_blob -> TensorMaker::make_tensor.
+
+Fix: src/ths_op/flux_shm.cc explicitly supplies the importing target_device for
+successfully opened IPC mappings, in both all-peer and ring paths. Its deleter
+restores the importing device before cudaIpcCloseMemHandle. This does not copy
+remote memory or change GEMM tile scheduling.
+
+Build: tools/a800/phase3/build_ipc_fix.py -> outputs/a800/phase3/ipc-fix-build.
+Original frozen builds were not modified. Both policies use the same corrected
+THS library; CUDA computation libraries, swizzles and mapping checkers are
+byte-identical to the parent frozen build. Source patch and file hashes recorded.
+C++ compile/link, Python syntax, sbatch syntax and git diff whitespace: PASS.
+
+First test job 178461: original error reproduced; corrected TP2 passed. The new
+TP4 test itself lacked a barrier between zero checks and owner writes; fixed in
+ipc_check.py before rerunning. Keep this failed test artifact for traceability.
+
+Acceptance job 178462: COMPLETED 0:0, 22:03:50-22:08:07, 4m17s.
+Same node and driver 590.48.01 as the failure.
+- Old unchanged library reproduces the mismatch on this allocation.
+- Corrected TP2, TP4, reverse rank/device permutation: 10 rank reports, 40 cases.
+- All-peer/ring paths: zero init, local-device reads of remote memory,
+  writes into disjoint rows of peers, alias placeholders, repeated allocate/free.
+- Pointer attribute device differs from accessing Tensor device in 88 records;
+  the corresponding remote data checks pass.
+- Full 7-shape TP4 experiment, original and rank+1: 1176 correctness records PASS
+  against BF16 GEMM+NCCL RS and FP32 references.
+- 84 formal shape-policy windows; 14 independent diagnostic shape-policy windows.
+- All-rank mapping coverage, hparams, grid/resources, frozen library loading PASS.
+
+Evidence: 178462/ipc-original-probe.log and .json; ipc-tp*-rank*.json;
+178462/analysis.json, summary.csv, diagnostic_stages.csv, manifest.json,
+slurm-accounting.txt; docs/design/base.md.
+
+Earlier successful TP2 jobs used driver 580.105.08 on another node. This is an
+environment difference, not a controlled driver regression experiment.
+Only one completed TP4 performance job; cross-job and mechanism validation remain.
