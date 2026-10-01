@@ -1,0 +1,74 @@
+A800 阶段 2：稀疏 tile 发布与接收端观察原型
+
+状态：原型和实验已完成。K=8192 达到低扰动初版筛查目标；K=2048 的时序可采集，但低扰动验收仍受噪声限制。尚未修改调度、精度或最终归约算法。
+
+实验记录
+- 178420：首轮在计时探针校验处退出；首次 CUDA 模块加载混入 CUDA Event 计时。修复为先预热探针，再按相同阈值校验。
+- 178421：逐 fragment 系统 fence 的原型通过全部采样检查，但较小 K 的发布/观察开销过高。
+- 178425：合并同一 epilogue 回调中的 fence 后复测；稀疏观察中位开销为约 3.09%/1.72%（K=2048/8192）。
+- 178426：将各 rank 主线程固定到分配 CPU 集合中的一个 CPU，再次复测；这是本报告的主要结果。所有历史作业数据保留，未筛掉不利结果。
+
+固定配置
+2×A800、NV8/NVLink、TP=2，M=N=4096，全局 K={2048,8192}；BF16/RCR/无 bias，默认 rank-offset swizzle，fuse_reduction=False。
+两种 K、两个 rank、原始与插桩构建实际选中的 hparams 一致：tile=128×128×32，warp=64×64×32，StreamK-SK，3 stages，raster heuristic。
+每个输出 tile 有 8 个 epilogue fragment；逐一验证每个采样 fragment 恰好发布一次，避免把 Stream-K 某个 CTA 的完成当作整个 tile 完成。
+现有基线构建未修改。阶段2仅重编译目标注册单元并在独立目录重新链接 libflux_cuda.so；原 Python 绑定与其他对象复用。
+
+计时与可见性语义
+- 生产端：在选中 fragment 的全部线程完成转换后，记录其进入 store 阶段的时间；这一点不是纯 GEMM 的完成时间。
+- producer_sparse：仅观察各 fragment 的本地写入边界，结束标记表示线程已发出写入，不宣称远端可见。
+- publication/receiver 模式：所有写线程在 epilogue 回调结束时执行 system fence，经 CTA 同步后由线程0对该回调实际写出的各 fragment 发布 system-scope release 标记。Stream-K 的独立归约回调各自发布自己完成的 fragment。
+- 接收端：单独一个 CTA 以 acquire 语义轮询本 GPU 的发布标记，使用本 GPU globaltimer 记录首次观察时间。
+- 完整贡献的观察时刻取该来源全部 8 个 fragment 观察时间的最大值；join skew 只在同一目标 GPU 时基下比较两个来源。没有跨 GPU 时间戳相减。
+- 时间戳是“观察到发布标记”的时间，包含生产端 fence、标记传播和轮询影响，不能称为精确链路传输时间。
+- 首轮扫描已可见的标记会记录为负时间戳并排除到达顺序分析，防止迟启动观察者虚构时序。
+- 本轮没有采集最终归约中每个 tile 的消费时刻。GPU end marker 是 forward 之后的粗边界，包含主机提交间隔，不能据此推导精确 critical-path slack。
+- 每个 rank 的 globaltimer 时长已与预热后的 CUDA Event 对照；原始比值见 summary.json。
+
+主要结果（178426）
+同轮随机交替 off、producer_sparse、publication_sparse、receiver_sparse、receiver_dense，共20轮。每次对两个 rank 分别验证 BF16 基线与 FP32 参考；400 项采样 forward 检查全部通过，rtol=atol=0.02。
+稀疏密度为每256个 tile 选1个（每次4个 tile），较密为每64个选1个（每次16个）。四个 offset 轮换，重复观察同一目标 tile。
+
+全局K   稀疏观察配对中位开销   配对开销IQR           稀疏join skew中位数   稀疏远端最后观察
+2048    +2.50%                 -4.47% 至 +8.30%      109.47 us             80/80
+8192    +0.56%                 -0.31% 至 +1.88%      278.18 us             80/80
+
+两组稀疏采样各覆盖16个不同的“目标rank,tile”，每个重复5次；上述80次不是80个不同tile，更不能代表全部1024个tile。
+稀疏轮询最大周期分别约1.70 us、1.92 us；这些样本的观察偏斜大于两倍轮询周期。没有首次扫描即就绪的被截断样本、超时、遗漏或重复fragment。
+K=8192 的远端最后观察模式在178425与178426两次复测的稀疏样本中均为80/80。
+K=2048 在178425为78/80、178426为80/80，说明应报告“样本中通常远端最后”，不能宣称任意运行均如此。
+
+扰动与噪声的判断
+- K=8192：原始构建前/后窗口中位数为675.74/674.87 us，插桩构建关闭采样为678.71 us；各窗口CV约0.73%–1.25%。存在约0.5%的窗口中位差，不能精确归因为编译静态开销。采样相对同轮off的中位开销0.56%，P95约4.57%。可以用于当前初版的定性时序研究。
+- K=2048：原始构建与关闭采样窗口CV均约7%，固定CPU后仍未消失。稀疏观察中位开销虽然低于5%，IQR上沿仍超过5%，不能宣布总体低扰动验收通过，也不能将负开销解释为采样加速。
+- K=2048 的较密观察中位开销约6.73%，前一作业约10.12%，明确不适合作为低扰动主证据。
+- 原始与插桩目标kernel均为每线程254个寄存器、无local-memory spill；关闭采样仍可能有指令与参数成本，资源数量相同不能代替性能对照。
+- 批量窗口与单次采样窗口的计时方式不同；只使用同种方式的对照，未拿两个窗口的绝对值直接相减作为开销。
+
+研究结论
+1. 已建立可运行的“完整 fragment 覆盖→有序发布→接收端同一时基观察”测量链路。
+2. 采样子集中，本地贡献通常早于远端贡献，这与原有 rank-offset 生产顺序相符；两者之间存在明显的观察间隔。
+3. 该现象本身不足以证明重排收益。原策略同时考虑目标端写入争用，且最终归约仍受全局barrier约束；同步到达可能改善某些tile，也可能增加争用。
+4. 尚未证明这些采样tile位于全算子关键路径，也没有测量或实现选择性FP8通信。
+
+下一步
+以较稳定的 K=8192 作为主配置，设计阶段3的 BF16 静态重排对照；固定当前hparams，仅改变tile映射，比较原始rank-offset、远端优先、分区交替的完整算子耗时，并同时保留无插桩正式计时。
+K=2048 暂作为探索性配置，先排查其波动并降低采样扰动。阶段3尚未实施或提交作业。
+
+文件入口
+178426/performance.csv：采样开销、IQR和P95；build_controls.csv：原始/关闭采样窗口。
+178426/join_summary.csv、receiver_tiles.csv：完整贡献观察、最后来源和偏斜。
+178426/producer_tiles.csv：生产端写入边界；sampling_validity.csv：覆盖、首扫截断、轮询与超时检查。
+178426/instrumented-rank*.json：全部原始fragment记录；summary.json：机器可读汇总及限制。
+各作业目录包含脚本快照、构建命令、插桩补丁、硬件与Slurm记录。178425保留了合并fence后的第一次复测结果。
+
+复跑（已有phase1构建时，在项目根目录）
+  python3 tools/a800/phase2/build.py
+  mkdir -p logs/a800/phase2
+  sbatch tools/a800/phase2/run.sbatch
+  python3 tools/a800/phase2/summarize.py logs/a800/phase2/<job_id>
+构建脚本串行编译；GPU计算仅由普通gpu_a800作业执行。编译产物留在outputs/。
+
+同步语义参考
+https://docs.nvidia.com/cuda/archive/12.5.1/cuda-c-programming-guide/index.html#memory-fence-functions
+https://docs.nvidia.com/cuda/parallel-thread-execution/index.html#memory-consistency-model
