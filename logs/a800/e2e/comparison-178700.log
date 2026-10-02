@@ -1,0 +1,149 @@
+START validation-native
+DONE validation-native
+START validation-native-repeat
+DONE validation-native-repeat
+START validation-original
+upNCCL.cpp:4561] [PG ID 0 PG GUID 0 Rank 2]  using GPU 2 to perform barrier as devices used by this process are currently unknown. This can potentially cause a hang if this rank to GPU mapping is incorrect. Specify device_ids in barrier() to force use of a particular device, or call init_process_group() with a device_id.
+>>> done with compiling and loading fused kernels. Compilation time: 0.914 seconds
+building GPT model ...
+/data/run01/scyb672/hjr/Megatron-LM/megatron/core/models/gpt/gpt_layer_specs.py:205: UserWarning: The fp8 argument in "get_gpt_layer_local_spec" has been deprecated and will be removed soon. Please update your code accordingly.
+  warnings.warn(
+/data/run01/scyb672/hjr/Megatron-LM/megatron/core/models/gpt/gpt_layer_specs.py:205: UserWarning: The fp8 argument in "get_gpt_layer_local_spec" has been deprecated and will be removed soon. Please update your code accordingly.
+  warnings.warn(
+/data/run01/scyb672/hjr/Megatron-LM/megatron/core/models/gpt/gpt_layer_specs.py:205: UserWarning: The fp8 argument in "get_gpt_layer_local_spec" has been deprecated and will be removed soon. Please update your code accordingly.
+  warnings.warn(
+/data/run01/scyb672/hjr/Megatron-LM/megatron/core/models/gpt/gpt_layer_specs.py:205: UserWarning: The fp8 argument in "get_gpt_layer_local_spec" has been deprecated and will be removed soon. Please update your code accordingly.
+  warnings.warn(
+ > number of parameters on (tensor, pipeline) model parallel rank (3, 0): 18121728
+ > number of parameters on (tensor, pipeline) model parallel rank (1, 0): 18121728
+ > number of parameters on (tensor, pipeline) model parallel rank (0, 0): 18121728
+ > number of parameters on (tensor, pipeline) model parallel rank (2, 0): 18121728
+INFO:megatron.core.distributed.distributed_data_parallel:Setting up DistributedDataParallel with config DistributedDataParallelConfig(grad_reduce_in_fp32=True, overlap_grad_reduce=False, overlap_param_gather=False, align_param_gather=False, use_distributed_optimizer=False, num_distributed_optimizer_instances=1, check_for_nan_in_grad=False, check_for_large_grads=False, bucket_size=None, pad_buckets_for_high_nccl_busbw=False, average_in_collective=False, fp8_param_gather=False, use_custom_fsdp=False, data_parallel_sharding_strategy='no_shard', gradient_reduce_div_fusion=True, suggested_communication_unit_size=None, preserve_fp32_weights=True, keep_fp8_transpose_cache_when_using_custom_fsdp=False)
+INFO:megatron.core.distributed.param_and_grad_buffer:Number of buckets for gradient all-reduce / reduce-scatter: 1
+Params for bucket 1 (18121728 elements, 18121728 padded size):
+	module.output_layer.weight
+	module.decoder.layers.3.mlp.linear_fc1.bias
+	module.decoder.layers.3.self_attention.linear_proj.bias
+	module.decoder.layers.2.mlp.linear_fc1.bias
+	module.decoder.layers.2.self_attention.linear_proj.bias
+	module.decoder.layers.1.mlp.linear_fc1.bias
+	module.decoder.layers.1.self_attention.linear_proj.bias
+	module.decoder.layers.0.mlp.linear_fc1.bias
+	module.decoder.layers.0.self_attention.linear_proj.weight
+	module.decoder.layers.0.input_layernorm.weight
+	module.decoder.layers.3.pre_mlp_layernorm.weight
+	module.decoder.layers.3.input_layernorm.weight
+	module.decoder.layers.2.pre_mlp_layernorm.weight
+	module.decoder.layers.2.input_layernorm.weight
+	module.decoder.layers.1.pre_mlp_layernorm.weight
+	module.decoder.layers.1.input_layernorm.weight
+	module.decoder.layers.3.mlp.linear_fc2.weight
+	module.decoder.layers.3.self_attention.linear_qkv.weight
+	module.decoder.layers.2.mlp.linear_fc2.weight
+	module.decoder.layers.2.self_attention.linear_qkv.weight
+	module.decoder.layers.1.mlp.linear_fc2.weight
+	module.decoder.layers.1.self_attention.linear_qkv.weight
+	module.decoder.layers.0.mlp.linear_fc2.weight
+	module.decoder.final_layernorm.bias
+	module.decoder.layers.3.mlp.linear_fc1.weight
+	module.decoder.layers.3.self_attention.linear_proj.weight
+	module.decoder.layers.2.mlp.linear_fc1.weight
+	module.decoder.layers.2.self_attention.linear_proj.weight
+	module.decoder.layers.1.mlp.linear_fc1.weight
+	module.decoder.layers.1.self_attention.linear_proj.weight
+	module.decoder.layers.0.mlp.linear_fc1.weight
+	module.embedding.word_embeddings.weight
+	module.decoder.layers.0.pre_mlp_layernorm.weight
+	module.decoder.layers.0.self_attention.linear_qkv.bias
+	module.embedding.position_embeddings.weight
+	module.decoder.layers.0.self_attention.linear_proj.bias
+	module.decoder.final_layernorm.weight
+	module.decoder.layers.3.pre_mlp_layernorm.bias
+	module.decoder.layers.3.input_layernorm.bias
+	module.decoder.layers.2.pre_mlp_layernorm.bias
+	module.decoder.layers.2.input_layernorm.bias
+	module.decoder.layers.1.pre_mlp_layernorm.bias
+	module.decoder.layers.1.input_layernorm.bias
+	module.decoder.layers.0.pre_mlp_layernorm.bias
+	module.decoder.layers.0.input_layernorm.bias
+	module.decoder.layers.3.mlp.linear_fc2.bias
+	module.decoder.layers.3.self_attention.linear_qkv.bias
+	module.decoder.layers.2.mlp.linear_fc2.bias
+	module.decoder.layers.2.self_attention.linear_qkv.bias
+	module.decoder.layers.1.mlp.linear_fc2.bias
+	module.decoder.layers.1.self_attention.linear_qkv.bias
+	module.decoder.layers.0.mlp.linear_fc2.bias
+	module.decoder.layers.0.self_attention.linear_qkv.weight
+INFO:megatron.core.optimizer:Setting up optimizer with config OptimizerConfig(optimizer='adam', lr=0.0001, min_lr=0.0001, decoupled_lr=None, decoupled_min_lr=None, weight_decay=0.01, fp16=False, bf16=True, params_dtype=torch.bfloat16, use_precision_aware_optimizer=False, main_grads_dtype=torch.float32, main_params_dtype=torch.float32, exp_avg_dtype=torch.float32, exp_avg_sq_dtype=torch.float32, loss_scale=None, initial_loss_scale=4294967296, min_loss_scale=1.0, loss_scale_window=1000, hysteresis=2, adam_beta1=0.9, adam_beta2=0.95, adam_eps=1e-08, sgd_momentum=0.9, use_distributed_optimizer=False, overlap_param_gather_with_optimizer_step=False, optimizer_cpu_offload=False, optimizer_offload_fraction=1.0, use_torch_optimizer_for_cpu_offload=False, overlap_cpu_optimizer_d2h_h2d=False, pin_cpu_grads=True, pin_cpu_params=True, clip_grad=1.0, log_num_zeros_in_grad=False, barrier_with_L1_time=True, timers=<megatron.core.timers.Timers object at 0x14948a670400>, config_logger_dir='')
+INFO:megatron.core.optimizer_param_scheduler:> learning rate decay style: constant
+WARNING:root:Failed to load NVSHMEM libs
+WARNING:root:Failed to load NVSHMEM libs
+WARNING:root:Failed to load NVSHMEM libs
+WARNING:root:Failed to load NVSHMEM libs
+NCCL version 2.21.5+cuda12.4
+NCCL version 2.21.5+cuda12.4
+NCCL version 2.21.5+cuda12.4
+[rank1]: Traceback (most recent call last):
+[rank1]:   File "/data/run01/scyb672/hjr/TempName/logs/a800/e2e/comparison/178700/scripts/worker.py", line 275, in <module>
+[rank1]:     assert report['passed'], f'{POLICY} {MODE} failed; see {OUT}/rank{rank}.json'
+[rank1]: AssertionError: original validate failed; see /data/run01/scyb672/hjr/TempName/logs/a800/e2e/comparison/178700/validation-original/rank1.json
+[rank0]: Traceback (most recent call last):
+[rank0]:   File "/data/run01/scyb672/hjr/TempName/logs/a800/e2e/comparison/178700/scripts/worker.py", line 275, in <module>
+[rank0]:     assert report['passed'], f'{POLICY} {MODE} failed; see {OUT}/rank{rank}.json'
+[rank0]: AssertionError: original validate failed; see /data/run01/scyb672/hjr/TempName/logs/a800/e2e/comparison/178700/validation-original/rank0.json
+[rank3]: Traceback (most recent call last):
+[rank3]:   File "/data/run01/scyb672/hjr/TempName/logs/a800/e2e/comparison/178700/scripts/worker.py", line 275, in <module>
+[rank3]:     assert report['passed'], f'{POLICY} {MODE} failed; see {OUT}/rank{rank}.json'
+[rank3]: AssertionError: original validate failed; see /data/run01/scyb672/hjr/TempName/logs/a800/e2e/comparison/178700/validation-original/rank3.json
+[rank2]: Traceback (most recent call last):
+[rank2]:   File "/data/run01/scyb672/hjr/TempName/logs/a800/e2e/comparison/178700/scripts/worker.py", line 275, in <module>
+[rank2]:     assert report['passed'], f'{POLICY} {MODE} failed; see {OUT}/rank{rank}.json'
+[rank2]: AssertionError: original validate failed; see /data/run01/scyb672/hjr/TempName/logs/a800/e2e/comparison/178700/validation-original/rank2.json
+[rank1]:[W1002 10:51:25.792739743 ProcessGroupNCCL.cpp:1496] Warning: WARNING: destroy_process_group() was not called before program exit, which can leak resources. For more info, please see https://pytorch.org/docs/stable/distributed.html#shutdown (function operator())
+[rank0]:[W1002 10:51:25.816727501 ProcessGroupNCCL.cpp:1496] Warning: WARNING: destroy_process_group() was not called before program exit, which can leak resources. For more info, please see https://pytorch.org/docs/stable/distributed.html#shutdown (function operator())
+[rank3]:[W1002 10:51:25.865262350 ProcessGroupNCCL.cpp:1496] Warning: WARNING: destroy_process_group() was not called before program exit, which can leak resources. For more info, please see https://pytorch.org/docs/stable/distributed.html#shutdown (function operator())
+[rank2]:[W1002 10:51:25.875498588 ProcessGroupNCCL.cpp:1496] Warning: WARNING: destroy_process_group() was not called before program exit, which can leak resources. For more info, please see https://pytorch.org/docs/stable/distributed.html#shutdown (function operator())
+W1002 10:51:28.511000 83592 site-packages/torch/distributed/elastic/multiprocessing/api.py:897] Sending process 83597 closing signal SIGTERM
+W1002 10:51:28.511000 83592 site-packages/torch/distributed/elastic/multiprocessing/api.py:897] Sending process 83599 closing signal SIGTERM
+W1002 10:51:28.511000 83592 site-packages/torch/distributed/elastic/multiprocessing/api.py:897] Sending process 83600 closing signal SIGTERM
+E1002 10:51:28.820000 83592 site-packages/torch/distributed/elastic/multiprocessing/api.py:869] failed (exitcode: 1) local_rank: 1 (pid: 83598) of binary: /data/run01/scyb672/conda_envs/flux-megatron-a800/bin/python
+Traceback (most recent call last):
+  File "/data/run01/scyb672/conda_envs/flux-megatron-a800/lib/python3.10/runpy.py", line 196, in _run_module_as_main
+    return _run_code(code, main_globals, None,
+  File "/data/run01/scyb672/conda_envs/flux-megatron-a800/lib/python3.10/runpy.py", line 86, in _run_code
+    exec(code, run_globals)
+  File "/data/run01/scyb672/conda_envs/flux-megatron-a800/lib/python3.10/site-packages/torch/distributed/run.py", line 922, in <module>
+    main()
+  File "/data/run01/scyb672/conda_envs/flux-megatron-a800/lib/python3.10/site-packages/torch/distributed/elastic/multiprocessing/errors/__init__.py", line 355, in wrapper
+    return f(*args, **kwargs)
+  File "/data/run01/scyb672/conda_envs/flux-megatron-a800/lib/python3.10/site-packages/torch/distributed/run.py", line 918, in main
+    run(args)
+  File "/data/run01/scyb672/conda_envs/flux-megatron-a800/lib/python3.10/site-packages/torch/distributed/run.py", line 909, in run
+    elastic_launch(
+  File "/data/run01/scyb672/conda_envs/flux-megatron-a800/lib/python3.10/site-packages/torch/distributed/launcher/api.py", line 138, in __call__
+    return launch_agent(self._config, self._entrypoint, list(args))
+  File "/data/run01/scyb672/conda_envs/flux-megatron-a800/lib/python3.10/site-packages/torch/distributed/launcher/api.py", line 269, in launch_agent
+    raise ChildFailedError(
+torch.distributed.elastic.multiprocessing.errors.ChildFailedError: 
+============================================================
+/data/run01/scyb672/hjr/TempName/logs/a800/e2e/comparison/178700/scripts/worker.py FAILED
+------------------------------------------------------------
+Failures:
+  <NO_OTHER_FAILURES>
+------------------------------------------------------------
+Root Cause (first observed failure):
+[0]:
+  time      : 2026-10-02_10:51:28
+  host      : d1n41a18g01
+  rank      : 1 (local_rank: 1)
+  exitcode  : 1 (pid: 83598)
+  error_file: <N/A>
+  traceback : To enable traceback see: https://pytorch.org/docs/stable/elastic/errors.html
+============================================================
+
+Traceback (most recent call last):
+  File "/data/run01/scyb672/hjr/TempName/logs/a800/e2e/comparison/178700/scripts/launch.py", line 79, in <module>
+    run(policy,'validate',f'validation-{policy}',dict(E2E_REFERENCE=reference))
+  File "/data/run01/scyb672/hjr/TempName/logs/a800/e2e/comparison/178700/scripts/launch.py", line 62, in run
+    raise RuntimeError(f'{name} failed with {result.returncode}')
+RuntimeError: validation-original failed with 1
