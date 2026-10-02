@@ -1,0 +1,93 @@
+--- a/src/gemm_rs/epilogue_evt.hpp
++++ b/src/gemm_rs/epilogue_evt.hpp
+@@ -53,6 +53,7 @@
+ */
+ 
+ #pragma once
++#include "sampler.h"
+ 
+ #include <cstddef>
+ #include <cstdio>
+@@ -118,6 +119,7 @@
+     int64_t rank;
+     int64_t world_size;
+     SystemBarrier::T *barrier_ptr_aux[kMaxWorldSize];
++    MechConfig mech;
+     bool has_barrier_ptr;
+     bool use_barrier_queue;
+     bool use_gemmk;
+@@ -126,10 +128,11 @@
+   };
+ 
+   template <class ProblemShape>
+-  static constexpr Params
++  static Params
+   to_underlying_arguments(
+       ProblemShape const &problem_shape, Arguments const &args, void *workspace) {
+     Params params;
++    params.mech = mech_config();
+     params.dAux = args.dAux;
+     params.rank = args.rank;
+     params.world_size = args.world_size;
+@@ -230,6 +233,7 @@
+     static constexpr int MAX_RANK_SIZE = 4;
+     int row_stride[MAX_RANK_SIZE];
+     int col_stride[MAX_RANK_SIZE];
++    unsigned p2_step_mask = 0;
+ 
+     CUTLASS_DEVICE void
+     begin_step(int step_idx) {
+@@ -256,6 +260,21 @@
+ 
+     CUTLASS_DEVICE void
+     end_step(int step_idx) {
++      bool p2 = !kPcieMode && params.mech.mode && params.mech.stride > 0 &&
++                tile_idx < MECH_TILES && step_idx < MECH_FRAGMENTS &&
++                tile_idx % params.mech.stride == params.mech.offset;
++      unsigned long long* rec = nullptr;
++      if(p2){
++        p2_step_mask |= 1u << step_idx;
++        // All threads have completed this fragment's conversion before the ready marker.
++        __syncthreads();
++        if(thread_idx==0){
++          rec=params.mech.producer+(tile_idx*MECH_FRAGMENTS+step_idx)*MECH_FIELDS;
++          rec[0]=mech_clock(); rec[2]=ThreadblockShape::kM; rec[3]=ThreadblockShape::kN;
++          rec[4]=size<3>(tC_cAux); rec[5]=dst_rank; rec[6]=blockIdx.x;
++          atomicAdd(rec+7,1ull);
++        }
++      }
+       auto src_v = filter(tC_rAux);
+       auto coord_v = filter(tC_cAux(_, _, _, step_idx));
+       auto dst_v = filter(tC_gAux(_, _, _, step_idx));
+@@ -322,11 +341,31 @@
+           }
+         }
+       }
++      if(p2 && params.mech.mode==1){
++        __syncthreads();
++        if(thread_idx==0)rec[1]=mech_clock();
++      }
+     }
+ 
+     ////
+     CUTLASS_DEVICE void
+     end_epilogue() {
++      if(p2_step_mask && params.mech.mode==2){
++        // One system fence per epilogue callback, not per fragment. Separate Stream-K
++        // reduction callbacks publish their own fragment; no tile is declared complete here.
++        __threadfence_system();
++        __syncthreads();
++        if(thread_idx==0){
++          auto stamp=mech_clock();
++          for(int f=0;f<MECH_FRAGMENTS;++f)if(p2_step_mask & (1u<<f)){
++            auto rec=params.mech.producer+(tile_idx*MECH_FRAGMENTS+f)*MECH_FIELDS;
++            rec[1]=stamp;
++            mech_publish(params.mech.flags[dst_rank]+params.rank*MECH_SLOTS+
++                           tile_idx*MECH_FRAGMENTS+f,params.mech.epoch);
++          }
++        }
++      }
++
+       using Barrier = cutlass::Barrier;
+       char *barrier_ptr = (char *)params.barrier_ptr_aux[params.rank];
+       if constexpr (kPcieMode) {

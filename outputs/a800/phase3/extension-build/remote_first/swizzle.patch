@@ -1,0 +1,12 @@
+--- a/src/gemm_rs/tile_scheduler/threadblock_swizzle.hpp
++++ b/src/gemm_rs/tile_scheduler/threadblock_swizzle.hpp
+@@ -78,7 +78,8 @@
+     // Guard for tiles that exceed the tiled_m
+     if (coord.m() >= tiled_m)
+       return coord;
+-    int m = (coord.m() + tiled_m / local_world_size * (local_rank)) % tiled_m;
++    // TP=2 validation: visit the peer's output partition before the local one.
++    int m = (coord.m() + tiled_m / local_world_size * (local_rank + 1)) % tiled_m;
+     coord.m() = m;
+     return coord;
+   }

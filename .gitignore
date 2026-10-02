@@ -7,14 +7,42 @@ report*.nsys-rep
 
 # run files
 log/
-logs/a800/phase3/17*
+/logs/a800/**/17*/
 logs/a800/phase3/mechanism
 prof/
 workspace/
 
 # design
 design/
-outputs/
+
+# Keep A800 experiment scripts, logs, results, patches and build manifests.
+# Other output directories remain ignored.
+/outputs/*
+!/outputs/a800/
+!/outputs/a800/**/build/
+
+# Downloaded dependencies, environments and isolated source copies.
+/outputs/a800/downloads/
+/outputs/a800/venv/
+/outputs/a800/source/
+/outputs/a800/gemm_rs_validation/source/
+/outputs/a800/megatron-e2e/apex/
+/outputs/a800/megatron-e2e/wheelhouse/
+
+# Copied runtime packages, compiled artifacts and model checkpoints.
+# Keep build-directory metadata and overlay source files visible to Git.
+/outputs/a800/**/build/**/python/
+/outputs/a800/**/*-build/**/python/
+/outputs/a800/**/*.o
+/outputs/a800/**/*.a
+/outputs/a800/**/*.cubin
+/outputs/a800/**/*.fatbin
+/outputs/a800/**/*.whl
+/outputs/a800/**/check_mapping
+/outputs/a800/phase3/counter_probe
+/outputs/a800/gemm_rs_validation/nccl_gpu_check
+/outputs/a800/megatron-e2e/checkpoints/
+
 # general things to ignore
 dist/
 *.egg-info/
