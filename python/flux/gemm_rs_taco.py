@@ -5,6 +5,7 @@ One instance owns exact-shape IPC packets and is bound to its creation stream.
 All ranks must construct and call instances in the same order. No graph capture.
 """
 import ctypes
+import hashlib
 import os
 from pathlib import Path
 import threading
@@ -16,7 +17,7 @@ from . import cpp_mod
 
 
 class GemmRSTaco:
-    def __init__(self, group, m, n, k_local, placement=None):
+    def __init__(self, group, m, n, k_local, placement=None, selected=None):
         if placement not in (None, 'fused', 'separate'):
             raise ValueError('TACO placement must be fused or separate')
         self.group = group
@@ -54,6 +55,30 @@ class GemmRSTaco:
         self.placement = {1: 'fused', 2: 'separate'}.get(self.lib.taco_placement())
         if self.placement is None or placement is not None and self.placement != placement:
             raise RuntimeError('Loaded TACO library does not match the requested codec placement')
+        self.selected = None
+        self.selection_cpu = None
+        self.selection_sha256 = None
+        if selected is not None:
+            if self.placement != 'fused':
+                raise ValueError('Selective TACO requires epilogue-fused encoding')
+            mask = torch.as_tensor(selected, device='cpu').clone().contiguous()
+            tiles = (m//128)*((n+127)//128)
+            if tuple(mask.shape) != (self.world, tiles) or not bool(((mask==0)|(mask==1)).all()):
+                raise ValueError('Selection must be a binary [world, physical_tiles] mask')
+            for src in range(self.world):
+                if bool(mask[src,src*(tiles//self.world):(src+1)*(tiles//self.world)].any()):
+                    raise ValueError('Local contributions must remain BF16')
+            mask = mask.to(torch.uint8)
+            digest = hashlib.sha256(bytes(mask.flatten().tolist())).hexdigest()
+            digests = [None]*self.world
+            dist.all_gather_object(digests, digest, group=group)
+            if len(set(digests)) != 1:
+                raise ValueError('All ranks must use the same immutable selection mask')
+            self.selection_cpu = mask
+            self.selection_sha256 = digest
+            self.selected = mask.to(device=self.device)
+            self.lib.taco_configure_selective.argtypes = [ctypes.POINTER(ctypes.c_void_p)] + [ctypes.c_int]*4 + [ctypes.c_void_p]
+            self.lib.taco_configure_selective.restype = ctypes.c_int
         cpp_mod.init_flux_shm(group)
         groups = (m//self.world)*((n+127)//128)
         self.packet_bytes_per_source = groups*136
@@ -81,7 +106,11 @@ class GemmRSTaco:
             if tensor.requires_grad:
                 raise ValueError('Forward-only baseline; supply detached tensors or an explicit autograd adapter')
         with self._lock:
-            code = self.lib.taco_configure(self.pointers, self.rank, self.world, self.m, self.n)
+            if self.selected is None:
+                code = self.lib.taco_configure(self.pointers, self.rank, self.world, self.m, self.n)
+            else:
+                code = self.lib.taco_configure_selective(self.pointers, self.rank, self.world, self.m, self.n,
+                                                        self.selected.data_ptr())
             if code:
                 raise RuntimeError(f'TACO configuration rejected: CUDA error {code}')
             try:
@@ -91,6 +120,13 @@ class GemmRSTaco:
 
     @property
     def wire_bytes_per_rank(self):
+        if self.selection_cpu is not None:
+            total = self.bf16_wire_bytes_per_rank
+            nt = (self.n+127)//128
+            for tile in self.selection_cpu[self.rank].nonzero().flatten().tolist():
+                valid = min(128, self.n-(tile%nt)*128)
+                total += 128*(136-2*valid)
+            return total
         return (self.world-1)*self.packet_bytes_per_source
 
     @property

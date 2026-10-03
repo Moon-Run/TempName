@@ -17,11 +17,12 @@ def sha(p):
     return hashlib.sha256(p.read_bytes()).hexdigest()
 
 
-def main(out, placement='fused'):
+def main(out, placement='fused', swizzle_transform=None, mapping_name='original'):
     assert placement in ('fused','separate')
     out = out.resolve()
     manifest = dict(policy='original_taco_all_remote', placement=placement, codec='E4M3, adaptive scale + normalized H128, two FP32 scales',
-                    reorder=False, selective_quantization=False, gpu_validated=False, files={}, commands=[], inputs={})
+                    reorder=mapping_name!='original', mapping=mapping_name,
+                    selective_quantization_supported=True, gpu_validated=False, files={}, commands=[], inputs={})
     parent = json.loads((PARENT/'manifest.json').read_text())
     for name, digest in parent['files'].items():
         assert sha(PARENT/name) == digest, name
@@ -49,6 +50,9 @@ def main(out, placement='fused'):
     swizzle = 'gemm_rs/tile_scheduler/threadblock_swizzle.hpp'
     assert sha(overlay/swizzle) == sha(PARENT/'original/overlay'/swizzle)
     manifest['original_swizzle_sha256'] = sha(overlay/swizzle)
+    if swizzle_transform is not None:
+        (overlay/swizzle).write_text(swizzle_transform((overlay/swizzle).read_text()))
+    manifest['swizzle_sha256'] = sha(overlay/swizzle)
 
     def run(args, cwd=ROOT):
         args = list(map(str, args))

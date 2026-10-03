@@ -288,7 +288,8 @@ struct VisitorAuxStoreScatter {
     end_step(int step_idx) {
 #ifdef FLUX_TACO_BASELINE
       if constexpr (kTacoSupported) {
-        if (params.taco.enabled && dst_rank != params.rank) {
+        if (params.taco.enabled &&
+            taco_selected(params.taco, params.rank, dst_rank, tile_idx)) {
 #ifdef FLUX_TACO_SEPARATE
           taco_stage_step(step_idx);
 #else

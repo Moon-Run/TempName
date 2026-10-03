@@ -11,7 +11,15 @@ struct FluxTacoConfig {
   int world = 0;
   int m = 0;
   int n = 0;
+  // Optional immutable [source][physical M-tile][N-tile] mask. Null = all remote.
+  const unsigned char* selected = nullptr;
 };
+
+__host__ __device__ inline bool taco_selected(const FluxTacoConfig& c, int src,
+                                             int dst, int tile) {
+  const int tiles = (c.m / 128) * ((c.n + 127) / 128);
+  return src != dst && (!c.selected || c.selected[src * tiles + tile] != 0);
+}
 
 // One source slot: padded FP8 rows, then FP32 quant scales, then adaptive scales.
 // All Hadamard coefficients, including N-tail padding, must cross the wire.
@@ -24,6 +32,8 @@ __host__ __device__ inline int64_t taco_source_bytes(const FluxTacoConfig& c) {
 
 extern "C" FluxTacoConfig taco_config();
 extern "C" int taco_configure(void** peers, int rank, int world, int m, int n);
+extern "C" int taco_configure_selective(void** peers, int rank, int world, int m, int n,
+                                        const unsigned char* selected);
 extern "C" void taco_reset();
 // 1: epilogue-fused encoding; 2: BF16 staging followed by standalone encoding.
 extern "C" int taco_placement();

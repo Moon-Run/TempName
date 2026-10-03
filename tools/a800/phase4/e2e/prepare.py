@@ -38,7 +38,9 @@ def main(repo, out, job, fused_build=None, separate_build=None, legacy_fused_bui
         for name, digest in m['files'].items():
             assert sha(source_root/name) == digest, name
         if policy != 'original':
+            assert not m.get('reorder', False), 'Phase4 requires original tile order; use phase5 for joint builds'
             assert m['original_swizzle_sha256'] == stock_manifest['policies']['original']['swizzle_sha256']
+            assert sha(source/'overlay/gemm_rs/tile_scheduler/threadblock_swizzle.hpp') == m['original_swizzle_sha256']
             assert m['placement'] == ('separate' if policy == 'taco_separate' else 'fused')
         (build/policy).symlink_to(source, target_is_directory=True)
         prefix = 'original/' if policy == 'original' else 'taco/'

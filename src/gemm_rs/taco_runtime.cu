@@ -25,6 +25,14 @@ extern "C" int taco_configure(void** peers, int rank, int world, int m, int n) {
   return int(cudaSuccess);
 }
 
+extern "C" int taco_configure_selective(void** peers, int rank, int world, int m, int n,
+                                        const unsigned char* selected) {
+  if (!selected || taco_placement() != 1) return int(cudaErrorInvalidValue);
+  int result = taco_configure(peers, rank, world, m, n);
+  if (!result) active.selected = selected;
+  return result;
+}
+
 __global__ void taco_encode_scatter_kernel(FluxTacoConfig c, const __nv_bfloat16* staged) {
   __shared__ flux_taco::Scratch scratch;
   const int64_t groups = taco_groups(c);
@@ -64,7 +72,8 @@ __global__ void taco_decode_ring_kernel(FluxTacoConfig c, const __nv_bfloat16* l
   for (int i = 1; i <= c.world; ++i) {
     int src = (c.rank + i) % c.world;
     float value;
-    if (src == c.rank) {
+    const int physical_tile = ((c.rank * (c.m / c.world) + row) / 128) * nt + group % nt;
+    if (!taco_selected(c, src, c.rank, physical_tile)) {
       value = col < c.n ? __bfloat162float(local[src * chunk + int64_t(row) * c.n + col]) : 0.f;
     } else {
       const unsigned char* slot = c.peers[c.rank] + src * source_bytes;
