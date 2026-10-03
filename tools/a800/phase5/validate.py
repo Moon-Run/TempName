@@ -11,7 +11,7 @@ from flux.gemm_rs_taco import GemmRSTaco
 from taco_support import check_taco_output
 
 
-def main(out, policy, plan_path):
+def main(out, policy, plan_path, graph=False, double_buffered=False, model_shape=None):
     rank, world = int(os.environ['RANK']), int(os.environ['WORLD_SIZE'])
     assert world == 4 and os.environ.get('SLURM_JOB_ID')
     torch.cuda.set_device(rank)
@@ -23,25 +23,38 @@ def main(out, policy, plan_path):
     out.mkdir(parents=True,exist_ok=True)
     def save(): (out/f'rank{rank}.json').write_text(json.dumps(report,indent=2)+'\n')
     plan=json.loads(plan_path.read_text())
+    Codec=GemmRSTaco
+    if double_buffered:
+        from flux.gemm_rs_taco import GemmRSTacoDoubleBuffered
+        Codec=GemmRSTacoDoubleBuffered
+    report['skewed_bursts']=[]
+    model_shape=tuple(model_shape or (2048,2048,2048))
     try:
-        for m,n,k in [(512,128,256),(512,136,256),(512,256,256),(2048,2048,512),(2048,2048,2048)]:
+        for m,n,k in [(512,128,256),(512,136,256),(512,256,256),(model_shape[0],model_shape[1],model_shape[1]//world),model_shape]:
             tiles=(m//128)*((n+127)//128)
-            modes=['all','none','checkerboard']+(['calibrated'] if (m,n,k)==(2048,2048,2048) else [])
+            modes=['all','none','checkerboard']+(['calibrated'] if (m,n,k)==model_shape else [])
             for mode in modes:
                 mask=None
                 if mode!='all':
                     mask=torch.zeros((world,tiles),dtype=torch.uint8)
-                    if mode=='calibrated': mask=torch.tensor(plan['policies'][policy]['mask'],dtype=torch.uint8)
+                    if mode=='calibrated':
+                        entry=next(s for s in plan['policies'][policy] if s['shape']==[m,n,k*world]) if plan.get('schema')==2 else plan['policies'][policy]
+                        mask=torch.tensor(entry['mask'],dtype=torch.uint8)
                     if mode=='checkerboard':
                         for src in range(world):
                             for tile in range(tiles):
                                 mask[src,tile]=int(tile//(tiles//world)!=src and (tile+src)%2==0)
-                op=GemmRSTaco(pg,m,n,k,placement='fused',**({'selected':mask} if mask is not None else {}))
+                op=Codec(pg,m,n,k,placement='fused',**({'selected':mask} if mask is not None else {}),
+                              **({'graph':True} if graph else {}))
+                graph_weight=torch.empty((n,k),device='cuda',dtype=torch.bfloat16) if graph else None
                 saved=[]
                 for case in ('zero','random','spiky','repeat'):
                     torch.manual_seed(73+rank+(case=='repeat'))
                     a=(torch.randn(m,k,device='cuda')*k**-.25).to(torch.bfloat16)
                     b=(torch.randn(n,k,device='cuda')*k**-.25).to(torch.bfloat16)
+                    if graph:
+                        graph_weight.copy_(b)
+                        b=graph_weight
                     if case=='zero':a.zero_()
                     if case=='spiky':a[:,0]*=10
                     partial=a@b.t()
@@ -54,9 +67,25 @@ def main(out, policy, plan_path):
                         wire_bytes=op.wire_bytes_per_rank,bf16_wire_bytes=op.bf16_wire_bytes_per_rank,**error))
                     if mode=='none':assert op.wire_bytes_per_rank==op.bf16_wire_bytes_per_rank
                     save()
+                if double_buffered and (mode=='calibrated' or (n==136 and mode=='checkerboard')):
+                    # No cross-rank synchronization between these submissions.
+                    # Alternate data and stagger ranks across multiple A/B reuses.
+                    inputs=[a,(a*.75).to(torch.bfloat16)]
+                    expected=[]
+                    for x in inputs:
+                        expected.append(op.forward(x,b).clone())
+                        torch.cuda.synchronize();dist.barrier()
+                    burst=[]
+                    for i in range(12):
+                        if (i+rank)%3==0:torch.cuda._sleep(300000)
+                        burst.append(op.forward(inputs[i%2],b))
+                    torch.cuda.synchronize()
+                    assert all(torch.equal(y,expected[i%2]) for i,y in enumerate(burst)), 'Workspace reuse raced under skew'
+                    report['skewed_bursts'].append(dict(M=m,N=n,K_local=k,calls=12,exact=True))
+                    save()
                 dist.barrier(pg);torch.cuda.synchronize()
                 del op
-        report.update(completed=True,passed=all(c['passed'] for c in report['checks']))
+        report.update(completed=True,graph_replay=graph,double_buffered=double_buffered,passed=all(c['passed'] for c in report['checks']))
         save()
     except BaseException:
         report.update(passed=False,error=traceback.format_exc())
@@ -69,6 +98,9 @@ def main(out, policy, plan_path):
 if __name__=='__main__':
     p=argparse.ArgumentParser()
     p.add_argument('out',type=Path)
-    p.add_argument('--policy',choices=['remote_first','interleaved'],required=True)
+    p.add_argument('--policy',choices=['remote_first','interleaved','interleaved_remote','interleaved_remote_group'],required=True)
     p.add_argument('--plan',type=Path,required=True)
-    a=p.parse_args();main(a.out,a.policy,a.plan)
+    p.add_argument('--graph',action='store_true')
+    p.add_argument('--double-buffered',action='store_true')
+    p.add_argument('--model-shape',type=int,nargs=3)
+    a=p.parse_args();main(a.out,a.policy,a.plan,a.graph,a.double_buffered,a.model_shape)

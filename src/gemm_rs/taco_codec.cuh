@@ -84,6 +84,23 @@ __device__ __forceinline__ void encode(float x, int valid, unsigned char* payloa
 // One warp owns a complete H128 group: lane l holds coefficients l+32*j.
 // Cross-warp stages of the original transform become register butterflies.
 // Keep the block codec above unchanged for the independent reference path.
+// SM80's CUDA FP8 conversion widens to double and uses 64-bit rounding logic.
+// The encoder already supplies finite, clamped [-448,448] values. Round those
+// directly from their FP32 bits, with the exact E4M3 ties-to-even semantics.
+__device__ __forceinline__ unsigned encode_e4m3_bounded(float x) {
+  const unsigned bits = __float_as_uint(x);
+  const unsigned sign = (bits >> 24) & 0x80;
+  const unsigned mag = bits & 0x7fffffff;
+  unsigned code;
+  if (mag < 0x3c800000u) {  // E4M3 subnormals have spacing 2^-9.
+    code = __float2uint_rn(fabsf(x) * 512.f);
+  } else {
+    const unsigned rounded = mag + 0x7ffffu + ((mag >> 20) & 1u);
+    code = (rounded >> 20) - 960u;  // FP32/E4M3 exponent-bias difference.
+  }
+  return sign | code;
+}
+
 __device__ __forceinline__ void encode_warp(float (&x)[4], int valid,
                                            unsigned char* payload, float* qs, float* as) {
   const int lane = threadIdx.x & 31;
@@ -125,7 +142,7 @@ __device__ __forceinline__ void encode_warp(float (&x)[4], int valid,
   for (int j = 0; j < 4; ++j) {
     float value = isfinite(x[j]) ? x[j] : 0.f;
     float scaled = fminf(fmaxf(value / quant, -kMax), kMax);
-    unsigned q = __nv_cvt_float_to_fp8(scaled, __NV_SATFINITE, __NV_E4M3);
+    unsigned q = encode_e4m3_bounded(scaled);
     unsigned q1 = __shfl_down_sync(0xffffffff, q, 1);
     unsigned q2 = __shfl_down_sync(0xffffffff, q, 2);
     unsigned q3 = __shfl_down_sync(0xffffffff, q, 3);
@@ -140,5 +157,31 @@ __device__ __forceinline__ float decode(const unsigned char* payload, float qs, 
   float x = __half2float(__half(raw)) * qs;
   x = hadamard(x, s);
   return (isfinite(x) ? x : 0.f) / fmaxf(as, 1e-12f);
+}
+
+// Same butterfly order/normalization as decode(), with the final two stages
+// in registers. All 32 lanes participate, including padded N coefficients.
+__device__ __forceinline__ void decode_warp(const unsigned char* payload, float qs,
+                                           float as, float (&x)[4]) {
+  const int lane = threadIdx.x & 31;
+  #pragma unroll
+  for (int j = 0; j < 4; ++j) {
+    __half_raw raw = __nv_cvt_fp8_to_halfraw(payload[lane + 32 * j], __NV_E4M3);
+    x[j] = __half2float(__half(raw)) * qs;
+    #pragma unroll
+    for (int d = 1; d < 32; d *= 2) {
+      float y = __shfl_xor_sync(0xffffffff, x[j], d);
+      x[j] = (lane & d) ? y - x[j] : x[j] + y;
+    }
+  }
+  float a = x[0], b = x[1], c = x[2], d = x[3];
+  x[0] = a + b; x[1] = a - b; x[2] = c + d; x[3] = c - d;
+  a = x[0]; b = x[1]; c = x[2]; d = x[3];
+  x[0] = a + c; x[1] = b + d; x[2] = a - c; x[3] = b - d;
+  #pragma unroll
+  for (int j = 0; j < 4; ++j) {
+    x[j] *= rsqrtf(float(kGroup));
+    x[j] = (isfinite(x[j]) ? x[j] : 0.f) / fmaxf(as, 1e-12f);
+  }
 }
 }  // namespace flux_taco

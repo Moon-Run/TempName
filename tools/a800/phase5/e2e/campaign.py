@@ -72,17 +72,25 @@ def codec_stage(placement):
         rows=[json.loads((directory/f'rank{i}.json').read_text()) for i in range(4)]
         assert all(r['completed'] and r['passed'] and r['ste_gradient_gather_exact'] for r in rows)
         return
-    policy = {'remote_first':'remote_all','interleaved':'interleaved_all','separate':'taco_separate',
-              'remote_arrival':'remote_arrival_selective','interleaved_arrival':'interleaved_arrival_selective'}[placement]
+    policy = placement+'_selective' if placement.endswith('_arrival') else {
+        'remote_first':'remote_all','interleaved':'interleaved_all','separate':'taco_separate','fused':'taco_fused'}[placement]
     library = BUILD/policy
     env = dict(base_env(), PYTHONPATH=str(library/'python'),
                LD_LIBRARY_PATH=f'{library}:/data/apps/cuda/12.4/lib64')
     command = [PYTHON,'-m','torch.distributed.run','--standalone','--nproc_per_node=4']
-    if placement=='separate':
-        command += [ROOT/'scripts/validate_separate.py',directory,'--model-shapes','--placement','separate']
+    if placement in ('separate','fused'):
+        command += [ROOT/'scripts/validate_separate.py',directory,'--model-shapes','--placement',placement]
     else:
-        base={'remote_arrival':'remote_first','interleaved_arrival':'interleaved'}.get(placement,placement)
+        base='remote_first' if placement=='remote_arrival' else placement.removesuffix('_arrival')
         command += [ROOT/'scripts/validate.py',directory,'--policy',base,'--plan',ROOT/'scripts/selection-plan.json']
+        if json.loads((ROOT/'scripts/config.json').read_text()).get('graph_forward'):
+            command += ['--graph']
+        if json.loads((ROOT/'scripts/config.json').read_text()).get('double_buffered'):
+            command += ['--double-buffered']
+        config=json.loads((ROOT/'scripts/config.json').read_text())
+        if config.get('scenario_extension'):
+            case=config['cases'][0]
+            command += ['--model-shape',str(case['sequence']*config['common']['micro_batch']),str(case['hidden']),str(case['ffn']//case['tp'])]
     execute(name, command, env, directory)
     rows = [json.loads((directory/f'rank{i}.json').read_text()) for i in range(4)]
     assert all(r['completed'] and r['passed'] for r in rows)
@@ -93,7 +101,7 @@ def model_stage(name, stage, reverse=0):
     directory.mkdir()
     shutil.copytree(ROOT/'scripts', directory/'scripts')
     env = dict(base_env(), E2E_SCALE_PREFLIGHT=str(ROOT/'results/preflight'), RESULT_DIR=str(directory),
-               ARRIVAL_REVERSE=str(reverse), E2E_CASE='l12-h2048-s2048-tp4', E2E_SCALE_STAGE=stage)
+               ARRIVAL_REVERSE=str(reverse), E2E_CASE=json.loads((ROOT/'scripts/config.json').read_text())['cases'][0]['name'], E2E_SCALE_STAGE=stage)
     execute(name, [PYTHON, directory/'scripts/launch.py'], env, directory)
     artifact = 'preflight.json' if stage == 'preflight' else 'analysis.json'
     assert json.loads((directory/artifact).read_text())['completed']

@@ -4,7 +4,7 @@ from pathlib import Path
 import torch
 import torch.distributed as dist
 from reference import roundtrip
-from routing import base_policy, codec_placement
+from routing import base_policy, codec_placement, selection_entry
 
 
 def masked_roundtrip(piece, mask, src, dst, m, n, world):
@@ -20,14 +20,20 @@ class TacoForward:
     def __init__(self, group, m, n, k_local, policy):
         from flux.gemm_rs_taco import GemmRSTaco
         selected = None
+        config = json.loads((Path(__file__).parent/'config.json').read_text())
+        if config.get('double_buffered') and policy.endswith('_selective'):
+            from flux.gemm_rs_taco import GemmRSTacoDoubleBuffered as GemmRSTaco
         if policy.endswith('_selective'):
             plan = json.loads((Path(__file__).parent/'selection-plan.json').read_text())
-            assert plan['shape'] == [m,n,k_local*dist.get_world_size(group)]
-            selected = plan['policies'][base_policy(policy)]['mask']
+            selected = selection_entry(plan,policy,m,n,k_local*dist.get_world_size(group))['mask']
         self.codec = GemmRSTaco(group,m,n,k_local,placement=codec_placement(policy),
-                               **({'selected':selected} if selected is not None else {}))
+                               **({'selected':selected} if selected is not None else {}),
+                               **({'graph': True} if config.get('graph_forward') and policy.endswith('_selective') else {}))
+        self.owns_output = getattr(self.codec, 'owns_configuration', False)
 
     def forward(self,input_,weight,reduce_scatter_option=None):
+        if self.owns_output:
+            return self.codec.forward(input_, weight)
         return self.codec.forward(input_.detach(),weight.detach())
 
 

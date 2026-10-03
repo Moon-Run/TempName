@@ -13,6 +13,8 @@ struct FluxTacoConfig {
   int n = 0;
   // Optional immutable [source][physical M-tile][N-tile] mask. Null = all remote.
   const unsigned char* selected = nullptr;
+  int allow_capture = 0;
+  int deferred_reuse_barrier = 0;
 };
 
 __host__ __device__ inline bool taco_selected(const FluxTacoConfig& c, int src,
@@ -35,6 +37,12 @@ extern "C" int taco_configure(void** peers, int rank, int world, int m, int n);
 extern "C" int taco_configure_selective(void** peers, int rank, int world, int m, int n,
                                         const unsigned char* selected);
 extern "C" void taco_reset();
+// Instance-owned configuration: captured during GemmRS construction and scoped
+// around forward in C++, avoiding Python configure/reset on every invocation.
+extern "C" int taco_instance_config_supported();
+extern "C" void taco_set_config(FluxTacoConfig config);
+extern "C" void taco_allow_capture();
+extern "C" void taco_defer_reuse_barrier();
 // 1: epilogue-fused encoding; 2: BF16 staging followed by standalone encoding.
 extern "C" int taco_placement();
 extern "C" int taco_encode_scatter(FluxTacoConfig config, const void* staged_bf16,

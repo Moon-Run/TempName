@@ -102,6 +102,10 @@ to_string(const ReduceScatterOptionWithOptional &opt) {
 }
 
 class GemmRS::GemmRSImpl {
+#ifdef FLUX_TACO_BASELINE
+  const FluxTacoConfig owned_taco = taco_config();
+  const c10::cuda::CUDAStream taco_stream = c10::cuda::getCurrentCUDAStream();
+#endif
  private:
   std::shared_ptr<Group> group_;
   const int32_t nnodes;
@@ -696,7 +700,7 @@ class GemmRS::GemmRSImpl {
           taco, buffer.data_ptr(), output.data_ptr(), stream)));
       // All receivers must finish decoding before any next invocation overwrites
       // peer packets. This synchronization is part of complete-operator timing.
-      group_barrier.barrier_all(stream);
+      if (!taco.deferred_reuse_barrier) group_barrier.barrier_all(stream);
       return output;
     }
 #endif
@@ -905,6 +909,30 @@ class GemmRS::GemmRSImpl {
       c10::optional<torch::Tensor> output_scale,
       bool fast_accum,
       const ReduceScatterOptionWithOptional &opt) {
+#ifdef FLUX_TACO_BASELINE
+    // Restore thread-local configuration on both normal return and exceptions;
+    // a following attention GemmRS must never inherit this MLP's wire protocol.
+    struct RestoreTaco {
+      FluxTacoConfig previous;
+      ~RestoreTaco() { taco_set_config(previous); }
+    } restore{taco_config()};
+    if (owned_taco.enabled) {
+      auto current = c10::cuda::getCurrentCUDAStream();
+      cudaStreamCaptureStatus status;
+      CUDA_CHECK(cudaStreamIsCapturing(current, &status));
+      TORCH_CHECK(current == taco_stream || (owned_taco.allow_capture &&
+                     status == cudaStreamCaptureStatusActive && current.device_index() == taco_stream.device_index()),
+                  "TACO instance must run on its creation stream or its opt-in capture stream");
+      TORCH_CHECK(status == cudaStreamCaptureStatusNone || owned_taco.allow_capture,
+                  "TACO graph capture is not validated");
+      TORCH_CHECK(input.is_cuda() && weight.is_cuda() &&
+                      input.device() == weight.device() && input.device().index() == taco_stream.device_index() &&
+                      input.is_contiguous() && weight.is_contiguous() && input.dim() == 2 && weight.dim() == 2 &&
+                      input.size(0) == owned_taco.m && weight.size(0) == owned_taco.n &&
+                      input.size(1) == weight.size(1), "TACO tensor layout/shape mismatch");
+      taco_set_config(owned_taco);
+    }
+#endif
     return forward_impl(
         std::move(input),
         std::move(weight),

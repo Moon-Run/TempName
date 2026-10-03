@@ -20,7 +20,7 @@ import torch.distributed as dist
 HERE = Path(__file__).resolve().parent
 PLAN = json.loads((HERE / 'config.json').read_text())
 CASE = next(c for c in PLAN['cases'] if c['name'] == os.environ['E2E_CASE'])
-SPEC = dict(PLAN,model=dict(PLAN['common'],**CASE),shapes=[[CASE['sequence'],CASE['hidden'],CASE['hidden']],[CASE['sequence'],CASE['hidden'],CASE['ffn']]])
+SPEC = dict(PLAN,model=dict(PLAN['common'],**CASE),shapes=[[CASE['sequence']*PLAN['common']['micro_batch'],CASE['hidden'],CASE['hidden']],[CASE['sequence']*PLAN['common']['micro_batch'],CASE['hidden'],CASE['ffn']]])
 assert WORLD == CASE['tp']
 POLICY = os.environ['E2E_POLICY']
 MODE = os.environ['E2E_MODE']
@@ -98,15 +98,15 @@ report['initial_rng_sha256'] = fingerprint([('cpu',torch.get_rng_state()),
 microsteps = SPEC['model']['global_batch'] // SPEC['model']['micro_batch']
 seq = SPEC['model']['sequence']
 generator = torch.Generator(device='cuda').manual_seed(SPEC['model']['token_seed'])
-all_tokens = torch.randint(0, SPEC['model']['vocab'], (microsteps,1,seq+1),
+all_tokens = torch.randint(0, SPEC['model']['vocab'], (microsteps,SPEC['model']['micro_batch'],seq+1),
                           generator=generator, device='cuda')
-positions = torch.arange(seq, device='cuda').unsqueeze(0)
+positions = torch.arange(seq, device='cuda').unsqueeze(0).expand(SPEC['model']['micro_batch'],-1).contiguous()
 attention_mask = torch.triu(torch.ones((1,1,seq,seq), dtype=torch.bool, device='cuda'), diagonal=1)
-loss_mask = torch.ones((1,seq), dtype=torch.float32, device='cuda')
+loss_mask = torch.ones((SPEC['model']['micro_batch'],seq), dtype=torch.float32, device='cuda')
 batches = [dict(tokens=t[:,:-1].contiguous(), labels=t[:,1:].contiguous(),
                 position_ids=positions, attention_mask=attention_mask, loss_mask=loss_mask) for t in all_tokens]
 report['tokens_sha256'] = fingerprint([('tokens',all_tokens)])
-report['tokens_per_optimizer_step'] = microsteps * seq
+report['tokens_per_optimizer_step'] = SPEC['model']['global_batch'] * seq
 forward_backward = get_forward_backward_func()
 
 
@@ -120,7 +120,7 @@ def forward_step(iterator, current_model):
 def forward_backward_step():
     return forward_backward(forward_step_func=forward_step, data_iterator=iter(batches),
         model=model, num_microbatches=microsteps, seq_length=seq,
-        micro_batch_size=1, decoder_seq_length=None, forward_only=False)
+        micro_batch_size=SPEC['model']['micro_batch'], decoder_seq_length=None, forward_only=False)
 
 
 def update():
@@ -165,7 +165,7 @@ report['initial_loss'] = loss_number(warmup_losses[0])
 report['warmup_last_loss'] = loss_number(warmup_losses[-1])
 report['warmup_steps'] = warmup
 report['observed_shapes'] = adapter.observed.copy()
-report['module_policies'] = module_routes(adapter.observed, POLICY, SPEC['model']['layers'])
+report['module_policies'] = module_routes(adapter.observed, POLICY, SPEC['model']['layers'],SPEC['model'])
 report['warmup_calls'] = adapter.calls.copy()
 assert all(c == warmup*microsteps for c in adapter.calls.values())
 adapter.stop_audit()

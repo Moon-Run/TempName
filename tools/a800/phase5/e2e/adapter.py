@@ -22,7 +22,9 @@ class GemmRSFunction(torch.autograd.Function):
         shape = input_.shape
         flat = input_.reshape(-1, shape[-1]).contiguous()
         # Give the autograd graph its own output lifetime, independent of Flux workspaces.
-        output = op.forward(flat, weight, reduce_scatter_option=option).clone()
+        output = op.forward(flat, weight, reduce_scatter_option=option)
+        if not getattr(op, 'owns_output', False):
+            output = output.clone()
         return output.reshape(shape[0] // parallel_state.get_tensor_model_parallel_world_size(),
                               shape[1], weight.shape[0])
 

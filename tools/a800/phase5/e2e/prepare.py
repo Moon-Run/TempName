@@ -11,7 +11,8 @@ from routing import POLICIES, ARRIVAL_POLICIES, base_policy, mapping_policy
 def sha(p): return hashlib.sha256(p.read_bytes()).hexdigest()
 
 
-def main(repo,out,job,joint,plan_path,arrival_build=None,arrival_plan=None,native_quant=False):
+def main(repo,out,job,joint,plan_path,arrival_build=None,arrival_plan=None,native_quant=False,
+         fused_build=None, only_policies=None, blocks=None, graph_forward=False, double_buffered=False):
     repo,out,joint,plan_path=[p.resolve() for p in (repo,out,joint,plan_path)]
     here=Path(__file__).resolve().parent
     assert repo/'logs/a800' in out.parents
@@ -26,6 +27,12 @@ def main(repo,out,job,joint,plan_path,arrival_build=None,arrival_plan=None,nativ
         for p,h in ordering['inputs'].items():assert sha(Path(p))==h,p
         policies += ARRIVAL_POLICIES
     if native_quant:policies.append('native_taco')
+    if fused_build:
+        fused_build=fused_build.resolve()
+        policies.append('taco_fused')
+    if only_policies:
+        assert len(set(only_policies))==len(only_policies) and set(only_policies)<=set(policies)
+        policies=list(only_policies)
     out.mkdir(parents=True,exist_ok=False)
     (out/'results').mkdir();(out/'scripts').mkdir()
     artifacts=repo/'outputs/a800/phase5'/out.name
@@ -37,12 +44,18 @@ def main(repo,out,job,joint,plan_path,arrival_build=None,arrival_plan=None,nativ
     for policy in policies:
         if policy in ('native','native_taco'):continue
         source=(stock/'original' if policy=='original' else separate/'taco' if policy=='taco_separate'
+                else fused_build/'taco' if policy=='taco_fused'
                 else (arrival_build if policy in ARRIVAL_POLICIES else joint)/mapping_policy(policy)/'taco')
         parent=source.parent
         m=json.loads((parent/'manifest.json').read_text())
         if policy not in ('original','taco_separate'):
-            assert m['mapping']==mapping_policy(policy) and m['placement']=='fused'
-            assert sha(source/'overlay/gemm_rs/tile_scheduler/threadblock_swizzle.hpp')==m['swizzle_sha256']
+            if policy=='taco_fused':
+                assert not m['reorder'] and m['placement']=='fused'
+                assert sha(source/'overlay/gemm_rs/tile_scheduler/threadblock_swizzle.hpp')==m['original_swizzle_sha256']
+                assert m['original_swizzle_sha256']==sha(stock/'original/overlay/gemm_rs/tile_scheduler/threadblock_swizzle.hpp')
+            else:
+                assert m['mapping']==mapping_policy(policy) and m['placement']=='fused'
+                assert sha(source/'overlay/gemm_rs/tile_scheduler/threadblock_swizzle.hpp')==m['swizzle_sha256']
             if policy in ARRIVAL_POLICIES:assert m['arrival_plan_sha256']==sha(arrival_plan)
         for name,h in m['files'].items():assert sha(parent/name)==h,(policy,name)
         (build/policy).symlink_to(source,target_is_directory=True)
@@ -50,7 +63,7 @@ def main(repo,out,job,joint,plan_path,arrival_build=None,arrival_plan=None,nativ
         manifest['files'].update({policy+'/'+name[len(prefix):]:h for name,h in m['files'].items() if name.startswith(prefix)})
         manifest['policies'][policy]=dict(library_sha256=sha(source/'libflux_cuda.so'),mapping=mapping_policy(policy))
         manifest['source_manifests'][policy]=dict(path=str(parent/'manifest.json'),sha256=sha(parent/'manifest.json'))
-    mappings=['remote_first','interleaved']+(['remote_arrival','interleaved_arrival'] if arrival_build else [])
+    mappings=sorted({mapping_policy(p) for p in policies if mapping_policy(p)!='original'})
     for policy in mappings:
         p=(arrival_build if policy.endswith('_arrival') else joint)/policy/'check_mapping'
         (build/'mapping'/policy).symlink_to(p)
@@ -61,7 +74,18 @@ def main(repo,out,job,joint,plan_path,arrival_build=None,arrival_plan=None,nativ
     config_path=out/'scripts/config.json'
     config=json.loads(config_path.read_text())
     config['policies']=policies
+    config['graph_forward']=graph_forward
+    assert not (graph_forward and double_buffered)
+    config['double_buffered']=double_buffered
+    if double_buffered:
+        config['scope'] += ' Two complete IPC workspaces alternate; the next invocation publication barrier protects prior decode before reuse, removing the post-decode barrier.'
+    if graph_forward:
+        config['scope'] += ' Selective MLP forward uses fixed-shape CUDA graph replay; input copy, replay and output clone are timed; attention/backward/optimizer remain eager.'
     config['orders']=[policies[i:]+policies[:i] for i in range(len(policies))]
+    if blocks is not None:
+        assert 1<=blocks<=len(policies)
+        config['orders']=config['orders'][:blocks]
+        config['scope'] += ' EXPLORATORY pilot; not the final balanced acceptance campaign.'
     if arrival_build:
         config['scope'] += ' Arrival-priority variants reuse the same physical-tile selection masks; no refitting after reordering.'
         shutil.copy2(arrival_plan,out/'scripts/arrival-plan.json')
@@ -79,7 +103,7 @@ def main(repo,out,job,joint,plan_path,arrival_build=None,arrival_plan=None,nativ
     config=json.loads((out/'scripts/config.json').read_text())
     info=dict(job_id=job,repo=str(repo),artifact_root=str(artifacts),files={str(p.relative_to(out)):sha(p) for p in out.rglob('*') if p.is_file()},
               build_manifest_sha256=sha(build/'manifest.json'),repetitions=2,blocks=len(config['orders']),policies=policies,
-              mappings=mappings,codec_checks=mappings+['separate']+(['native_taco'] if native_quant else []),
+              mappings=mappings,codec_checks=mappings+(['separate'] if 'taco_separate' in policies else [])+(['fused'] if 'taco_fused' in policies else [])+(['native_taco'] if 'native_taco' in policies else []),
               scope='Two fresh-process repetitions within one allocation; calibrated masks frozen before timing',
               original_campaign=str(repo/'outputs/a800/arrival-v2-tp4-20261003'))
     (out/'submission.json').write_text(json.dumps(info,indent=2)+'\n')

@@ -4,7 +4,7 @@ import json
 import math
 from pathlib import Path
 import sys
-from routing import module_routes, codec_placement, base_policy
+from routing import module_routes, codec_placement, base_policy, selection_entry, logical_bytes
 
 
 def verify(root):
@@ -13,11 +13,15 @@ def verify(root):
     assert state['status'] == 'completed'
     assert json.loads((root/'results/mapping/verification.json').read_text())['completed']
     selection = json.loads((root/'scripts/selection-plan.json').read_text())
+    config = json.loads((root/'scripts/config.json').read_text())
     for name, digest in info['files'].items():
         assert hashlib.sha256((root/name).read_bytes()).hexdigest() == digest, name
     for placement in info.get('codec_checks',['remote_first','interleaved','separate']):
         rows=[json.loads((root/f'results/codec-{placement}/rank{i}.json').read_text()) for i in range(4)]
         assert all(r['completed'] and r['passed'] for r in rows)
+        if config.get('double_buffered') and placement.endswith('_arrival'):
+            assert all(r['double_buffered'] and len(r['skewed_bursts'])==2 and
+                       all(b['exact'] and b['calls']==12 for b in r['skewed_bursts']) for r in rows)
         if placement=='native_taco':assert all(r['ste_gradient_gather_exact'] for r in rows)
     protocols = [json.loads((root/f'results/model-{i}/protocol.json').read_text()) for i in (1, 2)]
     assert protocols[0]['script_sha256'] == protocols[1]['script_sha256']
@@ -37,18 +41,19 @@ def verify(root):
                 assert r['completed'] and r['passed'] and r['skips'] == r['fallback_calls'] == 0
                 assert r['timing_protocol'] == 'full-step-one-clear-v2'
                 assert r['warmup_steps'] == 10 and r['timed_steps'] == 20
-                assert r['module_policies'] == module_routes(r['observed_shapes'], r['policy'])
+                model=r['model'];m=model['sequence']*model['micro_batch'];n=model['hidden']
+                assert r['module_policies'] == module_routes(r['observed_shapes'], r['policy'],model['layers'],model)
                 policy = r['policy']
                 if policy=='native_taco':
                     assert r['native_linear_forward_preserved'] and r['flux_library_loaded'] is False
                 checks = r['selection_checks']
                 if codec_placement(policy) in ('fused','separate','tensor'):
-                    assert len(checks) == 12
-                    mask = selection['policies'][base_policy(policy)]['mask'] if policy.endswith('_selective') else None
+                    assert len(checks) == model['layers']
+                    mask = selection_entry(selection,policy,m,n,model['ffn'])['mask'] if policy.endswith('_selective') else None
                     digest = hashlib.sha256(bytes(v for row in mask for v in row)).hexdigest() if mask is not None else None
-                    wire = 6291456-15360*sum(mask[rank]) if mask is not None else 3342336
+                    wire,bf16_wire = logical_bytes(mask,rank,m,n,model['tp'])
                     assert all(name.endswith('.mlp.linear_fc2') and c['mask_sha256']==digest and
-                               c['wire_bytes']==wire and c['bf16_wire_bytes']==6291456 for name,c in checks.items())
+                               c['wire_bytes']==wire and c['bf16_wire_bytes']==bf16_wire for name,c in checks.items())
                 else:
                     assert not checks
                 assert all(math.isfinite(v) for v in r['losses']+r['grad_norms'])

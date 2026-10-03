@@ -2,7 +2,7 @@
 import csv,gzip,hashlib,json,math,random,re,statistics,sys
 from collections import Counter
 from pathlib import Path
-from routing import module_routes, codec_placement, base_policy
+from routing import module_routes, codec_placement, base_policy, selection_entry, logical_bytes
 
 def write(path,rows):
     with path.open('w',newline='') as f:
@@ -18,7 +18,8 @@ def analyze(out):
     assert all(len(o)==len(plan['policies']) and set(o)==set(plan['policies']) for o in plan['orders'])
     tp=case['tp'];policies=plan['policies'];calls=model['layers']*2*(model['global_batch']//model['micro_batch'])
     tokens=model['sequence']*model['global_batch']
-    shapes={(model['sequence'],model['hidden'],k) for k in [model['hidden'],model['ffn']]}
+    m=model['sequence']*model['micro_batch'];n=model['hidden']
+    shapes={(m,n,k) for k in [model['hidden'],model['ffn']]}
     def load(name,policy,mode):
         path=out/name
         assert (path/'exit-code.txt').read_text().strip()=='0'
@@ -29,15 +30,15 @@ def analyze(out):
             if mode!='profile':
                 assert math.isfinite(r['elapsed_seconds']) and r['elapsed_seconds']>0
             assert r['fallback_calls']==0 and len(r['target_modules'])==2*model['layers']
-            assert r['module_policies']==module_routes(r['observed_shapes'], policy, model['layers'])
+            assert r['module_policies']==module_routes(r['observed_shapes'], policy, model['layers'],model)
             assert r['codec_placements']==({} if policy=='native' else {name: (codec_placement(policy) if name.endswith('.mlp.linear_fc2') else 'native' if policy=='native_taco' else 'bf16') for name in r['target_modules']})
             checks=r['selection_checks']
             if codec_placement(policy) in ('fused','separate','tensor'):
                 assert len(checks)==model['layers']
-                mask=selection['policies'][base_policy(policy)]['mask'] if policy.endswith('_selective') else None
+                mask=selection_entry(selection,policy,m,n,model['ffn'])['mask'] if policy.endswith('_selective') else None
                 digest=hashlib.sha256(bytes(v for row in mask for v in row)).hexdigest() if mask is not None else None
-                expected_wire=6291456-15360*sum(mask[rank]) if mask is not None else 3342336
-                assert all(name.endswith('.mlp.linear_fc2') and c['mask_sha256']==digest and c['wire_bytes']==expected_wire and c['bf16_wire_bytes']==6291456 for name,c in checks.items())
+                expected_wire,bf16_wire=logical_bytes(mask,rank,m,n,tp)
+                assert all(name.endswith('.mlp.linear_fc2') and c['mask_sha256']==digest and c['wire_bytes']==expected_wire and c['bf16_wire_bytes']==bf16_wire for name,c in checks.items())
             else:assert not checks
             assert r['tokens_per_optimizer_step']==tokens and not r['sampling']
             assert all(math.isfinite(x) for x in r['losses']+r['grad_norms']+[r['initial_loss']]) and r['skips']==0
@@ -69,6 +70,8 @@ def analyze(out):
                 if kernels:
                     assert hparams=={'64x64x32_16x8x16_streamksk_nil_128x128x32_gemmstreamk_3_rasterheuristic'}
                 all_kernels=[e for e in events if e.get('cat')=='kernel']
+                if plan.get('double_buffered') and policy.endswith('_selective'):
+                    assert sum('CudaIpcBarrierAllKernel' in e['name'] for e in all_kernels)==calls, (policy,rank,'unexpected barrier count')
                 if policy=='native_taco':
                     for label in ('encode','exchange','decode_reduce'):
                         assert sum(e.get('cat')=='user_annotation' and e.get('ph')=='X' and e.get('name')=='megatron_taco.'+label for e in events)==calls//2
@@ -111,11 +114,11 @@ def analyze(out):
             points=[b[policy] for b in blocks.values()];times=[r['ms_per_step'] for r in points]
             row=dict(case=case['name'],TP=tp,hidden=model['hidden'],sequence=model['sequence'],policy=policy,
                 median_ms_per_step=statistics.median(times),median_tokens_per_second=statistics.median(r['tokens_per_second'] for r in points),
-                min_ms=min(times),max_ms=max(times),cv_percent=100*statistics.stdev(times)/statistics.mean(times),
+                min_ms=min(times),max_ms=max(times),cv_percent=100*statistics.stdev(times)/statistics.mean(times) if len(times)>1 else 0.,
                 initial_loss=statistics.median(r['initial_loss'] for r in points),first_timed_loss=statistics.median(r['first_timed_loss'] for r in points),
                 last_timed_loss=statistics.median(r['last_timed_loss'] for r in points),final_grad_norm=statistics.median(r['final_grad_norm'] for r in points),
                 max_peak_allocated_gib=max(r['peak_allocated_gib'] for r in points),max_peak_reserved_gib=max(r['peak_reserved_gib'] for r in points))
-            for baseline in [b for b in ['native','native_taco','original','taco_separate','remote_bf16','interleaved_bf16','remote_all','interleaved_all','remote_selective','interleaved_selective'] if b in policies]:
+            for baseline in policies:
                 logs=[math.log(b[policy]['ms_per_step']/b[baseline]['ms_per_step']) for b in blocks.values()]
                 ratio=math.exp(statistics.mean(logs));rng=random.Random(20261002)
                 boot=[100*(1-math.exp(statistics.mean(rng.choices(logs,k=len(logs))))) for _ in range(10000)]
