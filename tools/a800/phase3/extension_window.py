@@ -41,6 +41,7 @@ def run_shape(m,n,k):
   torch=torch.__version__,cpu_affinity=sorted(os.sched_getaffinity(0)),checks=[],trials_us=[],
   warmup_initial=config['warmup_initial'],warmup_per_trial=config['warmup_per_trial'],
   iters=config['iters'],trial_count=config['trial_count'],sampling=False,
+  timing_protocol="cuda-events-preinitialized-v2",
   diagnostic_only=os.environ.get('PHASE3_DIAGNOSTIC_ONLY')=='1',
   gpu_uuid=str(torch.cuda.get_device_properties(rank).uuid),
   cuda=torch.version.cuda,nccl=torch.cuda.nccl.version())
@@ -65,10 +66,12 @@ def run_shape(m,n,k):
   for _ in range(config['warmup_initial']):fused()
   torch.cuda.synchronize();dist.barrier(pg)
   if not report['diagnostic_only']:
+   # CUDA events are lazy: materialize both outside every measured interval.
+   start,end=torch.cuda.Event(enable_timing=True),torch.cuda.Event(enable_timing=True)
+   start.record();end.record();end.synchronize()
    for trial in range(config['trial_count']):
     for _ in range(config['warmup_per_trial']):fused()
-    torch.cuda.synchronize();dist.barrier(pg)
-    start,end=torch.cuda.Event(enable_timing=True),torch.cuda.Event(enable_timing=True)
+    torch.cuda.synchronize();dist.barrier(pg);torch.cuda.synchronize()
     start.record()
     for _ in range(config['iters']):fused()
     end.record();end.synchronize()

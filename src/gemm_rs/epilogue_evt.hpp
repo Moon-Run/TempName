@@ -70,6 +70,10 @@
 #include "flux/flux.h"
 
 #include "gemm_rs/reduce_scatter_barrier_struct.hpp"
+#ifdef FLUX_TACO_BASELINE
+#include <stdexcept>
+#include "gemm_rs/taco_codec.cuh"
+#endif
 
 /////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -100,6 +104,15 @@ template <
     bool FlattenOutTile = false>
 struct VisitorAuxStoreScatter {
   constexpr static bool FuseReduction = std::is_same_v<Element, half_t> ? FuseReduction_ : false;
+#ifdef FLUX_TACO_BASELINE
+  using TacoThreadMap = OutputTileThreadLayout<
+      cutlass::gemm::GemmShape<128, 128, 32>, cutlass::gemm::GemmShape<64, 64, 32>,
+      cutlass::bfloat16_t, 8, 1>;
+  static constexpr bool kTacoSupported =
+      !kPcieMode && !FuseReduction && !FlattenOutTile &&
+      std::is_same_v<Element, cutlass::bfloat16_t> &&
+      std::is_same_v<ThreadMap, TacoThreadMap>;
+#endif
   struct Arguments {
     Element **scatter_ptr_aux;
     StrideMNL dAux = {};
@@ -113,6 +126,9 @@ struct VisitorAuxStoreScatter {
   };
 
   struct Params {
+#ifdef FLUX_TACO_BASELINE
+    FluxTacoConfig taco;
+#endif
     Element *scatter_ptr_aux[kMaxWorldSize];
     StrideMNL dAux;
     int64_t rank;
@@ -126,10 +142,24 @@ struct VisitorAuxStoreScatter {
   };
 
   template <class ProblemShape>
-  static constexpr Params
+  static
+#ifndef FLUX_TACO_BASELINE
+  constexpr
+#endif
+  Params
   to_underlying_arguments(
       ProblemShape const &problem_shape, Arguments const &args, void *workspace) {
     Params params;
+#ifdef FLUX_TACO_BASELINE
+    params.taco = taco_config();
+    if (params.taco.enabled &&
+        (!kTacoSupported ||
+         params.taco.rank != args.rank || params.taco.world != args.world_size ||
+         params.taco.m != problem_shape.m() ||
+         params.taco.n != problem_shape.n())) {
+      throw std::runtime_error("TACO requires BF16 SM80 NVLink 128x128x32/128 threads and exact shape/rank");
+    }
+#endif
     params.dAux = args.dAux;
     params.rank = args.rank;
     params.world_size = args.world_size;
@@ -256,6 +286,18 @@ struct VisitorAuxStoreScatter {
 
     CUTLASS_DEVICE void
     end_step(int step_idx) {
+#ifdef FLUX_TACO_BASELINE
+      if constexpr (kTacoSupported) {
+        if (params.taco.enabled && dst_rank != params.rank) {
+#ifdef FLUX_TACO_SEPARATE
+          taco_stage_step(step_idx);
+#else
+          taco_end_step(step_idx);
+#endif
+          return;  // No remote BF16 store: only encoded bytes + two scales.
+        }
+      }
+#endif
       auto src_v = filter(tC_rAux);
       auto coord_v = filter(tC_cAux(_, _, _, step_idx));
       auto dst_v = filter(tC_gAux(_, _, _, step_idx));
@@ -323,6 +365,72 @@ struct VisitorAuxStoreScatter {
         }
       }
     }
+
+#ifdef FLUX_TACO_BASELINE
+#ifdef FLUX_TACO_SEPARATE
+    CUTLASS_DEVICE void
+    taco_stage_step(int step_idx) {
+      // Keep the full BF16 source contribution locally. The existing local
+      // source slot already coincides with these global-row coordinates.
+      auto src = filter(tC_rAux);
+      auto coords = filter(tC_cAux(_, _, _, step_idx));
+      Element* staged = params.scatter_ptr_aux[params.rank];
+      CUTLASS_PRAGMA_UNROLL
+      for (int i = 0; i < size(src); ++i) {
+        int row = cute::get<0>(coords(i));
+        int col = cute::get<1>(coords(i));
+        bool guard = elem_less(coords(i), problem_shape);
+        cutlass::arch::global_store<VecType, sizeof(VecType)>(
+            src(i), staged + int64_t(row)*params.taco.n + col, guard);
+      }
+    }
+#else
+    CUTLASS_DEVICE void
+    taco_end_step(int step_idx) {
+      // A Stream-K reduction callback may own only one epilogue fragment.
+      // Stage its rows independently; never wait for other CTAs/fragments.
+      // The audited fragment owns rows [8*step,8*step+7] and +64.
+      // Compact those 16 rows; four warps encode four groups concurrently.
+      __shared__ __nv_bfloat16 staged[16 * 128];
+      const int tid = threadIdx.x;
+      auto src = filter(tC_rAux);
+      auto coords = filter(tC_cAux(_, _, _, step_idx));
+      CUTLASS_PRAGMA_UNROLL
+      for (int i = 0; i < size(src); ++i) {
+        int row = cute::get<0>(coords(i)) % 128;
+        int col = cute::get<1>(coords(i)) % 128;
+        const Element* values = reinterpret_cast<const Element*>(&src(i));
+        bool guard = elem_less(coords(i), problem_shape);
+        CUTLASS_PRAGMA_UNROLL
+        for (int j = 0; j < VecLength; ++j) {
+          int compact_row = (row % 8) + (row / 64) * 8;
+          staged[compact_row * 128 + col + j] = __float2bfloat16(guard ? float(values[j]) : 0.f);
+        }
+      }
+      __syncthreads();
+      const auto& c = params.taco;
+      const int nt = (c.n + 127) / 128;
+      const int tile_m = tile_idx / nt, tile_n = tile_idx % nt;
+      const int64_t groups = taco_groups(c);
+      unsigned char* slot = c.peers[dst_rank] + c.rank * taco_source_bytes(c);
+      float* qs = reinterpret_cast<float*>(slot + groups * 128);
+      float* as = qs + groups;
+      for (int compact_row = tid / 32; compact_row < 16; compact_row += 4) {
+          int row = step_idx * 8 + compact_row % 8 + (compact_row / 8) * 64;
+          int owned_row = tile_m * 128 + row - dst_rank * (c.m / c.world);
+          int64_t group = int64_t(owned_row) * nt + tile_n;
+          int valid = min(128, c.n - tile_n * 128);
+          float values[4];
+          CUTLASS_PRAGMA_UNROLL
+          for (int j = 0; j < 4; ++j)
+            values[j] = __bfloat162float(staged[compact_row * 128 + (tid & 31) + j * 32]);
+          flux_taco::encode_warp(values, valid, slot + group * 128, qs + group, as + group);
+      }
+      __syncthreads();
+      // The existing GemmRS group barrier publishes completion before DQ.
+    }
+#endif
+#endif
 
     ////
     CUTLASS_DEVICE void

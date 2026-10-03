@@ -7,21 +7,27 @@ PARENT=ROOT/'outputs/a800/phase3/three-way-build'
 OUT=Path(sys.argv[2]).resolve() if len(sys.argv)>2 else ROOT/'outputs/a800/arrival/build'
 PLAN=Path(sys.argv[1]).resolve()
 def sha(p):return hashlib.sha256(p.read_bytes()).hexdigest()
-plan=json.loads(PLAN.read_text());parent=json.loads((PARENT/'manifest.json').read_text())
+plan=json.loads(PLAN.read_text());assert plan['world_size']==4;assert plan.get('schema_version')==2, 'Refit calibration with the audited planner into a new plan'
+assert plan['planner_sha256']==sha(HERE/'plan.py'), 'Planner changed after fitting'
+parent=json.loads((PARENT/'manifest.json').read_text())
 for name,digest in parent['files'].items():assert sha(PARENT/name)==digest,name
 for name,digest in plan['inputs'].items():assert sha(Path(name))==digest,name
 OUT.mkdir(exist_ok=False);(OUT/'mapping').mkdir()
 shutil.copy2(PLAN,OUT/'plan.json')
-manifest=dict(source_commit=subprocess.check_output(['git','rev-parse','HEAD'],cwd=ROOT,text=True).strip(),plan_sha256=sha(PLAN),parent_manifest_sha256=sha(PARENT/'manifest.json'),files={},commands=[],policies={})
+manifest=dict(plan_schema_version=plan['schema_version'],score_mode=plan['score_mode'],source_commit=subprocess.check_output(['git','rev-parse','HEAD'],cwd=ROOT,text=True).strip(),plan_sha256=sha(PLAN),parent_manifest_sha256=sha(PARENT/'manifest.json'),files={},commands=[],policies={})
 FLAGS=['-std=c++17','-O3','-DNDEBUG','-rdc=true','--expt-extended-lambda','--expt-relaxed-constexpr','-Xcompiler=-fPIC','-gencode=arch=compute_80,code=[sm_80,compute_80]']
 NVCC='/data/apps/cuda/12.8/bin/nvcc'
 def run(args,cwd=ROOT):
  args=list(map(str,args));manifest['commands'].append(dict(args=args,cwd=str(cwd)));print(shlex.join(args),flush=True);subprocess.run(args,cwd=cwd,check=True)
 def arrays(shapes,device=False,coord=False):
+ if device:
+  shapes=[s for s in shapes if not s.get('identity_fallback',False)]
+  assert sum(len(r)*2 for s in shapes for r in s['maps'])<=64*1024, 'Constant table exceeds 64 KiB'
  qualifier='static __device__ __constant__' if device else 'static const'
  text='#pragma once\n'
  for i,s in enumerate(shapes):
   data=s['coords' if coord else 'maps'];flat=[x for row in data for x in row]
+  assert all(0<=x<=65535 for x in flat), 'Tile indices exceed uint16 table capacity'
   text+=f'{qualifier} unsigned short arrival_{i}[{len(flat)}] = {{'+','.join(map(str,flat))+'};\n'
  name='flux_arrival_index' if device else 'flux_arrival_host_coord' if coord else 'flux_arrival_host_index'
  text+= ('__device__ __forceinline__ ' if device else 'inline ')+f'int {name}(int tm,int tn,int k,int tp,int rank,int idx) {{\n'

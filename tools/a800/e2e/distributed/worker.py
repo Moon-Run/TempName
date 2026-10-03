@@ -127,9 +127,6 @@ def forward_step(iterator, current_model):
 
 
 def forward_backward_step():
-    for chunk in model:
-        chunk.zero_grad_buffer()
-    optimizer.zero_grad()
     return forward_backward(forward_step_func=forward_step, data_iterator=iter(batches),
         model=model, num_microbatches=microsteps, seq_length=seq,
         micro_batch_size=mb, decoder_seq_length=None, forward_only=False)
@@ -145,6 +142,8 @@ def update():
 def step():
     losses = forward_backward_step()
     successful, grad_norm = update()
+    # One clear per complete optimizer step, including the final timed step.
+    clear_gradients()
     return losses, successful, grad_norm
 
 
@@ -160,6 +159,8 @@ def loss_number(losses):
     return (numerator / denominator).item()
 
 
+clear_gradients()
+report['timing_protocol'] = 'full-step-one-clear-v2'
 assert MODE in ('smoke','timing','profile')
 # Loss is collected from the actual warmup trajectory, avoiding a separate-run initial loss.
 warmup = SPEC['smoke_warmup_steps'] if MODE=='smoke' else SPEC['warmup_steps']
@@ -181,7 +182,7 @@ torch.cuda.reset_peak_memory_stats()
 if MODE=='profile':
     with torch.profiler.profile(activities=[torch.profiler.ProfilerActivity.CPU,torch.profiler.ProfilerActivity.CUDA]) as profiler:
         losses,success,grad_norm=step()
-        clear_gradients();torch.cuda.synchronize()
+        torch.cuda.synchronize()
     with tempfile.TemporaryDirectory(prefix='flux-e2e-scale-trace-',dir='/tmp') as temp:
         path=Path(temp)/'trace.json'
         profiler.export_chrome_trace(str(path))
@@ -192,12 +193,12 @@ else:
     start=time.perf_counter()
     for _ in range(count):
         losses,success,grad_norm=step()
-        successes.append(success);window_losses.append(losses);window_grads.append(float(grad_norm))
-    clear_gradients();torch.cuda.synchronize()
+        successes.append(success);window_losses.append(losses);window_grads.append(grad_norm)
+    torch.cuda.synchronize()
     elapsed=time.perf_counter()-start
     report.update(elapsed_seconds=elapsed,timed_steps=count,ms_per_step=elapsed*1000/count,
         tokens_per_second=count*report['tokens_per_optimizer_step']/elapsed,
-        losses=[loss_number(x) for x in window_losses],grad_norms=window_grads,skips=sum(not s for s in successes),
+        losses=[loss_number(x) for x in window_losses],grad_norms=[float(g) for g in window_grads],skips=sum(not s for s in successes),
         passed=all(successes),timed_target_calls_expected=count*microsteps*len(adapter.modules))
 report['numerical_checks'] = adapter.checks
 report['final_parameters_sha256'] = fingerprint(raw.named_parameters())

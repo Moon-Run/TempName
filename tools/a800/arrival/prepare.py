@@ -2,11 +2,13 @@
 
 Run before calibration. Historical experiment tools/builds are never overwritten.
 """
-import json
+import argparse,json
 from pathlib import Path
 HERE=Path(__file__).resolve().parent
 ROOT=HERE.parents[2]
-OUT=ROOT/'outputs/a800/arrival'
+parser=argparse.ArgumentParser()
+parser.add_argument('--out',type=Path,default=ROOT/'outputs/a800/arrival')
+OUT=parser.parse_args().out.resolve()
 OUT.mkdir(parents=True,exist_ok=True)
 SHAPES=[[8192,4096,2048],[4096,4096,8192],[2048,2048,2048],[2048,2048,8192]]
 POLICIES=['original','remote_first','interleaved','remote_arrival','interleaved_arrival']
@@ -44,9 +46,12 @@ model=OUT/'e2e-scripts';model.mkdir(exist_ok=True)
 for name in ['adapter.py','worker.py','summarize.py','launch.py']:
  s=(ROOT/'tools/a800/e2e/scale'/name).read_text()
  if name=='launch.py':
+  s=s.replace("CASE=next(", "if os.environ.get('ARRIVAL_REVERSE')=='1':\n PLAN['orders']=[list(reversed(o)) for o in reversed(PLAN['orders'])]\nCASE=next(",1)
   s=s.replace("ROOT/'outputs/a800/phase3/three-way-build'", "ROOT/'outputs/a800/arrival/build'")
   s=s.replace("ROOT/'outputs/a800/megatron-e2e/scale-mapping'", "ROOT/'outputs/a800/arrival/build/mapping'")
   s=s.replace("str(PLAN['policies'].index(policy)-1)", "str({'original':0,'remote_first':1,'interleaved':2,'remote_arrival':3,'interleaved_arrival':4}[policy])")
+  s=s.replace("ROOT/'outputs/a800/arrival/build'", "Path(os.environ.get('ARRIVAL_OUTPUT_ROOT', str(ROOT/'outputs/a800/arrival')))/'build'")
+  s=s.replace("ROOT/'outputs/a800/arrival/build/mapping'", "BUILD/'mapping'")
  if name=='adapter.py':
   s=s.replace('import types', 'import types\nimport os')
   s=s.replace('        self.observed = {}', '        self.observed = {}\n        self.forward_checks = {}')

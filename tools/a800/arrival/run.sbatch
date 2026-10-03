@@ -10,6 +10,7 @@
 set -euo pipefail
 : "${ARRIVAL_STAGE:?calibrate, operator, preflight or timing}"
 ROOT="$SLURM_SUBMIT_DIR"
+ARTIFACT_ROOT="${ARRIVAL_OUTPUT_ROOT:-$ROOT/outputs/a800/arrival}"
 export RESULT_DIR="$ROOT/logs/a800/arrival/$SLURM_JOB_ID"
 mkdir -p "$RESULT_DIR/scripts"
 cp "$ROOT"/tools/a800/arrival/*.* "$RESULT_DIR/scripts/"
@@ -34,7 +35,7 @@ if [[ "$ARRIVAL_STAGE" == preflight || "$ARRIVAL_STAGE" == timing ]]; then
   cp "$RESULT_DIR"/scripts/*.* "$RESULT_DIR/operator-checks/scripts/"
   RESULT_DIR="$RESULT_DIR/operator-checks" ARRIVAL_STAGE=operator-preflight python "$RESULT_DIR/operator-checks/scripts/launch.py"
  fi
- cp "$ROOT"/outputs/a800/arrival/e2e-scripts/*.py "$ROOT"/outputs/a800/arrival/e2e-scripts/*.json "$RESULT_DIR/scripts/"
+ cp "$ARTIFACT_ROOT"/e2e-scripts/*.py "$ARTIFACT_ROOT"/e2e-scripts/*.json "$RESULT_DIR/scripts/"
  export E2E_CASE=l12-h2048-s2048-tp4 E2E_SCALE_STAGE="$ARRIVAL_STAGE"
  python "$RESULT_DIR/scripts/launch.py"
 else

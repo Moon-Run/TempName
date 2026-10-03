@@ -3,10 +3,14 @@
 Two new policies, `remote_arrival` and `interleaved_arrival`, layer a measured,
 offline priority over the existing `remote_first` and `interleaved` mappings.
 They retain the destination of every logical slot and permute only within
-windows of 16 slots belonging to the same destination. The source rank's
-positive last-versus-second-last arrival gap, exceeding two polling cycles,
-is the priority. Ties, missing/censored observations, and unresolved gaps keep
-the baseline order. This is a bounded heuristic, not a global optimal scheduler.
+windows of 16 slots belonging to the same destination. The audited v2 default (`plan.py --score tail`) uses the median receiver-local
+join time, after subtracting each invocation's start marker. A source is eligible
+only if it is within two polling cycles of the last arrival on BOTH training
+passes; near ties may admit several sources. `--score gap` is an ablation that
+requires the same resolved last source on both passes. Stable ties retain order;
+zero-score tiles keep their relative order but can be displaced by scored tiles.
+No signal permits an identity mapping. This is a bounded heuristic, not an
+optimal scheduler. Frozen historical results used the older gap-only algorithm.
 
 Calibration covers every physical output tile in three passes on four A800s.
 Passes 0/1 fit the mapping; pass 2 reports held-out last-source prediction.
@@ -75,3 +79,11 @@ After all jobs pass, `report.py` writes `operator-comparison.csv`,
 identity-table fixture only to verify C++/CUDA compilation and linking while
 GPUs are queued. It is never selected by the experiment pipeline and supplies
 no numerical or performance evidence.
+
+Audit (2026-10-03): run CPU checks with `python3 -m unittest discover -s tools/a800/arrival -p 'test_*.py'`.
+Use fresh experiment output/build directories for v2; do not overwrite frozen
+plans or update an old pipeline's script hashes to bypass its mismatch check.
+`prepare.py` must regenerate model snapshots to include the new timing protocol
+and reversed second repetition. The audited builder requires schema_version=2
+and a matching planner hash. Next steps and historical tables are in
+[only-tile.md](../../../docs/design/only-tile.md).

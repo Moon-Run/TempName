@@ -3,6 +3,7 @@ import hashlib,json,os,shutil,subprocess,sys
 from pathlib import Path
 ROOT=Path(os.environ['SLURM_SUBMIT_DIR']);OUT=Path(os.environ['RESULT_DIR']);S=OUT/'scripts'
 CFG=json.loads((S/'config.json').read_text());STAGE=os.environ['ARRIVAL_STAGE']
+ARTIFACT_ROOT=Path(os.environ.get('ARRIVAL_OUTPUT_ROOT',str(ROOT/'outputs/a800/arrival')))
 def sha(p):return hashlib.sha256(p.read_bytes()).hexdigest()
 def verify(build):
  manifest=json.loads((build/'manifest.json').read_text())
@@ -20,7 +21,7 @@ def run(cmd,name,env=None):
   raise RuntimeError((name,r.returncode))
  print('DONE',name,flush=True)
 if STAGE=='calibrate':
- source=ROOT/'outputs/a800/arrival/calibration-scripts'
+ source=ARTIFACT_ROOT/'calibration-scripts'
  shutil.copytree(source,OUT/'calibration-scripts')
  build=ROOT/'outputs/a800/phase3/mechanism-build';verify(build)
  base=ROOT/'outputs/a800/phase3/three-way-build';verify(base)
@@ -33,7 +34,7 @@ if STAGE=='calibrate':
   run([sys.executable,'-m','torch.distributed.run','--standalone','--nproc_per_node=4',str(OUT/'calibration-scripts/worker.py')],p,env)
  (OUT/'calibration-complete.json').write_text(json.dumps(dict(completed=True,config=CFG,scope='Exploratory arrival labels; independent uninstrumented performance is required.'),indent=2)+'\n')
 elif STAGE in ('operator','operator-preflight'):
- build=ROOT/'outputs/a800/arrival/build';verify(build)
+ build=ARTIFACT_ROOT/'build';verify(build)
  # Timing is admitted only after all-model-policy and exact-shape preflight succeeds.
  if STAGE=='operator':
   preflight=Path(os.environ['E2E_SCALE_PREFLIGHT'])

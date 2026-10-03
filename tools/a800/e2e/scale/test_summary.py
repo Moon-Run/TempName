@@ -36,4 +36,9 @@ class ScaleSummaryChecks(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temp:
             out=Path(temp);self.fixture(out);(out/'window-00-native/rank7.json').unlink()
             with self.assertRaises(FileNotFoundError):summary.analyze(out)
+    def test_nan_on_last_rank_cannot_hide_behind_max(self):
+        with tempfile.TemporaryDirectory() as temp:
+            out=Path(temp);self.fixture(out);path=out/'window-00-native/rank7.json'
+            row=json.loads(path.read_text());row['elapsed_seconds']=float('nan');path.write_text(json.dumps(row))
+            with self.assertRaises(AssertionError):summary.analyze(out)
 if __name__=='__main__':unittest.main()

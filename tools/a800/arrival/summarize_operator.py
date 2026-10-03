@@ -11,13 +11,32 @@ def paired(values):
  rng=random.Random(20261002);logs=[math.log(v) for v in values]
  boot=[100*(1-math.exp(statistics.mean(rng.choices(logs,k=len(logs))))) for _ in range(10000)]
  return 100*(1-math.exp(statistics.mean(logs))),q(boot,.025),q(boot,.975)
+def result_record_names(case):
+ return {p.name for p in case.glob('window-*-rank*.json') if re.fullmatch(r'window-\d+-.+-rank\d+\.json',p.name)}
+
+def trial_maxima(rows,cfg):
+ # Validate before max: max(1., nan) is 1., silently hiding a failed rank.
+ assert cfg['trial_count']>0 and cfg['iters']>0
+ protocols={r.get('timing_protocol','legacy') for r in rows}
+ assert len(protocols)==1, 'Mixed timing protocols'
+ for r in rows:
+  assert len(r['trials_us'])==cfg['trial_count']
+  assert all(math.isfinite(t) and t>0 for t in r['trials_us'])
+  for key in ('iters','trial_count','warmup_initial','warmup_per_trial'):
+   assert r[key]==cfg[key], ('Mismatched timing configuration',key)
+ return [max(r['trials_us'][i] for r in rows) for i in range(cfg['trial_count'])]
+
 def main(out):
  cfg=json.loads((out/'experiment.json').read_text());policies=cfg['policies'];orders=cfg['orders']
+ assert len(set(policies))==len(policies)
+ assert all(len(o)==len(policies) and set(o)==set(policies) for o in orders)
  windows=[];profiles=[];summaries=[];comparisons=[];checks=0;fp32_failures=0
  for m,n,k in cfg['shapes']:
   case=out/f'tp4-m{m}-n{n}-k{k}';ident=dict(M=m,N=n,K_global=k,TP=4,ring_reduction=True);block_times={}
   actual_order=[(b,p,False) for b,o in enumerate(orders) for p in o]+[(0,p,True) for p in policies]
-  assert len(list(case.glob('window-*-rank*.json')))==4*len(actual_order)
+  expected={f'window-{w:02d}-{p}-rank{r}.json' for w,(b,p,d) in enumerate(actual_order) for r in range(4)}
+  actual=result_record_names(case)
+  assert actual==expected,(case,sorted(expected-actual),sorted(actual-expected))
   signatures={}
   for window,(block,policy,diagnostic) in enumerate(actual_order):
    rows=[json.loads((case/f'window-{window:02d}-{policy}-rank{r}.json').read_text()) for r in range(4)]
@@ -26,7 +45,8 @@ def main(out):
     assert row['world_size']==4 and (row['M'],row['N'],row['K_global'])==(m,n,k)
     assert row['diagnostic_only']==diagnostic and not row['sampling']
     assert [c['seed'] for c in row['checks']]==cfg['seeds'] and all(c['passed'] for c in row['checks'])
-    assert row['gpu_uuid']==signatures.setdefault(rank,row['gpu_uuid'])
+    signature=(row['gpu_uuid'],row.get('timing_protocol','legacy'))
+    assert signature==signatures.setdefault(rank,signature)
     checks+=len(row['checks'])
     fp32_failures+=sum(not c['fp32_passed'] for c in row['checks'])
     if diagnostic:
@@ -42,12 +62,10 @@ def main(out):
      profiles.append(dict(ident,policy=policy,rank=rank,kernel_us=statistics.mean(e['dur'] for e in kernels),registers=kernels[0]['args']['registers per thread'],grid=grid))
    assert len({r['gpu_uuid'] for r in rows})==4
    if diagnostic:continue
-   assert all(len(r['trials_us'])==cfg['trial_count'] for r in rows)
-   ts=[max(r['trials_us'][i] for r in rows) for i in range(cfg['trial_count'])]
-   assert all(t>0 and math.isfinite(t) for t in ts)
+   ts=trial_maxima(rows,cfg)
    median=statistics.median(ts)
    block_times[(block,policy)]=median
-   windows.append(dict(ident,window=window,block=block,policy=policy,median_us=median,cv_percent=100*statistics.stdev(ts)/statistics.mean(ts),max_abs_vs_fp32=max(c['max_abs_vs_fp32'] for r in rows for c in r['checks'])))
+   windows.append(dict(ident,window=window,block=block,policy=policy,median_us=median,cv_percent=100*statistics.stdev(ts)/statistics.mean(ts) if len(ts)>1 else 0.,max_abs_vs_fp32=max(c['max_abs_vs_fp32'] for r in rows for c in r['checks'])))
   for policy in policies:
    with (case/f'mapping-{policy}.csv').open() as f:maps=list(csv.DictReader(f))
    tm,tn=m//128,(n+127)//128

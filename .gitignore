@@ -9,7 +9,7 @@ report*.nsys-rep
 log/
 /logs/a800/**/17*/
 logs/a800/phase3/mechanism
-# E2E runtime-only artifacts (retain locally; keep summaries and rank records).
+# Legacy per-run rules; the blanket /logs/a800/ rule below excludes all artifacts.
 # This run was rejected by sbatch before a job was created; it only has config.json.
 /logs/a800/e2e/distributed/2f81d30c9fc1/
 # Per-run source copies and large profiler traces; canonical scripts live in tools/.
@@ -23,34 +23,10 @@ workspace/
 # design
 design/
 
-# Keep A800 experiment scripts, logs, results, patches and build manifests.
-# Other output directories remain ignored.
-/outputs/*
-!/outputs/a800/
-!/outputs/a800/**/build/
-
-# Downloaded dependencies, environments and isolated source copies.
-/outputs/a800/downloads/
-/outputs/a800/venv/
-/outputs/a800/source/
-/outputs/a800/gemm_rs_validation/source/
-/outputs/a800/megatron-e2e/apex/
-/outputs/a800/megatron-e2e/wheelhouse/
-
-# Copied runtime packages, compiled artifacts and model checkpoints.
-# Keep build-directory metadata and overlay source files visible to Git.
-/outputs/a800/**/build/**/python/
-/outputs/a800/**/*-build/**/python/
-/outputs/a800/**/*.o
-/outputs/a800/**/*.a
-/outputs/a800/**/*.cubin
-/outputs/a800/**/*.fatbin
-/outputs/a800/**/*.whl
-/outputs/a800/**/check_mapping
-/outputs/a800/phase3/counter_probe
-/outputs/a800/gemm_rs_validation/nccl_gpu_check
-/outputs/a800/megatron-e2e/scale-mapping/check_mapping-*
-/outputs/a800/megatron-e2e/checkpoints/
+# Generated experiment data, source snapshots, environments and build caches.
+# Maintained code belongs in tools/a800, src, and python. Keep artifacts locally.
+/outputs/
+/logs/a800/
 
 # general things to ignore
 dist/
@@ -66,10 +42,3 @@ python/flux/version.py
 
 # due to using tox and pytest and clangd
 .tox
-
-# Arrival-priority generated snapshots and compile-only smoke artifacts.
-/outputs/a800/arrival/calibration-scripts/
-/outputs/a800/arrival/e2e-scripts/
-/outputs/a800/arrival/compile-check/
-/outputs/a800/arrival/compile-fixture.json
-/outputs/a800/arrival/build/mapping/check_mapping-*

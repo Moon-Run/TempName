@@ -12,7 +12,8 @@ assert old.count(needle)==1
 variants={
  'original':needle,
  'original_matched':needle,
- 'remote_first':'''    // TP=2 validation: visit the peer's output partition before the local one.
+ 'remote_first':'''    // Cyclic rank+1 partition offset. Column/cohort rasters can revisit local
+    // tiles before exhausting remote tiles; this is not strict remote-first.
     int m = (coord.m() + tiled_m / local_world_size * (local_rank + 1)) % tiled_m;
     coord.m() = m;''',
  'interleaved':'''    // Equal, block-aligned partitions; tested only for M=N=4096 and TP=2.

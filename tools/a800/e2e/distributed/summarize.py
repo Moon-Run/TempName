@@ -41,6 +41,7 @@ def check_window(path, c, policy, mode):
         if mode == 'smoke' and policy != 'native':
             assert len(r['numerical_checks']) == c['layers']*2
             assert all(v['passed'] for v in r['numerical_checks'].values())
+    assert len({r.get('timing_protocol','legacy') for r in rows}) == 1
     assert len({r['gpu_uuid'] for r in rows}) == c['world_size']
     assert len({r['host'] for r in rows}) == c['nodes']
     for node in range(c['nodes']):
@@ -96,7 +97,7 @@ def analyze(out):
             for rank, r in enumerate(rows):
                 assert r['block'] == block
                 signature = tuple(r[k] for k in ('initial_parameters_sha256', 'initial_rng_sha256',
-                                                 'tokens_sha256', 'gpu_uuid', 'host'))
+                                                 'tokens_sha256', 'gpu_uuid', 'host')) + (r.get('timing_protocol','legacy'),)
                 if rank not in signatures:
                     signatures[rank] = signature
                 assert signature == signatures[rank], (block, policy, rank)

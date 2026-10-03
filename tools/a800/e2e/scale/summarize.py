@@ -13,6 +13,7 @@ def q(xs,p):
 
 def analyze(out):
     protocol=json.loads((out/'protocol.json').read_text());plan=protocol['plan'];case=protocol['case'];model=protocol['model']
+    assert all(len(o)==len(plan['policies']) and set(o)==set(plan['policies']) for o in plan['orders'])
     tp=case['tp'];policies=plan['policies'];calls=model['layers']*2*(model['global_batch']//model['micro_batch'])
     tokens=model['sequence']*model['global_batch']
     shapes={(model['sequence'],model['hidden'],k) for k in [model['hidden'],model['ffn']]}
@@ -23,10 +24,13 @@ def analyze(out):
         for rank,r in enumerate(rows):
             assert r['completed'] and r['passed'] and r['rank']==rank and r['world_size']==tp
             assert r['case']==case['name'] and r['model']==model and r['mode']==mode and r['policy']==policy
+            if mode!='profile':
+                assert math.isfinite(r['elapsed_seconds']) and r['elapsed_seconds']>0
             assert r['fallback_calls']==0 and len(r['target_modules'])==2*model['layers']
             assert r['tokens_per_optimizer_step']==tokens and not r['sampling']
             assert all(math.isfinite(x) for x in r['losses']+r['grad_norms']+[r['initial_loss']]) and r['skips']==0
             assert {(s['M'],s['N'],s['K_global']) for s in r['observed_shapes'].values()}==shapes
+        assert len({r.get('timing_protocol','legacy') for r in rows})==1
         assert len({r['gpu_uuid'] for r in rows})==tp and len({r['tokens_sha256'] for r in rows})==1
         return rows
     if protocol['stage']=='preflight':
@@ -83,7 +87,7 @@ def analyze(out):
                     assert r['window']==window and r['block']==block and not r['profiling']
                     assert r['warmup_steps']==plan['warmup_steps'] and r['timed_steps']==plan['timed_steps']
                     assert len(r['losses'])==len(r['grad_norms'])==plan['timed_steps']
-                    signature=tuple(r[key] for key in ['initial_parameters_sha256','initial_rng_sha256','tokens_sha256','gpu_uuid'])
+                    signature=tuple(r[key] for key in ['initial_parameters_sha256','initial_rng_sha256','tokens_sha256','gpu_uuid'])+(r.get('timing_protocol','legacy'),)
                     if rank not in signatures:signatures[rank]=signature
                     assert signature==signatures[rank]
                     assert all(v==plan['warmup_steps']*model['global_batch']//model['micro_batch'] for v in r['warmup_calls'].values())

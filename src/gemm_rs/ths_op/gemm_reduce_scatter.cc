@@ -30,6 +30,9 @@
 #include "gemm_rs/reduce_scatter_barrier_struct.hpp"
 #include "gemm_rs/tile_scheduler/threadblock_swizzle_segment_util.hpp"
 #include "gemm_rs/ths_op/helper_ops.h"
+#ifdef FLUX_TACO_BASELINE
+#include "gemm_rs/taco_runtime.h"
+#endif
 #include <ATen/core/jit_type.h>
 #include <ATen/core/List.h>
 #include <ATen/cuda/CachingHostAllocator.h>
@@ -560,6 +563,17 @@ class GemmRS::GemmRSImpl {
       bool fast_accum,
       c10::optional<UnifiedGemmHParams> const &hparams,
       const ReduceScatterOption &opt) {
+#ifdef FLUX_TACO_BASELINE
+    auto taco = taco_config();
+    if (taco.enabled) {
+      TORCH_CHECK(nnodes == 1 && !no_nvlink && !fuse_reduction && ring_reduction &&
+                      get_arch() == _Sm80{} && input_dtype == at::ScalarType::BFloat16 &&
+                      output_dtype == at::ScalarType::BFloat16 && !transpose_weight &&
+                      !bias.has_value() && taco.rank == rank && taco.world == world_size &&
+                      taco.m == input.size(0) && taco.n == n_dim,
+                  "Unsupported TACO configuration; requires single-node SM80 BF16 ring reduction");
+    }
+#endif
     auto meta = get_gemm_meta(/*has_bias=*/bias.has_value(), fast_accum);
     auto rt_conf = get_rt_conf(input, weight, bias, input_scale, weight_scale);
     // get cutlass op
@@ -656,11 +670,36 @@ class GemmRS::GemmRSImpl {
       zero_buffers();
     }
     cutlass_op->run(args, workspace, stream);
+#ifdef FLUX_TACO_SEPARATE
+    if (taco.enabled) {
+      // Same stream: finish GEMM locally, then encode/scatter FP8 packets.
+      // forward_impl's existing group barrier publishes them before decoding.
+      CUDA_CHECK(static_cast<cudaError_t>(taco_encode_scatter(
+          taco, this->output_buffer.data_ptr(), stream)));
+    }
+#endif
 
   }  // namespace ths_op
 
   torch::Tensor
   local_reduction(torch::Tensor buffer, int32_t dim, int32_t rank, bool ring_reduction) {
+#ifdef FLUX_TACO_BASELINE
+    auto taco = taco_config();
+    if (taco.enabled) {
+      TORCH_CHECK(dim == 0 && ring_reduction && buffer.dim() == 3 &&
+                      buffer.size(0) == taco.world && buffer.size(1) == taco.m / taco.world &&
+                      buffer.size(2) == taco.n && buffer.is_contiguous(),
+                  "TACO reduction buffer layout mismatch");
+      auto output = torch::empty({taco.m / taco.world, taco.n}, buffer.options());
+      auto stream = c10::cuda::getCurrentCUDAStream();
+      CUDA_CHECK(static_cast<cudaError_t>(taco_decode_reduce(
+          taco, buffer.data_ptr(), output.data_ptr(), stream)));
+      // All receivers must finish decoding before any next invocation overwrites
+      // peer packets. This synchronization is part of complete-operator timing.
+      group_barrier.barrier_all(stream);
+      return output;
+    }
+#endif
     // This function is used to accumulate paritial outputs from all rank(`fuse_reduction` is
     // disable).
     // set `ring_reduction` to false:
