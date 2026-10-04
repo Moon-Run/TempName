@@ -29,8 +29,17 @@ def main(root):
                    CUDA_DEVICE_MAX_CONNECTIONS='1', OMP_NUM_THREADS='1', MKL_NUM_THREADS='1',
                    PYTHONNOUSERSITE='1', NCCL_DEBUG='WARN', NCCL_IB_DISABLE='1',
                    NCCL_P2P_DISABLE='0', NCCL_P2P_LEVEL='NVL', FLUX_FORCE_NVLINK='1')
-        for kind, extra in (('validate', ['--double-buffered','--model-shape','8192','2048','2048']),
-                            ('bench_decode_variants', [])):
+        stages = [('validate', ['--double-buffered','--model-shape','8192','2048','2048']),
+                  ('bench_decode_variants', [])]
+        if manifest.get('validation_only'):
+            stages = stages[:1]
+        for kind, extra in stages:
+            if kind == 'validate' and 'validation_variant' in manifest:
+                extra += ['--decode-variant', str(manifest['validation_variant'])]
+            if kind == 'validate' and manifest.get('compact_boundaries'):
+                extra += ['--compact-boundaries']
+            if kind == 'bench_decode_variants' and 'variants' in manifest:
+                extra += ['--variants', *map(str,manifest['variants'])]
             out = root/f'{kind}-{policy}'
             out.mkdir()
             command = [sys.executable, '-m', 'torch.distributed.run', '--standalone',

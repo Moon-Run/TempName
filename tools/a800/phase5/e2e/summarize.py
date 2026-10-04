@@ -12,6 +12,24 @@ def q(xs,p):
     xs=sorted(xs);x=(len(xs)-1)*p;i=int(x)
     return xs[i]+(xs[min(i+1,len(xs)-1)]-xs[i])*(x-i)
 
+def expected_decoder_counts(plan, selection, model, policy, rank, calls):
+    """Predict exact launches from the frozen mask; never infer them from a trace."""
+    result = dict(legacy=0, bf16=0, compact=0)
+    if codec_placement(policy) not in ('fused','separate'):
+        return result
+    invocations = calls // 2
+    m, n, world = model['sequence'] * model['micro_batch'], model['hidden'], model['tp']
+    if (plan.get('selective_decoder') == 'compact-v1' and policy.endswith('_selective') and
+            (m,n,world) == (8192,2048,4)):
+        mask = selection_entry(selection,policy,m,n,model['ffn'])['mask']
+        count = sum(any(mask[src][tile] for src in range(world))
+                    for tile in range(rank*256,(rank+1)*256))
+        if count <= 32:
+            result.update(bf16=invocations,compact=invocations if count else 0)
+            return result
+    result['legacy'] = invocations
+    return result
+
 def analyze(out):
     selection=json.loads((out/'scripts/selection-plan.json').read_text())
     protocol=json.loads((out/'protocol.json').read_text());plan=protocol['plan'];case=protocol['case'];model=protocol['model']
@@ -76,8 +94,13 @@ def analyze(out):
                     for label in ('encode','exchange','decode_reduce'):
                         assert sum(e.get('cat')=='user_annotation' and e.get('ph')=='X' and e.get('name')=='megatron_taco.'+label for e in events)==calls//2
 
-                assert sum(any(name in e['name'] for name in ('taco_decode_ring_kernel','taco_decode_tile4_kernel'))
-                           for e in all_kernels)==(calls//2 if codec_placement(policy) in ('fused','separate') else 0)
+                expected_decoders = expected_decoder_counts(plan,selection,model,policy,rank,calls)
+                actual_decoders = dict(
+                    legacy=sum(any(name in e['name'] for name in ('taco_decode_ring_kernel','taco_decode_tile4_kernel')) for e in all_kernels),
+                    bf16=sum('taco_reduce_bf16_compact4_kernel' in e['name'] for e in all_kernels),
+                    compact=sum('taco_decode_compact4_kernel' in e['name'] for e in all_kernels))
+                assert actual_decoders == expected_decoders, (policy,rank,actual_decoders,expected_decoders)
+                assert not any(any(name in e['name'] for name in ('taco_decode_pair4_kernel','taco_decode_flat4_kernel')) for e in all_kernels), 'Exploratory decoder used in formal run'
                 assert sum('taco_encode_scatter_kernel' in e['name'] for e in all_kernels)==(calls//2 if policy=='taco_separate' else 0)
                 profiles.append(dict(policy=policy,rank=rank,calls=len(kernels),hparams=';'.join(hparams),
                     kernel_sum_us=sum(e['dur'] for e in kernels),peak_allocated_gib=r['peak_allocated_gib']))

@@ -58,12 +58,16 @@ def patch(old,base,entries):
 '''+anchor)
 
 
-def main(plan_path,out):
+def main(plan_path,out,bases=None):
     plan_path,out=plan_path.resolve(),out.resolve()
     plan=json.loads(plan_path.read_text());assert plan['schema']==2 and plan['world']==4
+    bases = bases or list(plan['policies'])
+    assert len(set(bases)) == len(bases) and set(bases) <= set(plan['policies'])
     for p,h in plan['inputs'].items():assert sha(Path(p))==h,p
     out.mkdir(parents=True,exist_ok=False)
     for base,entries in plan['policies'].items():
+        if base not in bases:
+            continue
         name='remote_arrival' if base=='remote_first' else base+'_arrival'
         folder=out/name
         compiler.main(folder,'fused',lambda old:patch(old,base,entries),name)
@@ -84,4 +88,5 @@ def main(plan_path,out):
 
 if __name__=='__main__':
     p=argparse.ArgumentParser(__doc__);p.add_argument('plan',type=Path);p.add_argument('out',type=Path)
-    a=p.parse_args();main(a.plan,a.out)
+    p.add_argument('--bases',nargs='+',choices=['remote_first','interleaved','interleaved_remote','interleaved_remote_group'])
+    a=p.parse_args();main(a.plan,a.out,a.bases)

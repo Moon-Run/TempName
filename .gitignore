@@ -1,44 +1,78 @@
-# PyCache files
-build/
-.cache/
-tmp/
-report*.sqlite
-report*.nsys-rep
+# Experiment artifacts: raw results, profiles, per-run source snapshots,
+# allocation controls, downloaded data, environments and frozen builds.
+# Maintain reusable code in tools/, src/, include/ and python/ instead.
+/outputs/
+/logs/
+/log/
+/prof/
+/workspace/
+/tmp/
+/data/
+/checkpoints/
+/runs/
+/wandb/
+/tensorboard/
 
-# run files
-log/
-/logs/a800/**/17*/
-logs/a800/phase3/mechanism
-# Legacy per-run rules; the blanket /logs/a800/ rule below excludes all artifacts.
-# This run was rejected by sbatch before a job was created; it only has config.json.
-/logs/a800/e2e/distributed/2f81d30c9fc1/
-# Per-run source copies and large profiler traces; canonical scripts live in tools/.
-/logs/a800/e2e/**/scripts/
-/logs/a800/e2e/distributed/**
-/logs/a800/e2e/**/*-profile.json.gz
-
-prof/
-workspace/
-
-# design
+# Local design documents remain untracked at the user's request.
 design/
 
-# Generated experiment data, source snapshots, environments and build caches.
-# Maintained code belongs in tools/a800, src, and python. Keep artifacts locally.
-/outputs/
-/logs/a800/
+# Do not blanket-ignore JSON/CSV/Markdown: configs and test fixtures are source.
+# Do not ignore *.bc or *.ll: python/flux_triton/extra/cuda_extra.* is required.
 
-# general things to ignore
+# Logs and profiler exports produced outside the artifact directories.
+*.log
+*.log.*
+slurm-*.out
+slurm-*.err
+*.nsys-rep
+*.ncu-rep
+*.qdrep
+report*.sqlite
+report*.sqlite-*
+
+# CMake/Ninja and native compilation products.
+build/
+cmake-build-*/
+CMakeFiles/
+CMakeCache.txt
+cmake_install.cmake
+compile_commands*.json
+build.ninja
+.ninja_deps
+.ninja_log
+*.o
+*.obj
+*.a
+*.so
+*.so.*
+*.cubin
+*.fatbin
+
+# Python packaging, generated version metadata and local environments.
 dist/
 *.egg-info/
 .eggs/
 *.egg
+*.whl
 *.py[cod]
 __pycache__/
-*.so
-*.so.*
-*~
-python/flux/version.py
+/python/flux/version.py
+.venv/
+venv/
 
-# due to using tox and pytest and clangd
-.tox
+# Tool caches and test/coverage outputs.
+.cache/
+.tox/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.hypothesis/
+.coverage
+.coverage.*
+htmlcov/
+
+# Editor temporary files.
+*~
+*.swp
+*.swo
+.DS_Store

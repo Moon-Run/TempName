@@ -15,6 +15,10 @@ struct FluxTacoConfig {
   const unsigned char* selected = nullptr;
   int allow_capture = 0;
   int deferred_reuse_barrier = 0;
+  // Immutable local physical tiles with at least one quantized source.
+  // -1 means no compact index was supplied; zero is an all-BF16 destination.
+  const int* quant_tiles = nullptr;
+  int quant_tile_count = -1;
 };
 
 __host__ __device__ inline bool taco_selected(const FluxTacoConfig& c, int src,
@@ -36,6 +40,9 @@ extern "C" FluxTacoConfig taco_config();
 extern "C" int taco_configure(void** peers, int rank, int world, int m, int n);
 extern "C" int taco_configure_selective(void** peers, int rank, int world, int m, int n,
                                         const unsigned char* selected);
+extern "C" int taco_configure_selective_compact(void** peers, int rank, int world, int m, int n,
+                                                const unsigned char* selected,
+                                                const int* quant_tiles, int count);
 extern "C" void taco_reset();
 // Instance-owned configuration: captured during GemmRS construction and scoped
 // around forward in C++, avoiding Python configure/reset on every invocation.
@@ -43,6 +50,11 @@ extern "C" int taco_instance_config_supported();
 extern "C" void taco_set_config(FluxTacoConfig config);
 extern "C" void taco_allow_capture();
 extern "C" void taco_defer_reuse_barrier();
+// Diagnostic controls affect only the measured TP4 selective M8192/N2048/K2048
+// MLP. Zero keeps the registry/default scheduling; attention never uses these.
+extern "C" int taco_set_gemm_tuning(int stages, int avail_sms);
+extern "C" int taco_gemm_stages();
+extern "C" int taco_gemm_avail_sms();
 // 1: epilogue-fused encoding; 2: BF16 staging followed by standalone encoding.
 extern "C" int taco_placement();
 extern "C" int taco_encode_scatter(FluxTacoConfig config, const void* staged_bf16,

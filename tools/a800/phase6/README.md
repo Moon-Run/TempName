@@ -19,21 +19,29 @@ This removes the separate post-decode barrier. It is mutually exclusive with
 `--graph`. GPU checks add staggered-rank bursts and exact output-lifetime checks;
 model profiles verify the reduced barrier count. The extra memory is measured.
 
-The 2026-10-04 TP4 runtime additionally shares the immutable selection decision
-over 16 rows of a physical tile, with columns varying first across CUDA blocks.
-Its default dispatch is restricted to the measured M8192/N2048 and M8192/N4096
-selective shapes; small H, M2048, N tails and other TP sizes keep the previous
-decoder. The wire format, ring addition order, BF16 rounding and publication
-barrier are unchanged. `bench_decode_variants.py` compares complete operators
-and requires bitwise equality; `run_decode_diagnostics.py` also checks mixed
-masks, tails, output lifetime and delayed-rank workspace reuse. The private
-`taco_set_decode_variant` diagnostic switch accepts -1 (shape-based default),
-0 (previous decoder), 1 (16 rows/tile-first), 2 (32 rows/tile-first), and
-3 (16 rows/row-first). Formal runs use the frozen default, with no switch calls.
+The current TP4 M8192/N2048 selective runtime caches the receiver's mixed tiles
+as an immutable GPU index list. At most 32 such tiles per receiver use compact
+H128 decoding, followed by contiguous packed BF16 reduction which skips exactly
+those tiles. Receivers with no quantized tiles launch only the BF16 kernel and
+skip mask checks. Dense masks, absent compact metadata, M8192/N4096 and all other
+shapes keep their previous decoder. The producer order, physical selection mask,
+wire format, ring addition order, BF16 rounding and publication barrier are unchanged.
+
+`bench_decode_variants.py` compares complete operators and requires bitwise
+equality. `run_decode_diagnostics.py` checks mixed masks, tails, output lifetime
+and delayed-rank workspace reuse; optional `compact_boundaries`/`validation_only`
+manifest fields exercise exactly 32 and 33 mixed tiles and compare output bits
+with the previous decoder. The private `taco_set_decode_variant` switch accepts
+-1 (shape-based default), 0 (previous warp decoder), 1/2 (tile-first 16/32 rows),
+3 (previous row-first 16 rows), 4–9 (exploratory paired-column layouts), 10–12
+(exploratory contiguous mixed layouts), and 13 (compact sparse decoding).
+Formal runs use the frozen default, with no switch calls. Prepare M8192/N2048
+formal runs from a compact build with `--decoder compact-v1`; the verifier
+predicts the exact per-rank kernel counts from the frozen selection mask.
 
 Builds and experiments are immutable and use fresh directories. Do not modify
-old phase4/5 snapshots. Preserve allocation 179147 and its resident step 179147.1,
-and preserve the outer hold loop of allocation 182708. Check Slurm before starting
+old phase4/5 snapshots. Allocation 179147 has expired; preserve the outer hold
+loops of allocations 183972 and 182708. Check Slurm before starting
 and run GPU experiments serially within each allocation. With the user's explicit
 authorization, independent TP4 experiments can run on both nodes concurrently;
 every paired comparison must stay within one node and one model configuration.
@@ -43,9 +51,9 @@ python3 -m unittest discover -s tools/a800/phase6 -p 'test_*.py'
 python3 tools/a800/phase5/build.py --out outputs/a800/phase6/NEW \
   --arrival-plan outputs/a800/arrival-v2-tp4-20261003/artifacts/plan.json
 python3 tools/a800/phase6/prepare.py logs/a800/phase6/NEW \
-  --build outputs/a800/phase6/NEW
-squeue --steps -j 179147
-srun --jobid=179147 --overlap --nodes=1 --ntasks=1 --cpus-per-task=8 \
+  --build outputs/a800/phase6/NEW --job-id 183972
+squeue --steps -j 183972
+srun --jobid=183972 --overlap --nodes=1 --ntasks=1 --cpus-per-task=8 \
   --gpus=4 --kill-on-bad-exit=1 \
   /data/home/scyb672/run/conda_envs/flux-megatron-a800/bin/python \
   "$PWD/logs/a800/phase6/NEW/campaign.py" > logs/a800/phase6/NEW/driver.log 2>&1
@@ -84,7 +92,16 @@ Diagnostics:
   on 4,194,304 deterministic random FP32 bit patterns plus rounding boundaries.
 - `rebuild_runtime.py BASE OUT` clones a candidate and relinks only its runtime.
   ABI/epilogue/codec headers must match the source exactly; otherwise use the full
-  builder. It never edits BASE.
+  builder or `rebuild_candidate.py BASE OUT --policies ...`, which also recompiles
+  the C++ wrapper and affected GEMM registration. Neither edits BASE.
+- `gemm_tuning.py` freezes stage/Stream-K-budget operator diagnostics. They are
+  screening results, not full-step acceptance. The tuning controls default to
+  the unchanged registry settings and apply only to selective TP4 M8192/N2048/K2048.
+- `decoder_ablation.py` uses normal worker initialization to compare decoders
+  within one library. `build_ablation.py` additionally compares whole frozen
+  candidate builds with identical model, arrival tables and masks.
+- `session_report.py SESSION` aggregates explicitly listed verified formal runs
+  and ablations from `report-inputs.json`, with separate node/scenario statistics.
 
 GPU preflight includes all/none/checkerboard/calibrated masks, N tails, zero,
 random and spiky inputs, repeated calls and output lifetimes. With `--graph`,
@@ -120,6 +137,15 @@ reversed second round (128 windows, 512 rank records, 2560 timed optimizer steps
 `scenario_suite.py` runs the diagnostic operator sweep, the three pilots and an
 independent confirmation selected by the minimum repeated gain against both
 required baselines. Candidate-to-candidate paired intervals are also reported.
+
+For the compact decoder and the four-order selection plan, for example:
+
+```bash
+python3 tools/a800/phase6/prepare_scenario.py logs/a800/phase6/NEW \
+  --build outputs/a800/phase6/COMPACT_BUILD --plan /absolute/path/to/selection-plan.json \
+  --hidden 2048 --sequence 1024 --bases remote_first interleaved \
+  --decoder compact-v1 --job-id 183972
+```
 
 `verify_run.py` loads each run's own frozen verifier and routing module, avoiding
 mixing newer verification code with older snapshots. `assess.py` accepts only a

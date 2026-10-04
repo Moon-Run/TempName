@@ -11,15 +11,26 @@ from flux.gemm_rs_taco import GemmRSTaco
 from taco_support import check_taco_output
 
 
-def main(out, policy, plan_path, graph=False, double_buffered=False, model_shape=None):
+def main(out, policy, plan_path, graph=False, double_buffered=False, model_shape=None,
+         decode_variant=None, compact_boundaries=False):
+    assert not (graph and compact_boundaries), 'Boundary A/B requires eager decoder switching'
     rank, world = int(os.environ['RANK']), int(os.environ['WORLD_SIZE'])
     assert world == 4 and os.environ.get('SLURM_JOB_ID')
     torch.cuda.set_device(rank)
+    if decode_variant is not None:
+        import ctypes
+        import flux
+        library = ctypes.CDLL(str((Path(flux.__file__).parent/'lib/libflux_cuda.so').resolve()))
+        library.taco_set_decode_variant.argtypes = [ctypes.c_int]
+        library.taco_set_decode_variant.restype = ctypes.c_int
+        assert library.taco_set_decode_variant(decode_variant) == 0
     torch.backends.cuda.matmul.allow_tf32 = False
     torch.backends.cuda.matmul.allow_bf16_reduced_precision_reduction = False
     dist.init_process_group('nccl',timeout=datetime.timedelta(minutes=5))
     pg=dist.new_group(list(range(world)))
     report=dict(rank=rank,world_size=world,policy=policy,checks=[],completed=False)
+    if decode_variant is not None:
+        report['decoder_variant'] = decode_variant
     out.mkdir(parents=True,exist_ok=True)
     def save(): (out/f'rank{rank}.json').write_text(json.dumps(report,indent=2)+'\n')
     plan=json.loads(plan_path.read_text())
@@ -33,6 +44,8 @@ def main(out, policy, plan_path, graph=False, double_buffered=False, model_shape
         for m,n,k in [(512,128,256),(512,136,256),(512,256,256),(model_shape[0],model_shape[1],model_shape[1]//world),model_shape]:
             tiles=(m//128)*((n+127)//128)
             modes=['all','none','checkerboard']+(['calibrated'] if (m,n,k)==model_shape else [])
+            if compact_boundaries and (m,n,k)==model_shape and (m,n)==(8192,2048):
+                modes += ['sparse32','sparse33']
             for mode in modes:
                 mask=None
                 if mode!='all':
@@ -44,6 +57,13 @@ def main(out, policy, plan_path, graph=False, double_buffered=False, model_shape
                         for src in range(world):
                             for tile in range(tiles):
                                 mask[src,tile]=int(tile//(tiles//world)!=src and (tile+src)%2==0)
+                    if mode.startswith('sparse'):
+                        count=int(mode.removeprefix('sparse'))
+                        for dst in range(world):
+                            for tile in range(dst*(tiles//world),dst*(tiles//world)+count):
+                                mask[(dst+1+tile%3)%world,tile]=1
+                                if tile%4==0:mask[(dst+2)%world,tile]=1
+                        assert all(sum(bool(mask[:,t].any()) for t in range(dst*(tiles//world),(dst+1)*(tiles//world)))==count for dst in range(world))
                 op=Codec(pg,m,n,k,placement='fused',**({'selected':mask} if mask is not None else {}),
                               **({'graph':True} if graph else {}))
                 graph_weight=torch.empty((n,k),device='cuda',dtype=torch.bfloat16) if graph else None
@@ -58,16 +78,28 @@ def main(out, policy, plan_path, graph=False, double_buffered=False, model_shape
                     if case=='zero':a.zero_()
                     if case=='spiky':a[:,0]*=10
                     partial=a@b.t()
+                    legacy=None
+                    if mode.startswith('sparse'):
+                        import ctypes
+                        lib=op.slots[0].lib if double_buffered else op.lib
+                        lib.taco_set_decode_variant.argtypes=[ctypes.c_int]
+                        lib.taco_set_decode_variant.restype=ctypes.c_int
+                        assert lib.taco_set_decode_variant(3)==0
+                        legacy=op.forward(a,b)
+                        assert lib.taco_set_decode_variant(-1 if decode_variant is None else decode_variant)==0
                     y=op.forward(a,b)
                     torch.cuda.synchronize()
+                    if legacy is not None:
+                        assert torch.equal(y.view(torch.int16),legacy.view(torch.int16)), 'Compact threshold changed output bits'
                     error=check_taco_output(partial,y,pg,mask)
                     for previous,copy in saved:assert torch.equal(previous,copy)
                     saved.append((y,y.clone()))
                     report['checks'].append(dict(M=m,N=n,K_local=k,selection=mode,case=case,
-                        wire_bytes=op.wire_bytes_per_rank,bf16_wire_bytes=op.bf16_wire_bytes_per_rank,**error))
+                        wire_bytes=op.wire_bytes_per_rank,bf16_wire_bytes=op.bf16_wire_bytes_per_rank,
+                        **({'legacy_bits_exact':True} if legacy is not None else {}),**error))
                     if mode=='none':assert op.wire_bytes_per_rank==op.bf16_wire_bytes_per_rank
                     save()
-                if double_buffered and (mode=='calibrated' or (n==136 and mode=='checkerboard')):
+                if double_buffered and (mode=='calibrated' or mode.startswith('sparse') or (n==136 and mode=='checkerboard')):
                     # No cross-rank synchronization between these submissions.
                     # Alternate data and stagger ranks across multiple A/B reuses.
                     inputs=[a,(a*.75).to(torch.bfloat16)]
@@ -103,4 +135,6 @@ if __name__=='__main__':
     p.add_argument('--graph',action='store_true')
     p.add_argument('--double-buffered',action='store_true')
     p.add_argument('--model-shape',type=int,nargs=3)
-    a=p.parse_args();main(a.out,a.policy,a.plan,a.graph,a.double_buffered,a.model_shape)
+    p.add_argument('--decode-variant',type=int)
+    p.add_argument('--compact-boundaries',action='store_true')
+    a=p.parse_args();main(a.out,a.policy,a.plan,a.graph,a.double_buffered,a.model_shape,a.decode_variant,a.compact_boundaries)

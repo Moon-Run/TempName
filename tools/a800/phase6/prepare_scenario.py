@@ -81,6 +81,7 @@ def main(args):
     cfg['common']['global_batch']=micro
     cfg['cases']=[dict(name=f'l12-h{hidden}-s{sequence}-mb{micro}-tp4',hidden=hidden,ffn=ffn,heads=hidden//64,sequence=sequence,tp=4)]
     cfg.update(scenario_extension=True,graph_forward=False,double_buffered=True,base_orders=bases,
+               selective_decoder=args.decoder,
                acceptance=dict(version='paired-full-step-v2-20261004',target_percent=args.target_percent),
                scope=f'Standard FFN=4H compact/batched GPT; all policies share model, TP, batch, tokens and precision. Full optimizer steps; MLP-only arrival/selective TACO with double-buffered workspaces. {len(bases)} independently calibrated base orders. '+
                      ('Exploratory pilot.' if args.pilot else 'Balanced paired confirmation; no convergence claim.'))
@@ -112,5 +113,6 @@ if __name__=='__main__':
     p.add_argument('--tokens-per-microbatch',type=int,default=8192)
     p.add_argument('--bases',nargs='+',choices=['remote_first','interleaved','interleaved_remote','interleaved_remote_group'])
     p.add_argument('--target-percent',type=float,default=4.)
+    p.add_argument('--decoder',choices=['legacy','compact-v1'],default='legacy')
     p.add_argument('--job-id',type=int,default=179147)
     main(p.parse_args())

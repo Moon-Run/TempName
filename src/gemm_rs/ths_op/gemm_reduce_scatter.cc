@@ -583,6 +583,12 @@ class GemmRS::GemmRSImpl {
     // get cutlass op
     UnifiedGemmHParams hparams_ =
         hparams.has_value() ? hparams.value() : OpRegistry::instance().get_hparams(meta, rt_conf);
+#ifdef FLUX_TACO_BASELINE
+    const bool tuned_taco_shape = taco.enabled && taco.selected && taco.world == 4 &&
+        rt_conf.m() == 8192 && rt_conf.n() == 2048 && rt_conf.k() == 2048;
+    if (tuned_taco_shape && taco_gemm_stages())
+      hparams_.mainloop_stage() = taco_gemm_stages();
+#endif
     OpRegistry::OpPtr cutlass_op = OpRegistry::instance().get_op(meta, hparams_);
     ReduceScatterArguments reduce_scatter_args{
         .reduce_scatter_num_blocks = opt.num_blocks,
@@ -647,6 +653,10 @@ class GemmRS::GemmRSImpl {
         .scaleAux = nullptr,
         .reduce_scatter_args = reduce_scatter_args,
     };
+#ifdef FLUX_TACO_BASELINE
+    if (tuned_taco_shape && taco_gemm_avail_sms())
+      args.avail_sms = taco_gemm_avail_sms();
+#endif
 
     if (no_nvlink) {
       int priority = 0;

@@ -21,7 +21,7 @@ def prepare(source, root, blocks, variants=(0,3), build_override=None, job_id=17
     info = json.loads((source/'submission.json').read_text())
     repo = Path(info['repo'])
     assert repo/'logs/a800' in root.parents
-    assert 2 <= len(variants) <= 3 and len(set(variants)) == len(variants) and set(variants) <= {0,3,5}
+    assert 2 <= len(variants) <= 3 and len(set(variants)) == len(variants) and set(variants) <= {0,3,4,5,6,10,11,12,13}
     conditions = [(policy, variant) for policy in POLICIES for variant in variants]
     assert blocks >= len(conditions) and blocks % len(conditions) == 0
     preflight = json.loads((source/'results/preflight/preflight.json').read_text())

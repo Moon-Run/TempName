@@ -64,6 +64,8 @@ class GemmRSTaco:
         self.selected = None
         self.selection_cpu = None
         self.selection_sha256 = None
+        self.quant_tiles = None
+        self.quant_tile_count = None
         if selected is not None:
             if self.placement != 'fused':
                 raise ValueError('Selective TACO requires epilogue-fused encoding')
@@ -85,6 +87,16 @@ class GemmRSTaco:
             self.selected = mask.to(device=self.device)
             self.lib.taco_configure_selective.argtypes = [ctypes.POINTER(ctypes.c_void_p)] + [ctypes.c_int]*4 + [ctypes.c_void_p]
             self.lib.taco_configure_selective.restype = ctypes.c_int
+            if hasattr(self.lib, 'taco_configure_selective_compact'):
+                per_rank = tiles // self.world
+                local_selected = mask[:,self.rank*per_rank:(self.rank+1)*per_rank].bool().any(dim=0)
+                indices = local_selected.nonzero().flatten().to(torch.int32).contiguous()
+                self.quant_tile_count = indices.numel()
+                self.quant_tiles = indices.to(device=self.device)
+                self.lib.taco_configure_selective_compact.argtypes = (
+                    [ctypes.POINTER(ctypes.c_void_p)] + [ctypes.c_int]*4 +
+                    [ctypes.c_void_p, ctypes.c_void_p, ctypes.c_int])
+                self.lib.taco_configure_selective_compact.restype = ctypes.c_int
         cpp_mod.init_flux_shm(group)
         groups = (m//self.world)*((n+127)//128)
         self.packet_bytes_per_source = groups*136
@@ -98,7 +110,12 @@ class GemmRSTaco:
         if _defer_reuse_barrier and (graph or not hasattr(self.lib, 'taco_defer_reuse_barrier')):
             raise RuntimeError('Deferred reuse needs the double-buffered eager TACO implementation')
         if self.owns_configuration:
-            code = (self.lib.taco_configure(self.pointers, self.rank, self.world, m, n)
+            if self.quant_tile_count is not None:
+                code = self.lib.taco_configure_selective_compact(
+                    self.pointers, self.rank, self.world, m, n, self.selected.data_ptr(),
+                    self.quant_tiles.data_ptr(), self.quant_tile_count)
+            else:
+                code = (self.lib.taco_configure(self.pointers, self.rank, self.world, m, n)
                     if self.selected is None else
                     self.lib.taco_configure_selective(self.pointers, self.rank, self.world, m, n,
                                                       self.selected.data_ptr()))
