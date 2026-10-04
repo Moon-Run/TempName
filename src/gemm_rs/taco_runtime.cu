@@ -131,10 +131,107 @@ __global__ void taco_decode_ring_kernel(FluxTacoConfig c, const __nv_bfloat16* l
     if (col + j * 32 < n) output[int64_t(row) * n + col + j * 32] = accum[j];
 }
 
+// A block stays inside one physical 128x128 tile, sharing its selection
+// decision across Rows H128 groups. This avoids thousands of tiny blocks and
+// dynamic source loops on the common TP4 selective path. Ring order and BF16
+// rounding are identical to the generic decoder; N tails keep the generic path.
+template <int Rows, bool RowMajor = false>
+__global__ void taco_decode_tile4_kernel(FluxTacoConfig c, const __nv_bfloat16* local,
+                                        __nv_bfloat16* output) {
+  constexpr int world = 4;
+  const int lane = threadIdx.x & 31, warp = threadIdx.x / 32;
+  const int nt = c.n / 128;
+  const int tile = blockIdx.x / (128 / Rows);
+  const int col_tile = RowMajor ? blockIdx.x : tile % nt;
+  const int first_row = RowMajor ? blockIdx.y * Rows :
+      (tile / nt) * 128 + (blockIdx.x % (128 / Rows)) * Rows;
+  const int physical_tile = (c.rank * (c.m / (128 * world)) + first_row / 128) * nt + col_tile;
+  const int tiles = (c.m / 128) * nt;
+  const int64_t chunk = int64_t(c.m / world) * c.n;
+  const int64_t groups = int64_t(c.m / world) * nt;
+  bool selected[world];
+  bool any_quant = false;
+  #pragma unroll
+  for (int src = 0; src < world; ++src) {
+    selected[src] = src != c.rank && c.selected[src * tiles + physical_tile];
+    any_quant |= selected[src];
+  }
+  if (!any_quant) {
+    #pragma unroll 1
+    for (int row = first_row + warp; row < first_row + Rows; row += 4) {
+      const int64_t offset = int64_t(row) * c.n + col_tile * 128 + lane * 4;
+      uint2 packed = make_uint2(0, 0);
+      auto* sum = reinterpret_cast<__nv_bfloat162*>(&packed);
+      #pragma unroll
+      for (int i = 1; i <= world; ++i) {
+        const int src = (c.rank + i) & 3;
+        uint2 value = *reinterpret_cast<const uint2*>(local + src * chunk + offset);
+        auto* x = reinterpret_cast<__nv_bfloat162*>(&value);
+        sum[0] = __hadd2(sum[0], x[0]);
+        sum[1] = __hadd2(sum[1], x[1]);
+      }
+      *reinterpret_cast<uint2*>(output + offset) = packed;
+    }
+    return;
+  }
+  #pragma unroll 1
+  for (int row = first_row + warp; row < first_row + Rows; row += 4) {
+    const int64_t group = int64_t(row) * nt + col_tile;
+    __nv_bfloat16 accum[4] = {};
+    #pragma unroll
+    for (int i = 1; i <= world; ++i) {
+      const int src = (c.rank + i) & 3;
+      float value[4];
+      if (!selected[src]) {
+        #pragma unroll
+        for (int j = 0; j < 4; ++j)
+          value[j] = __bfloat162float(local[src * chunk + int64_t(row) * c.n +
+                                           col_tile * 128 + lane + j * 32]);
+      } else {
+        const unsigned char* slot = c.peers[c.rank] + src * groups * 136;
+        const float* qs = reinterpret_cast<const float*>(slot + groups * 128);
+        const float* as = qs + groups;
+        flux_taco::decode_warp(slot + group * 128, qs[group], as[group], value);
+      }
+      #pragma unroll
+      for (int j = 0; j < 4; ++j)
+        accum[j] = __float2bfloat16(__bfloat162float(accum[j]) +
+                                  __bfloat162float(__float2bfloat16(value[j])));
+    }
+    #pragma unroll
+    for (int j = 0; j < 4; ++j)
+      output[int64_t(row) * c.n + col_tile * 128 + lane + j * 32] = accum[j];
+  }
+}
+
+// Diagnostic A/B switch, scoped to the calling host thread. It changes launch
+// geometry only, never the wire protocol or the immutable instance config.
+// Enable only the two measured large-output shapes by default. Small H and
+// the original M2048 shape retain the generic/specialized decoder.
+static thread_local int decode_variant = -1;
+extern "C" int taco_set_decode_variant(int variant) {
+  if (variant < -1 || variant > 3) return int(cudaErrorInvalidValue);
+  decode_variant = variant;
+  return int(cudaSuccess);
+}
+
 extern "C" int taco_decode_reduce(FluxTacoConfig c, const void* local, void* output,
                                    cudaStream_t stream) {
   if (!c.enabled || !local || !output) return int(cudaErrorInvalidValue);
-  if (c.world == 4 && c.m == 2048 && c.n == 2048)
+  const int variant = decode_variant < 0 ?
+      ((c.m == 8192 && (c.n == 2048 || c.n == 4096)) ? 3 : 0) : decode_variant;
+  if (c.world == 4 && c.selected && c.n % 128 == 0 && variant != 0) {
+    const int blocks = (c.m / (4 * 128)) * (c.n / 128);
+    if (variant == 1)
+      taco_decode_tile4_kernel<16><<<blocks * 8, 128, 0, stream>>>(
+          c, static_cast<const __nv_bfloat16*>(local), static_cast<__nv_bfloat16*>(output));
+    else if (variant == 2)
+      taco_decode_tile4_kernel<32><<<blocks * 4, 128, 0, stream>>>(
+          c, static_cast<const __nv_bfloat16*>(local), static_cast<__nv_bfloat16*>(output));
+    else
+      taco_decode_tile4_kernel<16, true><<<dim3(c.n / 128, c.m / (4 * 16)), 128, 0, stream>>>(
+          c, static_cast<const __nv_bfloat16*>(local), static_cast<__nv_bfloat16*>(output));
+  } else if (c.world == 4 && c.m == 2048 && c.n == 2048)
     taco_decode_ring_kernel<true><<<(taco_groups(c) + 3) / 4, 128, 0, stream>>>(
         c, static_cast<const __nv_bfloat16*>(local), static_cast<__nv_bfloat16*>(output));
   else

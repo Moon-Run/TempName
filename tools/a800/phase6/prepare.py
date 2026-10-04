@@ -17,7 +17,9 @@ if __name__ == '__main__':
     p.add_argument('--graph', action='store_true')
     p.add_argument('--double-buffered', action='store_true')
     p.add_argument('--job-id', type=int, default=179147)
+    p.add_argument('--target-percent',type=float,default=4.)
     a = p.parse_args()
+    assert 0 < a.target_percent < 100
     repo = HERE.parents[2]
     policies = ['native', 'original', 'native_taco', 'taco_fused',
                 'remote_arrival_selective', 'interleaved_arrival_selective']
@@ -29,4 +31,5 @@ if __name__ == '__main__':
          native_quant=not a.pilot,
          fused_build=repo/'outputs/a800/phase4/taco-fused-warp-20261003',
          only_policies=policies, blocks=2 if a.pilot else None, graph_forward=a.graph,
-         double_buffered=a.double_buffered)
+         double_buffered=a.double_buffered,
+         acceptance=dict(version='paired-full-step-v2-20261004',target_percent=a.target_percent))

@@ -19,9 +19,24 @@ This removes the separate post-decode barrier. It is mutually exclusive with
 `--graph`. GPU checks add staggered-rank bursts and exact output-lifetime checks;
 model profiles verify the reduced barrier count. The extra memory is measured.
 
+The 2026-10-04 TP4 runtime additionally shares the immutable selection decision
+over 16 rows of a physical tile, with columns varying first across CUDA blocks.
+Its default dispatch is restricted to the measured M8192/N2048 and M8192/N4096
+selective shapes; small H, M2048, N tails and other TP sizes keep the previous
+decoder. The wire format, ring addition order, BF16 rounding and publication
+barrier are unchanged. `bench_decode_variants.py` compares complete operators
+and requires bitwise equality; `run_decode_diagnostics.py` also checks mixed
+masks, tails, output lifetime and delayed-rank workspace reuse. The private
+`taco_set_decode_variant` diagnostic switch accepts -1 (shape-based default),
+0 (previous decoder), 1 (16 rows/tile-first), 2 (32 rows/tile-first), and
+3 (16 rows/row-first). Formal runs use the frozen default, with no switch calls.
+
 Builds and experiments are immutable and use fresh directories. Do not modify
-old phase4/5 snapshots. Preserve allocation 179147 and its resident step 179147.1;
-check Slurm before starting and run GPU experiments serially.
+old phase4/5 snapshots. Preserve allocation 179147 and its resident step 179147.1,
+and preserve the outer hold loop of allocation 182708. Check Slurm before starting
+and run GPU experiments serially within each allocation. With the user's explicit
+authorization, independent TP4 experiments can run on both nodes concurrently;
+every paired comparison must stay within one node and one model configuration.
 
 ```bash
 python3 -m unittest discover -s tools/a800/phase6 -p 'test_*.py'
@@ -55,7 +70,9 @@ based on old BF16 calibration is not post-quantization recalibration.
 mapping, numerical budgets, logical bytes, and the exact required baseline hash.
 It reports `1 - exp(mean(log(T_candidate/T_baseline)))` and a 95% paired-block
 bootstrap interval separately against both required baselines. Both rounds must
-have point estimates >=5% and positive intervals for a candidate to pass. It also
+have point estimates at least the frozen target and positive intervals for a candidate to pass. New
+`prepare.py` and `prepare_scenario.py` runs explicitly freeze 4% and an acceptance protocol version;
+historical configurations without that field retain their original 5% target. It also
 reports paired latency gaps to both native references, without inventing a
 closeness threshold.
 
@@ -93,7 +110,11 @@ Coverage and sampling overhead are recorded in the plan.
 `build.py PLAN OUT` builds all calibrated candidates with MLP shape predicates;
 attention bypasses their tables. `prepare_scenario.py OUT --build BUILD --plan
 PLAN --hidden {512,1024,2048} [--pilot]` freezes eight same-model policies. The
-default model is 12 layers, FFN=4H, S2048, micro/global batch4 and TP4. Pilot rounds
+default model is 12 layers, FFN=4H, S2048, micro/global batch4 and TP4. `--bases`
+can select a subset of the four calibrated bases; formal runs use one balanced
+block per policy. `--sequence` and `--tokens-per-microbatch` define a different
+same-model scenario, not a speedup relative to another sequence length.
+`--job-id` freezes the allocation expected by the campaign driver. Pilot rounds
 have two blocks; the independent confirmation has eight balanced blocks and a
 reversed second round (128 windows, 512 rank records, 2560 timed optimizer steps).
 `scenario_suite.py` runs the diagnostic operator sweep, the three pilots and an

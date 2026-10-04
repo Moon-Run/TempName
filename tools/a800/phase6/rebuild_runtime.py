@@ -14,7 +14,11 @@ def main(base,out):
     repo=Path(__file__).resolve().parents[3]
     base,out=base.resolve(),out.resolve()
     out.mkdir(parents=True,exist_ok=False)
-    for policy in ('remote_arrival','interleaved_arrival'):
+    policies = [name for name in ('remote_arrival','interleaved_arrival',
+                                  'interleaved_remote_arrival','interleaved_remote_group_arrival')
+                if (base/name/'manifest.json').is_file()]
+    assert policies, 'No frozen candidate manifests found'
+    for policy in policies:
         old,new=base/policy,out/policy
         m=json.loads((old/'manifest.json').read_text())
         for name,h in m['files'].items():assert sha(old/name)==h,name
@@ -22,7 +26,7 @@ def main(base,out):
         # exactly; a change needs the full phase5 builder instead.
         for name in ('epilogue_evt.hpp','taco_runtime.h','taco_codec.cuh','ths_op/gemm_reduce_scatter.cc'):
             assert sha(repo/'src/gemm_rs'/name)==sha(old/'taco/overlay/gemm_rs'/name),name
-        shutil.copytree(old,new,symlinks=True)
+        shutil.copytree(old,new,symlinks=True,ignore=shutil.ignore_patterns('__pycache__','*.pyc'))
         shutil.copy2(repo/'src/gemm_rs/taco_runtime.cu',new/'taco/overlay/gemm_rs/taco_runtime.cu')
         shutil.copy2(repo/'python/flux/gemm_rs_taco.py',new/'taco/python/flux/gemm_rs_taco.py')
         for lib in ('libflux_cuda.so','libflux_cuda_ths_op.so'):
@@ -36,6 +40,7 @@ def main(base,out):
                 subprocess.run(args,cwd=c['cwd'],check=True)
         m['commands']=commands
         m['runtime_parent_manifest']=dict(path=str(old/'manifest.json'),sha256=sha(old/'manifest.json'))
+        m['inputs'][str(Path(__file__).resolve())]=sha(Path(__file__).resolve())
         m['inputs'][str(repo/'src/gemm_rs/taco_runtime.cu')]=sha(repo/'src/gemm_rs/taco_runtime.cu')
         m['inputs'][str(repo/'python/flux/gemm_rs_taco.py')]=sha(repo/'python/flux/gemm_rs_taco.py')
         m['files']={str(p.relative_to(new)):sha(p) for p in new.rglob('*')

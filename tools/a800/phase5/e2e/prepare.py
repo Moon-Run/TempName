@@ -12,7 +12,8 @@ def sha(p): return hashlib.sha256(p.read_bytes()).hexdigest()
 
 
 def main(repo,out,job,joint,plan_path,arrival_build=None,arrival_plan=None,native_quant=False,
-         fused_build=None, only_policies=None, blocks=None, graph_forward=False, double_buffered=False):
+         fused_build=None, only_policies=None, blocks=None, graph_forward=False, double_buffered=False,
+         acceptance=None):
     repo,out,joint,plan_path=[p.resolve() for p in (repo,out,joint,plan_path)]
     here=Path(__file__).resolve().parent
     assert repo/'logs/a800' in out.parents
@@ -73,6 +74,9 @@ def main(repo,out,job,joint,plan_path,arrival_build=None,arrival_plan=None,nativ
         shutil.copy2(here/name,out/'scripts'/name)
     config_path=out/'scripts/config.json'
     config=json.loads(config_path.read_text())
+    if acceptance is not None:
+        assert isinstance(acceptance['version'],str) and 0 < float(acceptance['target_percent']) < 100
+        config['acceptance']=dict(acceptance)
     config['policies']=policies
     config['graph_forward']=graph_forward
     assert not (graph_forward and double_buffered)

@@ -25,7 +25,12 @@ def main(args):
     hidden=args.hidden;sequence=args.sequence;m=args.tokens_per_microbatch
     assert m%sequence==0 and sequence%4==0
     micro=m//sequence;ffn=hidden*4
-    candidates=['remote_arrival_selective']+[p+'_arrival_selective' for p in plan['policies'] if p!='remote_first']
+    bases=args.bases or list(plan['policies'])
+    assert len(set(bases))==len(bases) and set(bases)<=set(plan['policies'])
+    if not args.pilot:
+        assert {'remote_first','interleaved'}<=set(bases), 'Formal acceptance requires both candidate routes'
+    assert 0 < args.target_percent < 100
+    candidates=['remote_arrival_selective' if p=='remote_first' else p+'_arrival_selective' for p in bases]
     policies=['native','original','native_taco','taco_fused']+candidates
     # The underlying compiler writes its first manifest before this builder
     # finishes the GPU mapping checker and arrival-plan metadata.
@@ -75,9 +80,10 @@ def main(args):
     cfg['common']['micro_batch']=micro
     cfg['common']['global_batch']=micro
     cfg['cases']=[dict(name=f'l12-h{hidden}-s{sequence}-mb{micro}-tp4',hidden=hidden,ffn=ffn,heads=hidden//64,sequence=sequence,tp=4)]
-    cfg.update(scenario_extension=True,graph_forward=False,double_buffered=True,
-               scope='Standard FFN=4H compact/batched GPT; all policies share model, TP, batch, tokens and precision. Full optimizer steps; MLP-only arrival/selective TACO with double-buffered workspaces. Four independently calibrated base orders. Exploratory pilot.' if args.pilot else
-                     'Standard FFN=4H compact/batched GPT; same-model paired complete optimizer steps, MLP-only arrival/selective TACO with double-buffered workspaces; four independently calibrated base orders; no convergence claim.')
+    cfg.update(scenario_extension=True,graph_forward=False,double_buffered=True,base_orders=bases,
+               acceptance=dict(version='paired-full-step-v2-20261004',target_percent=args.target_percent),
+               scope=f'Standard FFN=4H compact/batched GPT; all policies share model, TP, batch, tokens and precision. Full optimizer steps; MLP-only arrival/selective TACO with double-buffered workspaces. {len(bases)} independently calibrated base orders. '+
+                     ('Exploratory pilot.' if args.pilot else 'Balanced paired confirmation; no convergence claim.'))
     (out/'scripts/config.json').write_text(json.dumps(cfg,indent=2)+'\n')
     shutil.copy2(plan_path,out/'scripts/selection-plan.json')
     shutil.copy2(plan_path,out/'scripts/arrival-plan.json')
@@ -87,9 +93,10 @@ def main(args):
     for name in ('campaign.py','verify.py','profile_components.py'):shutil.copy2(common/name,out/name)
     shutil.copy2(HERE/'scenario_mapping.py',out/'check_mappings.py')
     shutil.copy2(HERE/'scenario_report.py',out/'report.py')
+    shutil.copy2(HERE/'assess.py',out/'assess.py')
     for p in out.rglob('*.py'):ast.parse(p.read_text())
     mappings=[mapping_policy(p) for p in candidates]
-    info=dict(job_id=179147,repo=str(REPO),artifact_root=str(artifact),
+    info=dict(job_id=args.job_id,repo=str(REPO),artifact_root=str(artifact),
               files={str(p.relative_to(out)):sha(p) for p in out.rglob('*') if p.is_file()},
               build_manifest_sha256=sha(build/'manifest.json'),policies=policies,mappings=mappings,
               codec_checks=mappings+['fused','native_taco'],repetitions=2,blocks=len(cfg['orders']),
@@ -103,4 +110,7 @@ if __name__=='__main__':
     p.add_argument('--hidden',type=int,choices=[512,1024,2048],required=True);p.add_argument('--pilot',action='store_true')
     p.add_argument('--sequence',type=int,default=2048)
     p.add_argument('--tokens-per-microbatch',type=int,default=8192)
+    p.add_argument('--bases',nargs='+',choices=['remote_first','interleaved','interleaved_remote','interleaved_remote_group'])
+    p.add_argument('--target-percent',type=float,default=4.)
+    p.add_argument('--job-id',type=int,default=179147)
     main(p.parse_args())

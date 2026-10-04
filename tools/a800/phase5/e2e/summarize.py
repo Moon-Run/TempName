@@ -76,7 +76,8 @@ def analyze(out):
                     for label in ('encode','exchange','decode_reduce'):
                         assert sum(e.get('cat')=='user_annotation' and e.get('ph')=='X' and e.get('name')=='megatron_taco.'+label for e in events)==calls//2
 
-                assert sum('taco_decode_ring_kernel' in e['name'] for e in all_kernels)==(calls//2 if codec_placement(policy) in ('fused','separate') else 0)
+                assert sum(any(name in e['name'] for name in ('taco_decode_ring_kernel','taco_decode_tile4_kernel'))
+                           for e in all_kernels)==(calls//2 if codec_placement(policy) in ('fused','separate') else 0)
                 assert sum('taco_encode_scatter_kernel' in e['name'] for e in all_kernels)==(calls//2 if policy=='taco_separate' else 0)
                 profiles.append(dict(policy=policy,rank=rank,calls=len(kernels),hparams=';'.join(hparams),
                     kernel_sum_us=sum(e['dur'] for e in kernels),peak_allocated_gib=r['peak_allocated_gib']))

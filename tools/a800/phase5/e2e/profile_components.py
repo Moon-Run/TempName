@@ -19,7 +19,7 @@ def extract(root):
             for label in ('encode','exchange','decode_reduce'):
                 row['tensor_'+label+'_scope_calls']=sum(e.get('cat')=='user_annotation' and e.get('ph')=='X' and e.get('name')=='megatron_taco.'+label for e in events)
             for kind, marker in (('gemm', 'flux_bf16'), ('encode', 'taco_encode_scatter_kernel'),
-                                 ('decode', 'taco_decode_ring_kernel')):
+                                 ('decode', 'taco_decode_')):
                 selected = [e for e in kernels if marker in e['name']]
                 row[kind+'_calls'] = len(selected)
                 row[kind+'_sum_us'] = sum(e['dur'] for e in selected)
