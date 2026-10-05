@@ -1,5 +1,15 @@
 # Phase6: execution cost and full-step acceptance
 
+For two-node TP4/DP2 **measurement without tuning**, use the independent
+[dp2 runner](dp2/README.md). It reuses frozen libraries and does not modify the
+single-node entrypoints below. DP2 results include cross-node gradient sync and
+must be reported separately from independent single-node TP4 measurements.
+
+For the user-selected existing **BF16 hierarchical TP8** controls and subsequent
+TP4 before/after regression, use the independent [tp8 runner](tp8/README.md).
+This does not implement cross-node arrival/selective TACO or satisfy the
+six-policy quantization acceptance protocol.
+
 Only MLP `linear_fc2` forward changes. The two candidates retain their remote /
 interleaved base order, a constrained arrival permutation, and a frozen physical
 tile selection mask. BF16 GEMM, local BF16 contributions, E4M3/H128 codec and the
