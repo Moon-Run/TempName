@@ -173,4 +173,6 @@ The optional short-sequence/large-batch preparation arguments and the
 the user requested finishing the already started suite, documenting it, and
 stopping. They supply no performance or numerical evidence. Do not automatically
 launch them on a later continuation. Latest outcomes and the stopping boundary
-are recorded in `docs/design/instruction.md` and `docs/design/base-phase6.md`.
+are recorded in `docs/design/instruction.md` and `docs/design/base-phase6-tp4.md`.
+
+Phase6 results are separated by topology: [single-node TP4](../../../docs/design/base-phase6-tp4.md), [two-node TP4/DP2](../../../docs/design/base-phase6-tp4dp2.md), and [two-node TP8](../../../docs/design/base-phase6-tp8双节点.md).
