@@ -1,5 +1,12 @@
 # Phase6: execution cost and full-step acceptance
 
+The reproducible **single-node TP4 archive** covers S1024/mb8, S2048/mb4 and
+S256/mb32, each with its actual historical binaries, plans and scripts. Use
+[the archive index](../../../docs/design/tp4-archive.md) and `tp4_archive.py`
+for replay without rebuilding. S256 retains its older eight-policy version.
+For independent **single-node TP8 full quantization adaptation**, use
+[tp8_quant](tp8_quant/README.md); shared TP4 sources remain unchanged.
+
 For two-node TP4/DP2 **measurement without tuning**, use the independent
 [dp2 runner](dp2/README.md). It reuses frozen libraries and does not modify the
 single-node entrypoints below. DP2 results include cross-node gradient sync and
@@ -50,8 +57,8 @@ formal runs from a compact build with `--decoder compact-v1`; the verifier
 predicts the exact per-rank kernel counts from the frozen selection mask.
 
 Builds and experiments are immutable and use fresh directories. Do not modify
-old phase4/5 snapshots. Allocation 179147 has expired; preserve the outer hold
-loops of allocations 183972 and 182708. Check Slurm before starting
+old phase4/5 snapshots. Allocations 179147, 183972 and 182708 have expired; preserve the outer hold
+loops of the current allocations listed in `docs/design/instruction.md`. Check Slurm before starting
 and run GPU experiments serially within each allocation. With the user's explicit
 authorization, independent TP4 experiments can run on both nodes concurrently;
 every paired comparison must stay within one node and one model configuration.
@@ -61,9 +68,9 @@ python3 -m unittest discover -s tools/a800/phase6 -p 'test_*.py'
 python3 tools/a800/phase5/build.py --out outputs/a800/phase6/NEW \
   --arrival-plan outputs/a800/arrival-v2-tp4-20261003/artifacts/plan.json
 python3 tools/a800/phase6/prepare.py logs/a800/phase6/NEW \
-  --build outputs/a800/phase6/NEW --job-id 183972
-squeue --steps -j 183972
-srun --jobid=183972 --overlap --nodes=1 --ntasks=1 --cpus-per-task=8 \
+  --build outputs/a800/phase6/NEW --job-id 189341
+squeue --steps -j 189341
+srun --jobid=189341 --overlap --nodes=1 --ntasks=1 --cpus-per-task=8 \
   --gpus=4 --kill-on-bad-exit=1 \
   /data/home/scyb672/run/conda_envs/flux-megatron-a800/bin/python \
   "$PWD/logs/a800/phase6/NEW/campaign.py" > logs/a800/phase6/NEW/driver.log 2>&1
@@ -154,7 +161,7 @@ For the compact decoder and the four-order selection plan, for example:
 python3 tools/a800/phase6/prepare_scenario.py logs/a800/phase6/NEW \
   --build outputs/a800/phase6/COMPACT_BUILD --plan /absolute/path/to/selection-plan.json \
   --hidden 2048 --sequence 1024 --bases remote_first interleaved \
-  --decoder compact-v1 --job-id 183972
+  --decoder compact-v1 --job-id 189341
 ```
 
 `verify_run.py` loads each run's own frozen verifier and routing module, avoiding
