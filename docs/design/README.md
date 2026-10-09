@@ -8,7 +8,7 @@ H100 单节点代码移植单独维护在 [H100 instruction.md](design-h100/inst
 | --- | --- |
 | 当前实验结论、baseline、验收规则与资源快照 | [A800 接续说明](design-a800/instruction.md) |
 | H100 单节点移植、构建流程与无 GPU 验证 | [H100 接续说明](design-h100/instruction.md) |
-| 软件版本、Megatron 固定提交与环境配置 | [env.md](design-a800/env.md) |
+| 软件版本、Megatron 固定提交与环境配置 | [env.md](env.md) |
 | 基础顺序、到达优先与选择性量化的研究思路 | [idea.md](design-a800/idea.md) |
 | Phase6 单节点 TP4 | [实验记录](design-a800/base-phase6-tp4.md) · [冻结存档与复跑](design-a800/tp4-archive.md) |
 | Phase6 单节点 TP8 | [实验记录](design-a800/base-phase6-tp8.md) · [限时优化记录](design-a800/optimize/tp8/optimize1.md) |

@@ -2,6 +2,8 @@
 
 本入口把 A800 Phase6 的完整 step 对比协议移植到单节点 H100，默认 TP8，支持 TP4，DP/PP/CP 均为 1。无需 Slurm，使用独立 `torchrun --standalone` 进程。A800 源码入口、冻结库、到达表和结果均不改写。
 
+新服务器首次部署请按 [单机八卡 H100 部署指南](../../../docs/design/design-h100/deploy-tp8.md) 配置环境、重新编译并运行。
+
 **当前是代码移植版本，尚未进行 H100 GPU 正确性、校准或性能测试，不能据此宣称提速。** 下文 GPU 命令只供之后在 H100 上执行；`calibrate.py run` 和 `run.py` 没有 `--execute` 时只打印命令。
 
 ## 算法与 baseline
@@ -27,7 +29,7 @@ H100 baseline 从当前受版本控制的源码生成并冻结，**不读取 `ou
 
 ## 环境与范围
 
-- Python 3.10、PyTorch 2.6.0+cu124、带 C++/CUDA 扩展的 NVIDIA Apex、CMake、Ninja、GCC/G++；详细包版本见 [A800 环境记录](../../../docs/design/design-a800/env.md)，保持可比较的软件版本。
+- Python 3.10、PyTorch 2.6.0+cu124、带 C++/CUDA 扩展的 NVIDIA Apex、CMake、Ninja、GCC/G++；详细包版本见 [公共环境记录](../../../docs/design/env.md)，保持可比较的软件版本。
 - 编译建议 CUDA Toolkit 12.8，运行及 Apex 环境沿用 CUDA 12.4。builder 显式关闭 NVSHMEM、protobuf、GPU 架构自动探测，并设置 `CUDA_VISIBLE_DEVICES=''`，可以在没有 GPU 的编译节点上执行。
 - Megatron-LM 固定为 `core_v0.12.3` / `3ea68ad6042cc1204386ae9364358f7c4de1bc37`，路径通过 `--megatron` 指定；不依赖 `/data/run01/...` 或固定 Conda 位置。
 - `sm_count` 默认 132，对应完整 H100 SXM 配置；也可指定 114 生成相应注册配置。实际运行仍要求 H100 SM90、同质设备、完整单节点 TP 组、NVLink 路径和所有设备两两可进行 CUDA peer access，不支持 MIG、跨节点或任意 PCIe 拓扑。

@@ -6,6 +6,8 @@
 
 **Megatron-LM 必须固定为 `core_v0.12.3`，精确提交为 `3ea68ad6042cc1204386ae9364358f7c4de1bc37`。** 获取与校验命令见第 5 节；74 服务器现有镜像的选择建议见第 8 节。
 
+单机八卡 H100 的完整源码迁移、构建、校准和运行步骤见 [H100 TP8 部署指南](design-h100/deploy-tp8.md)。该指南使用相同的 PyTorch/Apex 版本，并单列已经过 H100 编译检查的 CMake 3.30.0。
+
 ## 1. 当前实际使用的环境
 
 | 用途 | 当前位置 | 主要版本与说明 |
@@ -160,7 +162,7 @@ python -m pip install -v --disable-pip-version-check \
 3ea68ad6042cc1204386ae9364358f7c4de1bc37
 ```
 
-2026-10-09 已核对相邻目录 `../Megatron-LM` 的 `HEAD` 和 `core_v0.12.3^{commit}`，二者均为上述提交。Megatron 通过源码目录加入 `PYTHONPATH`，不另外安装 `megatron-core` wheel，也不跟随 `main` 或自动升级到其他版本。现有 [实验配置](../../../tools/a800/phase4/e2e/config.json) 固定了这个 SHA，[启动器](../../../tools/a800/phase4/e2e/launch.py) 会检查源码 `HEAD`，版本不同会直接触发断言。
+2026-10-09 已核对相邻目录 `../Megatron-LM` 的 `HEAD` 和 `core_v0.12.3^{commit}`，二者均为上述提交。Megatron 通过源码目录加入 `PYTHONPATH`，不另外安装 `megatron-core` wheel，也不跟随 `main` 或自动升级到其他版本。现有 [实验配置](../../tools/a800/phase4/e2e/config.json) 固定了这个 SHA，[启动器](../../tools/a800/phase4/e2e/launch.py) 会检查源码 `HEAD`，版本不同会直接触发断言。
 
 ```bash
 export MEGATRON_DIR="$(dirname "$REPO")/Megatron-LM"
@@ -189,7 +191,7 @@ export MAX_JOBS=2
 
 现有自定义构建使用 `ENABLE_NVSHMEM=OFF`、`WITH_PROTOBUF=OFF`，不需要额外安装 NVSHMEM 或 protobuf。后续编译应保留这些设置，并使用同一 PyTorch 环境重新生成 `.so`；不能仅安装上游 `byte-flux` wheel 来替代本仓库修改后的扩展。
 
-构建流程见 [gemm_rs_validation/build.sh](../../../tools/a800/gemm_rs_validation/build.sh) 和 [Phase6 构建说明](../../../tools/a800/phase6/README.md)。这些脚本含旧机器的路径，不能原样当作跨机器安装器。根目录 `build.sh` 最后使用 `setup.py develop --user`，在隔离 Conda 环境中需调整这一步；现有自定义构建使用 `python setup.py build_ext --inplace`，然后通过所构建目录的 `python/` 加载包。只运行这条 Python 命令不会代替前面的 CMake/NCCL 构建。
+构建流程见 [gemm_rs_validation/build.sh](../../tools/a800/gemm_rs_validation/build.sh) 和 [Phase6 构建说明](../../tools/a800/phase6/README.md)。这些脚本含旧机器的路径，不能原样当作跨机器安装器。根目录 `build.sh` 最后使用 `setup.py develop --user`，在隔离 Conda 环境中需调整这一步；现有自定义构建使用 `python setup.py build_ext --inplace`，然后通过所构建目录的 `python/` 加载包。只运行这条 Python 命令不会代替前面的 CMake/NCCL 构建。
 
 完成编译后，训练入口恢复 `CUDA_HOME` / `CUDACXX` 到 12.4，并使用对应扩展目录设置 `PYTHONPATH`、`LD_LIBRARY_PATH`；Phase6 启动器已有这些设置。常用运行变量是 `PYTHONNOUSERSITE=1`、`OMP_NUM_THREADS=1`、`MKL_NUM_THREADS=1`、`CUDA_DEVICE_MAX_CONNECTIONS=1`。
 
@@ -240,7 +242,7 @@ ninja --version
 
 `outputs/`、`logs/`、虚拟环境和编译产物均被 Git 忽略，clone 不会带上它们。部分实验启动器还固定了 `conda_envs/flux-megatron-a800/bin/python` 相对位置，迁移时需改为新环境的 `$CONDA_PREFIX/bin/python`；配置好依赖不等于旧实验的冻结库、mask 和结果目录已经恢复。
 
-本页依据：现有两个 Python 环境查询、`outputs/a800/megatron-e2e/requirements-resolved.txt`、Apex 裁剪补丁、Flux 的 CMakeCache，以及仓库 [训练环境设置](../../../tools/a800/phase4/e2e/campaign.py)、[训练入口](../../../tools/a800/phase4/e2e/launch.py)、[构建脚本](../../../tools/a800/gemm_rs_validation/build.sh)。旧输出目录中的快照只作为本机核验依据，不是新 clone 的必需文件。
+本页依据：现有两个 Python 环境查询、`outputs/a800/megatron-e2e/requirements-resolved.txt`、Apex 裁剪补丁、Flux 的 CMakeCache，以及仓库 [训练环境设置](../../tools/a800/phase4/e2e/campaign.py)、[训练入口](../../tools/a800/phase4/e2e/launch.py)、[构建脚本](../../tools/a800/gemm_rs_validation/build.sh)。旧输出目录中的快照只作为本机核验依据，不是新 clone 的必需文件。
 
 ## 8. env-74.md 中的镜像怎么选
 

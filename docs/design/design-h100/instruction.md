@@ -2,12 +2,13 @@
 
 更新：2026-10-09。本目录记录 H100 代码移植，与 [A800 接续说明](../design-a800/instruction.md) 分开维护。
 
-当前目标是单节点 TP4/TP8 下的 baseline 与“基础顺序＋到达优先＋选择性量化”完整 optimizer-step 对比。默认 TP8/DP1，不支持跨节点。本次授权范围不包含 GPU 测试，尚无 H100 正确性、到达校准、性能或收敛结果。
+当前目标是单节点 TP4/TP8 下的 baseline 与“基础顺序＋到达优先＋选择性量化”完整 optimizer-step 对比。默认 TP8/DP1，不支持跨节点。首轮仅完成 CPU/编译验证；之后获准的四卡限时测试因提交名额限制未能启动，用户要求保留现有作业并停止。本地尚无 H100 正确性、到达校准、性能或收敛结果。
 
 ## 入口
 
 | 内容 | 路径 |
 | --- | --- |
+| 新服务器环境、源码迁移与八卡运行步骤 | [单机 TP8 部署指南](deploy-tp8.md) |
 | 完整命令、baseline 定义与实现边界 | [H100 Phase6 README](../../../tools/h100/phase6/README.md) |
 | 模型、TP、SM 数、基础顺序和预算 | [config.json](../../../tools/h100/phase6/config.json) |
 | TP4、S1024、micro/global batch8 场景 | [config-tp4-s1024.json](../../../tools/h100/phase6/config-tp4-s1024.json) |

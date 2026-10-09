@@ -81,7 +81,7 @@ squeue --steps -u scyb672
 
 | 用途 | 入口 |
 | --- | --- |
-| 软件环境、Megatron 固定版本与迁移 | [env.md](env.md) |
+| 软件环境、Megatron 固定版本与迁移 | [env.md](../env.md) |
 | 单节点TP4准备、构建、验收 | [phase6/README](../../../tools/a800/phase6/README.md)；`prepare_scenario.py`、`assess.py` |
 | TP4三形状冻结复跑 | [存档索引](tp4-archive.md)；`tools/a800/phase6/tp4_archive.py` |
 | 双节点TP4/DP2 | [dp2/README](../../../tools/a800/phase6/dp2/README.md)；独立冻结准备与运行器 |
