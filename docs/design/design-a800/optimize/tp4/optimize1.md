@@ -2,7 +2,7 @@
 
 记录日期：2026-10-04（北京时间）。本轮工作窗口为 **00:23–02:53**，已按用户指定的2.5小时时限结束。本文只总结该次优化及其实际完成的测试，不包含后续申请183972的资源接续工作。
 
-任务依据：[instruction.md](../instruction.md)、[idea.md](../idea.md)。相关阶段记录：[base-phase6-tp4.md](../base-phase6-tp4.md)；原始会话汇总：[summary.md](../../../logs/a800/phase6/tp4-opt-session-20261004/summary.md)。
+任务依据：[instruction.md](../../instruction.md)、[idea.md](../../idea.md)。相关阶段记录：[base-phase6-tp4.md](../../base-phase6-tp4.md)；原始会话汇总：[summary.md](../../../../../logs/a800/phase6/tp4-opt-session-20261004/summary.md)。
 
 ## 1. 目标与最终结果
 
@@ -26,7 +26,7 @@
 
 ### 2.2 保留改动：TP4接收端16行分组解码
 
-主要源码：[src/gemm_rs/taco_runtime.cu](../../../src/gemm_rs/taco_runtime.cu)，核心新增路径为`taco_decode_tile4_kernel`。最终冻结构建：`outputs/a800/phase6/tp4-opt-final-build-20261004`。
+主要源码：[src/gemm_rs/taco_runtime.cu](../../../../../src/gemm_rs/taco_runtime.cu)，核心新增路径为`taco_decode_tile4_kernel`。最终冻结构建：`outputs/a800/phase6/tp4-opt-final-build-20261004`。
 
 | 优化点 | 本轮开始前 | 本轮保留实现 | 目的与边界 |
 | --- | --- | --- | --- |
@@ -51,16 +51,16 @@
 | BF16归约与量化贡献分成两遍处理 | 算子诊断更慢 | 未采用；快照保留 |
 | 反向行块执行（探索版本v5） | 算子诊断有改善，但完整step相对v3：远端-0.086% [-0.346,+0.114]，交替+0.092% [-0.163,+0.274] | 未建立通用增益，最终源码恢复v3；v5仅留在实验快照 |
 
-反向行块的完整step结果来自[三解码器探索消融](../../../logs/a800/phase6/tp4-opt-three-decoder-ablation-nodeb-20261004-r2/results.json)。该入口在CPU绑核前导入Torch/CUDA，初始化顺序与标准worker不同，结果仅作探索证据。
+反向行块的完整step结果来自[三解码器探索消融](../../../../../logs/a800/phase6/tp4-opt-three-decoder-ablation-nodeb-20261004-r2/results.json)。该入口在CPU绑核前导入Torch/CUDA，初始化顺序与标准worker不同，结果仅作探索证据。
 
 ### 2.4 配套测试与验收工具改动
 
 | 工作 | 作用 | 维护入口 |
 | --- | --- | --- |
-| 新旧解码诊断和边界核验 | 对比完整算子、检查逐位一致性、不同mask、尾部、输出生命周期和延迟rank双缓冲复用 | [bench_decode_variants.py](../../../tools/a800/phase6/bench_decode_variants.py)、[run_decode_diagnostics.py](../../../tools/a800/phase6/run_decode_diagnostics.py) |
-| 固定其余因素的完整step消融 | 只切换解码器；最终入口先绑核再初始化CUDA，避免提前初始化干扰比较 | [decoder_ablation.py](../../../tools/a800/phase6/decoder_ablation.py)、[decoder_control.py](../../../tools/a800/phase6/decoder_control.py)、[decoder_entry.py](../../../tools/a800/phase6/decoder_entry.py) |
-| 冻结4%门槛和协议版本 | 新准备入口写入`paired-full-step-v2-20261004`及`target_percent=4`；历史无该字段的配置继续按5%解释 | [prepare.py](../../../tools/a800/phase6/prepare.py)、[prepare_scenario.py](../../../tools/a800/phase6/prepare_scenario.py)、[assess.py](../../../tools/a800/phase6/assess.py) |
-| 场景与作业选择 | 在新实验目录中冻结S256/S1024/S2048及策略集合，使用相应`--job-id`；正式验收仍要求两条候选与四类baseline齐全 | [prepare_scenario.py](../../../tools/a800/phase6/prepare_scenario.py) |
+| 新旧解码诊断和边界核验 | 对比完整算子、检查逐位一致性、不同mask、尾部、输出生命周期和延迟rank双缓冲复用 | [bench_decode_variants.py](../../../../../tools/a800/phase6/bench_decode_variants.py)、[run_decode_diagnostics.py](../../../../../tools/a800/phase6/run_decode_diagnostics.py) |
+| 固定其余因素的完整step消融 | 只切换解码器；最终入口先绑核再初始化CUDA，避免提前初始化干扰比较 | [decoder_ablation.py](../../../../../tools/a800/phase6/decoder_ablation.py)、[decoder_control.py](../../../../../tools/a800/phase6/decoder_control.py)、[decoder_entry.py](../../../../../tools/a800/phase6/decoder_entry.py) |
+| 冻结4%门槛和协议版本 | 新准备入口写入`paired-full-step-v2-20261004`及`target_percent=4`；历史无该字段的配置继续按5%解释 | [prepare.py](../../../../../tools/a800/phase6/prepare.py)、[prepare_scenario.py](../../../../../tools/a800/phase6/prepare_scenario.py)、[assess.py](../../../../../tools/a800/phase6/assess.py) |
+| 场景与作业选择 | 在新实验目录中冻结S256/S1024/S2048及策略集合，使用相应`--job-id`；正式验收仍要求两条候选与四类baseline齐全 | [prepare_scenario.py](../../../../../tools/a800/phase6/prepare_scenario.py) |
 
 这些工具改动用于可靠测量和复现，不计为运行时性能收益。
 
@@ -99,7 +99,7 @@
 | 远端＋到达优先＋选择性量化 | 92.403 | 92.170 | +0.196 [+0.050,+0.335] | 确认小幅正增量 |
 | 交替＋到达优先＋选择性量化 | 92.381 | 92.383 | -0.085 [-0.201,+0.034] | 区间跨零，未确认正增量 |
 
-数据来源：[标准入口消融results.json](../../../logs/a800/phase6/tp4-opt-decoder-standard-ablation-nodeb-20261004-r2/results.json)。这是本轮新CUDA代码的最终独立增量证据，只适用于所测S256/mb32及两条路线。
+数据来源：[标准入口消融results.json](../../../../../logs/a800/phase6/tp4-opt-decoder-standard-ablation-nodeb-20261004-r2/results.json)。这是本轮新CUDA代码的最终独立增量证据，只适用于所测S256/mb32及两条路线。
 
 更早的三解码器探索入口测得远端+0.286% [0.083,0.603]、交替+0.080% [-0.219,+0.459]；因初始化顺序不同，不使用这组值代替标准入口结论。新旧ms中位数之间的比例与配对下降点估计也可能不同。
 
@@ -168,11 +168,11 @@
 
 | 场景 / 作业 | 策略×块×轮 | 窗口 / rank记录 / 计时step | 验收与核验 |
 | --- | --- | --- | --- |
-| S256/mb32 / 179147 | 8×8×2 | 128 / 512 / 2560 | [验收](../../../logs/a800/phase6/tp4-opt-s256-confirm-20261004-r2/acceptance.md) · [核验](../../../logs/a800/phase6/tp4-opt-s256-confirm-20261004-r2/verification.json) |
-| S256/mb32 / 182708 | 8×8×2 | 128 / 512 / 2560 | [验收](../../../logs/a800/phase6/tp4-opt-s256-confirm-nodeb-20261004/acceptance.md) · [核验](../../../logs/a800/phase6/tp4-opt-s256-confirm-nodeb-20261004/verification.json) |
-| S1024/mb8 / 182708 | 6×6×2 | 72 / 288 / 1440 | [验收](../../../logs/a800/phase6/tp4-opt-s1024-confirm-nodeb-20261004/acceptance.md) · [核验](../../../logs/a800/phase6/tp4-opt-s1024-confirm-nodeb-20261004/verification.json) |
-| S1024/mb8 / 179147 | 6×6×2 | 72 / 288 / 1440 | [验收](../../../logs/a800/phase6/tp4-opt-s1024-confirm-nodea-20261004/acceptance.md) · [核验](../../../logs/a800/phase6/tp4-opt-s1024-confirm-nodea-20261004/verification.json) |
-| S2048/mb4 / 179147 | 8×8×2 | 128 / 512 / 2560 | [验收](../../../logs/a800/phase6/tp4-opt-s2048-all-confirm-20261004/acceptance.md) · [核验](../../../logs/a800/phase6/tp4-opt-s2048-all-confirm-20261004/verification.json) |
+| S256/mb32 / 179147 | 8×8×2 | 128 / 512 / 2560 | [验收](../../../../../logs/a800/phase6/tp4-opt-s256-confirm-20261004-r2/acceptance.md) · [核验](../../../../../logs/a800/phase6/tp4-opt-s256-confirm-20261004-r2/verification.json) |
+| S256/mb32 / 182708 | 8×8×2 | 128 / 512 / 2560 | [验收](../../../../../logs/a800/phase6/tp4-opt-s256-confirm-nodeb-20261004/acceptance.md) · [核验](../../../../../logs/a800/phase6/tp4-opt-s256-confirm-nodeb-20261004/verification.json) |
+| S1024/mb8 / 182708 | 6×6×2 | 72 / 288 / 1440 | [验收](../../../../../logs/a800/phase6/tp4-opt-s1024-confirm-nodeb-20261004/acceptance.md) · [核验](../../../../../logs/a800/phase6/tp4-opt-s1024-confirm-nodeb-20261004/verification.json) |
+| S1024/mb8 / 179147 | 6×6×2 | 72 / 288 / 1440 | [验收](../../../../../logs/a800/phase6/tp4-opt-s1024-confirm-nodea-20261004/acceptance.md) · [核验](../../../../../logs/a800/phase6/tp4-opt-s1024-confirm-nodea-20261004/verification.json) |
+| S2048/mb4 / 179147 | 8×8×2 | 128 / 512 / 2560 | [验收](../../../../../logs/a800/phase6/tp4-opt-s2048-all-confirm-20261004/acceptance.md) · [核验](../../../../../logs/a800/phase6/tp4-opt-s2048-all-confirm-20261004/verification.json) |
 
 另有24窗口S256旧候选初测、36窗口三解码器探索消融、32窗口标准入口消融；加上正式实验，共620窗口 / 2480份rank记录 / 12400个计时step。正式4%验收只统计528窗口，不把初测或探索窗口并入。
 
@@ -191,4 +191,4 @@
 
 全部训练使用固定合成token，不含数据加载、checkpoint或评估；反向为BF16 STE。数值预算通过和有限loss不等于真实数据收敛。两个节点的结果分别配对统计，不跨节点相除或合并区间。历史S2048单轮2.897%与本次2.950% / 2.987%没有形成同轮旧/新配对，不能用其差值声称新增代码带来确定收益。
 
-本轮在2.5小时期限内结束，没有待自动续跑的实验。最终保留16行分组、行优先布局解码；新S256场景达标，原S2048场景的4%目标仍未完成。资源后续状态见[instruction.md](../instruction.md)。本文位于`docs/design/`，按用户要求继续受`design/`忽略规则管理。
+本轮在2.5小时期限内结束，没有待自动续跑的实验。最终保留16行分组、行优先布局解码；新S256场景达标，原S2048场景的4%目标仍未完成。资源后续状态见[instruction.md](../../instruction.md)。本文现位于`docs/design/design-a800/optimize/tp4/`，按当前规则纳入版本控制；日志和构建仍被忽略。

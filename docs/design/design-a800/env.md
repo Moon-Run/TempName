@@ -1,8 +1,10 @@
 # 软件环境与新服务器配置
 
-核验日期：2026-10-06。本文记录本仓库当前 Phase4–Phase6 实验实际使用的软件环境，以及新服务器 clone 后需要配置的依赖；不涉及 GPU 型号、卡数、拓扑或 Slurm 配置。本次只检查现有环境，没有安装软件或启动实验。
+环境核验日期：2026-10-06；Megatron 版本与镜像选择说明补充于 2026-10-09。本文记录本仓库当前 Phase4–Phase6 实验实际使用的软件环境，以及新服务器 clone 后需要配置的依赖；不涉及 GPU 型号、卡数、拓扑或 Slurm 配置。本次只检查现有环境，没有安装软件或启动实验。
 
 **主要环境是 Conda + Python 3.10.20 + PyTorch 2.6.0（cu124）+ NVIDIA Apex；编译本仓库的 Flux/TACO 扩展还需要 CUDA Toolkit、GCC/G++、CMake 和 Ninja。** 新机器可以使用 Miniconda 或 Miniforge，重点是环境内的版本，不要求使用旧机器的 Conda 安装目录。
+
+**Megatron-LM 必须固定为 `core_v0.12.3`，精确提交为 `3ea68ad6042cc1204386ae9364358f7c4de1bc37`。** 获取与校验命令见第 5 节；74 服务器现有镜像的选择建议见第 8 节。
 
 ## 1. 当前实际使用的环境
 
@@ -19,6 +21,7 @@
 | --- | --- | --- |
 | Python | 3.10.20 | conda-forge 构建 |
 | PyTorch | 2.6.0+cu124 | `torch.version.cuda == "12.4"` |
+| Megatron-LM / Megatron Core | `core_v0.12.3` | 使用固定提交的源码，完整 SHA 和校验方式见第 5 节 |
 | Triton | 3.2.0 | 随该版本 PyTorch 安装 |
 | NVIDIA Apex | 0.1，源码 tag `25.04` | 需要编译扩展，不能只安装 Python 部分 |
 | NumPy | 1.26.4 | 训练环境版本 |
@@ -151,12 +154,20 @@ python -m pip install -v --disable-pip-version-check \
 
 ## 5. Megatron 与本仓库扩展
 
-Megatron 通过源码目录加入 `PYTHONPATH`，不是通过安装最新版 `megatron-core` wheel 使用。当前相邻目录 `../Megatron-LM` 的提交为 `3ea68ad6042cc1204386ae9364358f7c4de1bc37`（`core_v0.12.3`）。
+**本仓库当前实验固定使用 Megatron-LM 的 `core_v0.12.3` tag，并以提交 SHA 为最终校验依据：**
+
+```text
+3ea68ad6042cc1204386ae9364358f7c4de1bc37
+```
+
+2026-10-09 已核对相邻目录 `../Megatron-LM` 的 `HEAD` 和 `core_v0.12.3^{commit}`，二者均为上述提交。Megatron 通过源码目录加入 `PYTHONPATH`，不另外安装 `megatron-core` wheel，也不跟随 `main` 或自动升级到其他版本。现有 [实验配置](../../../tools/a800/phase4/e2e/config.json) 固定了这个 SHA，[启动器](../../../tools/a800/phase4/e2e/launch.py) 会检查源码 `HEAD`，版本不同会直接触发断言。
 
 ```bash
 export MEGATRON_DIR="$(dirname "$REPO")/Megatron-LM"
 git clone https://github.com/NVIDIA/Megatron-LM.git "$MEGATRON_DIR"
-git -C "$MEGATRON_DIR" checkout 3ea68ad6042cc1204386ae9364358f7c4de1bc37
+git -C "$MEGATRON_DIR" checkout --detach 3ea68ad6042cc1204386ae9364358f7c4de1bc37
+test "$(git -C "$MEGATRON_DIR" rev-parse HEAD)" = \
+  "3ea68ad6042cc1204386ae9364358f7c4de1bc37"
 
 git -C "$REPO" submodule update --init --recursive
 export PYTHONPATH="$MEGATRON_DIR:$REPO/python${PYTHONPATH:+:$PYTHONPATH}"
@@ -178,7 +189,7 @@ export MAX_JOBS=2
 
 现有自定义构建使用 `ENABLE_NVSHMEM=OFF`、`WITH_PROTOBUF=OFF`，不需要额外安装 NVSHMEM 或 protobuf。后续编译应保留这些设置，并使用同一 PyTorch 环境重新生成 `.so`；不能仅安装上游 `byte-flux` wheel 来替代本仓库修改后的扩展。
 
-构建流程见 [gemm_rs_validation/build.sh](../../tools/a800/gemm_rs_validation/build.sh) 和 [Phase6 构建说明](../../tools/a800/phase6/README.md)。这些脚本含旧机器的路径，不能原样当作跨机器安装器。根目录 `build.sh` 最后使用 `setup.py develop --user`，在隔离 Conda 环境中需调整这一步；现有自定义构建使用 `python setup.py build_ext --inplace`，然后通过所构建目录的 `python/` 加载包。只运行这条 Python 命令不会代替前面的 CMake/NCCL 构建。
+构建流程见 [gemm_rs_validation/build.sh](../../../tools/a800/gemm_rs_validation/build.sh) 和 [Phase6 构建说明](../../../tools/a800/phase6/README.md)。这些脚本含旧机器的路径，不能原样当作跨机器安装器。根目录 `build.sh` 最后使用 `setup.py develop --user`，在隔离 Conda 环境中需调整这一步；现有自定义构建使用 `python setup.py build_ext --inplace`，然后通过所构建目录的 `python/` 加载包。只运行这条 Python 命令不会代替前面的 CMake/NCCL 构建。
 
 完成编译后，训练入口恢复 `CUDA_HOME` / `CUDACXX` 到 12.4，并使用对应扩展目录设置 `PYTHONPATH`、`LD_LIBRARY_PATH`；Phase6 启动器已有这些设置。常用运行变量是 `PYTHONNOUSERSITE=1`、`OMP_NUM_THREADS=1`、`MKL_NUM_THREADS=1`、`CUDA_DEVICE_MAX_CONNECTIONS=1`。
 
@@ -229,4 +240,33 @@ ninja --version
 
 `outputs/`、`logs/`、虚拟环境和编译产物均被 Git 忽略，clone 不会带上它们。部分实验启动器还固定了 `conda_envs/flux-megatron-a800/bin/python` 相对位置，迁移时需改为新环境的 `$CONDA_PREFIX/bin/python`；配置好依赖不等于旧实验的冻结库、mask 和结果目录已经恢复。
 
-本页依据：现有两个 Python 环境查询、`outputs/a800/megatron-e2e/requirements-resolved.txt`、Apex 裁剪补丁、Flux 的 CMakeCache，以及仓库 [训练环境设置](../../tools/a800/phase4/e2e/campaign.py)、[训练入口](../../tools/a800/phase4/e2e/launch.py)、[构建脚本](../../tools/a800/gemm_rs_validation/build.sh)。旧输出目录中的快照只作为本机核验依据，不是新 clone 的必需文件。
+本页依据：现有两个 Python 环境查询、`outputs/a800/megatron-e2e/requirements-resolved.txt`、Apex 裁剪补丁、Flux 的 CMakeCache，以及仓库 [训练环境设置](../../../tools/a800/phase4/e2e/campaign.py)、[训练入口](../../../tools/a800/phase4/e2e/launch.py)、[构建脚本](../../../tools/a800/gemm_rs_validation/build.sh)。旧输出目录中的快照只作为本机核验依据，不是新 clone 的必需文件。
+
+## 8. env-74.md 中的镜像怎么选
+
+**以复现本仓库现有软件版本、减少环境改动为目标，首选列表中的这个基础镜像：**
+
+```text
+swr.cn-north-4.myhuaweicloud.com/ddn-k8s/docker.io/pytorch/pytorch:2.5.1-cuda12.4-cudnn9-devel
+```
+
+用户此前提供的 `env-74.md` 镜像清单记录的 IMAGE ID 为 `05d1b981bb5b`，大小 13.3 GB。该原始清单当前未包含在此文档目录中，本节保留已整理的选择依据。这里仅根据用户提供的镜像名称、tag 和公开版本说明作选择，未访问另一台服务器，也未核验镜像内部实际内容。
+
+判断依据是标签明确标出了 CUDA 12.4、cuDNN 9 和 `devel` 开发环境，与当前 PyTorch cu124 及需要编译 Apex/Flux 的用途较接近。**镜像自带的 PyTorch 2.5.1 仍不等于目标版本；它适合作为配置起点，不能直接视作完整复现环境。**
+
+选定后仍需完成以下软件配置：
+
+1. 在镜像内使用 Conda 新建 Python 3.10.20 环境，按第 2 节安装 `torch==2.6.0` 的 cu124 wheel 和其他固定依赖，不继承镜像原来的 Python 包。
+2. 保留或补齐 CUDA Toolkit 12.4，并另行配置 CUDA Toolkit 12.8；仅凭镜像标签不能认为 12.8 已存在。
+3. 按第 4 节编译固定版本 Apex，按第 5 节获取固定提交的 Megatron-LM，并在新环境中重新编译本仓库扩展。
+
+其他候选的取舍：
+
+| 镜像 / 类别 | 对当前仓库的判断 |
+| --- | --- |
+| `nvcr.io/nvidia/pytorch:25.04-py3` | 可作为开发基础，但不是现有版本组合。官方配置为 Python 3.12、PyTorch 2.7.0a0、CUDA 12.9.0；复现时需要调整更多依赖，不作为首选 |
+| `nvcr.io/nvidia/pytorch:24.10-py3` | 官方配置为 PyTorch 2.5.0a0、CUDA 12.6.2，也不如上述 CUDA 12.4 的 devel 镜像贴近现有环境 |
+| `1sci:*`、`pcged-training:latest` 等自定义镜像 | 名称不足以确定 Python、CUDA Toolkit、Apex 和 PyTorch 的完整组合，仅看列表不优先选择 |
+| 带 `vllm` / `sglang` 的镜像 | 名称指向推理服务用途；当前任务需要固定 Megatron 训练及自定义编译环境，不优先选择这些带额外服务依赖的镜像 |
+
+NGC 版本差异依据 [NVIDIA PyTorch 25.04 发布说明及历史版本表](https://docs.nvidia.com/deeplearning/frameworks/pytorch-release-notes/rel-25-04.html)。Apex 的源码 tag `25.04` 与 NGC 镜像 tag `25.04-py3` 是不同组件的版本标识，不需要因为 Apex 的版本号而选择同名月份的镜像。

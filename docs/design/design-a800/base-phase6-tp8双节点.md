@@ -8,7 +8,7 @@
 
 按用户选择，本次测量**已有BF16分层TP8路径**，不扩展跨节点到达优先/选择性量化，不调优。TP8 GPU阶段为北京时间21:35–22:31；其前后另在相同节点进行单节点TP4六组回归。第1、2轮及该次回归阶段已经结束；最新追加复测和资源状态见下一段。
 
-第3、4轮结果已按实际采集窗口写入下表，同一形状、同一排序的各轮连续排列。S2048第4轮采用已有1个配对块统计，样本口径见表下注释。本次测量使用的183972已到期，当前资源见[instruction.md](instruction.md)；完整[复测汇总](../../logs/a800/phase6/tp8-bf16-measure-20261004-r34/summary.md)保留各窗口来源。
+第3、4轮结果已按实际采集窗口写入下表，同一形状、同一排序的各轮连续排列。S2048第4轮采用已有1个配对块统计，样本口径见表下注释。本次测量使用的183972已到期，当前资源见[instruction.md](instruction.md)；完整[复测汇总](../../../logs/a800/phase6/tp8-bf16-measure-20261004-r34/summary.md)保留各窗口来源。
 
 ### TP8范围与配置
 
@@ -66,5 +66,5 @@ S2048第4轮按用户要求采用已有窗口统计：Megatron、原始顺序Flu
 
 此前第1、2轮TP8共64正式窗口/512份rank记录/1280个计时optimizer step；此前TP4回归共144正式窗口/576份rank记录/2880个计时step。本次追加复测另核验51个正式窗口/408份rank记录/1020个计时step，其中48窗口对应三个四块轮次，另外3窗口用于S2048第4轮的单配对块统计。全部窗口核验初始化、输入、RNG、GPU身份、有限loss/梯度、无跳步或回退；TP8额外核验全8rank分组、节点内GPU映射、前向参考和精确kernel计数。所有TP8训练与网络预检窗口均确认IB，未回退Socket数据传输。CPU分组与回归统计检查共6项通过。
 
-独立入口[tp8/README](../../tools/a800/phase6/tp8/README.md)；完整[summary.md](../../logs/a800/phase6/tp8-bf16-measure-20261004/summary.md)、[summary.json](../../logs/a800/phase6/tp8-bf16-measure-20261004/summary.json)、[运行状态](../../logs/a800/phase6/tp8-bf16-measure-20261004/state.json)、[结束核验](../../logs/a800/phase6/tp8-bf16-measure-20261004/completion-checks.json)。单节点目录为`tp8-regression-s1024-nodea-20261004`与`tp8-regression-s2048-nodeb-20261004`，均在`logs/a800/phase6/`下。使用固定合成token，不含数据加载/checkpoint/评估；本次不验证真实数据收敛，不自动启动跨节点量化适配或任何优化。
+独立入口[tp8/README](../../../tools/a800/phase6/tp8/README.md)；完整[summary.md](../../../logs/a800/phase6/tp8-bf16-measure-20261004/summary.md)、[summary.json](../../../logs/a800/phase6/tp8-bf16-measure-20261004/summary.json)、[运行状态](../../../logs/a800/phase6/tp8-bf16-measure-20261004/state.json)、[结束核验](../../../logs/a800/phase6/tp8-bf16-measure-20261004/completion-checks.json)。单节点目录为`tp8-regression-s1024-nodea-20261004`与`tp8-regression-s2048-nodeb-20261004`，均在`logs/a800/phase6/`下。使用固定合成token，不含数据加载/checkpoint/评估；本次不验证真实数据收敛，不自动启动跨节点量化适配或任何优化。
 

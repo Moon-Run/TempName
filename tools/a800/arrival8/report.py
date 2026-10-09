@@ -39,7 +39,7 @@ for name,rows in [('operator-comparison.csv',all_ops),('model-comparison.csv',al
  with (LOG/name).open('w',newline='') as f:
   w=csv.DictWriter(f,fieldnames=list(rows[0]));w.writeheader();w.writerows(rows)
 text='\n'.join(lines);(LOG/'report.md').write_text(text)
-doc=ROOT/'docs/design/only-tile.md';s=doc.read_text()
+doc=ROOT/'docs/design/design-a800/only-tile.md';s=doc.read_text()
 start='<!-- arrival8-results:start -->';end='<!-- arrival8-results:end -->'
 if start in s:
  a=s.index(start);b=s.index(end,a)+len(end);s=s[:a]+start+'\n'+text+end+s[b:]

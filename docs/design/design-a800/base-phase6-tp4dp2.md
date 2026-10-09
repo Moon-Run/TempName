@@ -12,7 +12,7 @@ S1024/mb8/gb16：两条候选均未通过两轮4%门槛；S2048/mb4/gb8：两条
 
 ### 对原单节点测试的影响
 
-新增独立维护入口[tools/a800/phase6/dp2](../../tools/a800/phase6/dp2/README.md)，保留原单节点worker、adapter、量化支持代码及CUDA实现；18份受保护源码在本次前后SHA一致。候选复用`tp4-opt2-final-build-20261004`的冻结库，必须Flux基线继续使用未改动的原始顺序融合v2，所有库哈希核验通过。本次没有重跑单节点性能，也没有改写历史结果；双节点耗时包含额外DP同步，应单独解读。
+新增独立维护入口[tools/a800/phase6/dp2](../../../tools/a800/phase6/dp2/README.md)，保留原单节点worker、adapter、量化支持代码及CUDA实现；18份受保护源码在本次前后SHA一致。候选复用`tp4-opt2-final-build-20261004`的冻结库，必须Flux基线继续使用未改动的原始顺序融合v2，所有库哈希核验通过。本次没有重跑单节点性能，也没有改写历史结果；双节点耗时包含额外DP同步，应单独解读。
 
 两场景均为12层、H2048、FFN8192、TP4、DP2、PP=CP=1、BF16。每副本一个microbatch，MLP GEMM保持[M,N,K_local]=[8192,2048,2048]；S1024的micro/global batch为8/16，S2048为4/8，均为**16384全局token/optimizer step**。这是保持每副本工作量的扩展，与历史DP1的8192全局token不同，不直接用两种布局的ms/step相除作为加速比。attention保持原后端，反向仍为BF16 STE，未开启梯度通信重叠或CUDA Graph。
 
@@ -46,5 +46,5 @@ S1024/mb8/gb16：两条候选均未通过两轮4%门槛；S2048/mb4/gb8：两条
 
 核验覆盖八GPU身份、TP组与DP组、不同DP数据分片、短训练中对应副本同步梯度指纹一致、所有模型窗口更新后对应参数分片逐位一致、跨策略/跨轮初始化和RNG一致、有限loss/梯度、无跳步/回退、MLP-only范围、量化mask/通信字节、精确kernel次数。全部169个窗口的八rank NCCL日志确认使用IB，无Socket数据传输回退。profile中AllReduce耗时较多，但其kernel时间包含TP/DP集合通信和等待，不能直接当作孤立DP传输成本或代替完整step配对统计。
 
-原始[汇总报告](../../logs/a800/phase6/tp4-dp2-measure-20261004/summary.md)、[汇总JSON](../../logs/a800/phase6/tp4-dp2-measure-20261004/summary.json)、[运行状态](../../logs/a800/phase6/tp4-dp2-measure-20261004/state.json)、[源码一致性](../../logs/a800/phase6/tp4-dp2-measure-20261004/source-consistency.json)、[profile分项](../../logs/a800/phase6/tp4-dp2-measure-20261004/profile-components.json)、[结束资源核验](../../logs/a800/phase6/tp4-dp2-measure-20261004/completion-checks.json)。两场景的原始验收与每rank记录均在该目录下。使用固定合成token，不含数据加载/checkpoint/评估；数值检查不等于真实数据收敛。本次已经结束，无自动续跑或优化队列。
+原始[汇总报告](../../../logs/a800/phase6/tp4-dp2-measure-20261004/summary.md)、[汇总JSON](../../../logs/a800/phase6/tp4-dp2-measure-20261004/summary.json)、[运行状态](../../../logs/a800/phase6/tp4-dp2-measure-20261004/state.json)、[源码一致性](../../../logs/a800/phase6/tp4-dp2-measure-20261004/source-consistency.json)、[profile分项](../../../logs/a800/phase6/tp4-dp2-measure-20261004/profile-components.json)、[结束资源核验](../../../logs/a800/phase6/tp4-dp2-measure-20261004/completion-checks.json)。两场景的原始验收与每rank记录均在该目录下。使用固定合成token，不含数据加载/checkpoint/评估；数值检查不等于真实数据收敛。本次已经结束，无自动续跑或优化队列。
 

@@ -54,7 +54,7 @@ for entry in submissions['cases']:
    r=rows[policy];cells += [f"{r['latency_reduction_vs_original_percent']:+.2f}",f"{r['final_grad_norm']:.6f}"]
   lines.append('| '+label+' | '+' | '.join(cells)+' |')
  lines += ['', '正值表示配对耗时下降，负值表示增加。绝对ms/step取窗口中位数，配对百分比按相同块内比值汇总。','']
- for job,_ in jobs:lines.append(f'- [{job} 完整汇总](../../logs/a800/e2e/scale/{job}/summary.csv)、[窗口](../../logs/a800/e2e/scale/{job}/windows.csv)、[配对块](../../logs/a800/e2e/scale/{job}/paired_blocks.csv)。')
+ for job,_ in jobs:lines.append(f'- [{job} 完整汇总](../../../logs/a800/e2e/scale/{job}/summary.csv)、[窗口](../../../logs/a800/e2e/scale/{job}/windows.csv)、[配对块](../../../logs/a800/e2e/scale/{job}/paired_blocks.csv)。')
  lines.append('')
 lines += ['### 扩展测试口径','',
  '保持BF16、sequence parallel、DP=PP=CP=1、micro batch=1/global batch=4、Apex Adam和原有融合开关。hidden=2048、sequence=2048时每步8192有效token；attention与MLP目标shape分别为(2048,2048,2048)、(2048,2048,8192)，局部K为512和2048。12层共24个目标模块，每step实际目标调用数为96。', '',
@@ -67,7 +67,7 @@ lines += ['### 扩展测试口径','',
  'sbatch --gpus=4 --cpus-per-task=8 --export=ALL,E2E_CASE=l12-h2048-s2048-tp4,E2E_SCALE_STAGE=timing,E2E_SCALE_PREFLIGHT=/绝对路径/预检目录 tools/a800/e2e/scale/run.sbatch',
  'python3 tools/a800/e2e/scale/report.py', '```',end]
 section='\n'.join(lines)+'\n'
-p=ROOT/'docs/design/base-e2e.md';text=p.read_text()
+p=ROOT/'docs/design/design-a800/base-e2e.md';text=p.read_text()
 if start in text:
  a=text.index(start);b=text.index(end,a)+len(end);text=text[:a]+section+text[b:]
 else:

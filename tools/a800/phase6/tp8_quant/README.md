@@ -58,5 +58,5 @@ Numerical gates apply; no performance gate selects which results are recorded.
 
 `report.md`, `verification.json` and `acceptance.{json,md}` report completed
 measurements and the unchanged 4% criterion. TP4 archives are indexed in
-[tp4-archive.md](../../../../docs/design/tp4-archive.md); audit them before and
+[tp4-archive.md](../../../../docs/design/design-a800/tp4-archive.md); audit them before and
 after TP8 work. Finite synthetic training does not establish convergence.

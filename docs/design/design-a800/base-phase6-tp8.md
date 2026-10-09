@@ -21,23 +21,23 @@
 
 用户停止时，额外的window64/window16独立补充对照只完成3个窗口；内部step 179139.20已取消，部分记录保留，**不纳入验收或完整配对结论，不自动续跑**。正式72窗口已经完成，未受此次停止影响。
 
-[详细优化记录](optimize/tp8/optimize1.md) · [正式六组报告](../../logs/a800/phase6/tp8-opt1-final-window16-20261006/report.md) · [4%验收](../../logs/a800/phase6/tp8-opt1-final-window16-20261006/acceptance.md) · [3%用户目标](../../logs/a800/phase6/tp8-opt1-final-window16-20261006/user-goal.json) · [正式核验](../../logs/a800/phase6/tp8-opt1-final-window16-20261006/verification.json)。新计划/构建为`outputs/a800/phase6/tp8-opt1-20261006/window16-plan.json`及`build-window16/`；维护入口为[优化工具说明](../../tools/a800/phase6/tp8_quant/OPTIMIZATION.md)。旧window64首测、冻结baseline和TP4归档均保留。
+[详细优化记录](optimize/tp8/optimize1.md) · [正式六组报告](../../../logs/a800/phase6/tp8-opt1-final-window16-20261006/report.md) · [4%验收](../../../logs/a800/phase6/tp8-opt1-final-window16-20261006/acceptance.md) · [3%用户目标](../../../logs/a800/phase6/tp8-opt1-final-window16-20261006/user-goal.json) · [正式核验](../../../logs/a800/phase6/tp8-opt1-final-window16-20261006/verification.json)。新计划/构建为`outputs/a800/phase6/tp8-opt1-20261006/window16-plan.json`及`build-window16/`；维护入口为[优化工具说明](../../../tools/a800/phase6/tp8_quant/OPTIMIZATION.md)。旧window64首测、冻结baseline和TP4归档均保留。
 
 资源：按用户指令，187567、187459、189341已于13:48:45取消；13:51时179139仅保留batch/extern，无本轮内部实验运行。用户随后要求取消179139，该八卡分配已于14:11:04取消。
 
 ## 2026-10-06 完整量化组合适配与首测（不优化）
 
-北京时间10:49–11:24，在179139 / d1n41a15g02完成单节点8×A800、TP8/DP1的完整量化六组两轮首测。12层、H2048、FFN8192、32 heads，**S2048/mb1/global4**，每step累积4个微批、8192 token，实际padded vocab9216；与下方BF16首测保持相同模型。独立[tp8_quant入口](../../tools/a800/phase6/tp8_quant/README.md)适配两条“基础排序＋到达优先＋选择性量化”候选，以及原生Megatron、原生Flux、Megatron＋量化和冻结Flux＋融合v2六组。
+北京时间10:49–11:24，在179139 / d1n41a15g02完成单节点8×A800、TP8/DP1的完整量化六组两轮首测。12层、H2048、FFN8192、32 heads，**S2048/mb1/global4**，每step累积4个微批、8192 token，实际padded vocab9216；与下方BF16首测保持相同模型。独立[tp8_quant入口](../../../tools/a800/phase6/tp8_quant/README.md)适配两条“基础排序＋到达优先＋选择性量化”候选，以及原生Megatron、原生Flux、Megatron＋量化和冻结Flux＋融合v2六组。
 
 到达表/mask从已有同分配八卡BF16校准生成，训练0/1遍、留出2遍；window64和1/64预算沿用原规则，每来源选中3个远端tile，实际比例1.3393%。只适配TP8维度、模型范围及核验，不扫描参数；TP8使用通用解码，未套用TP4专用compact路径。仅MLP linear_fc2前向远端贡献使用FP8 E4M3/H128；GEMM、本地贡献和STE反向保持BF16，attention保持原后端，必须融合v2库未重建；跨节点TP8量化仍未实现。
 
 原TP4三形状已[冻结存档](tp4-archive.md)，共享TP4源码与旧库保持原样。下方BF16历史结果保留，完整量化测量结果在下表独立列示，不用BF16历史窗口充当本轮量化对照。
 
-适配预检已通过：四组codec共32份rank报告、1344条数值检查，两候选共32组偏斜连续调用检查，Megatron量化的8rank STE梯度AllGather逐位一致。最大相对L2误差为BF16参考的2.486%、codec参考的0.073%，沿用原5%/1%门槛。整模型六组smoke＋六组profile全部通过，并核验实际attention/MLP映射、量化mask、逻辑字节和内核计数，见[兼容性核验](../../logs/a800/phase6/tp8-quant-measure-20261006/compatibility-checks.json)。
+适配预检已通过：四组codec共32份rank报告、1344条数值检查，两候选共32组偏斜连续调用检查，Megatron量化的8rank STE梯度AllGather逐位一致。最大相对L2误差为BF16参考的2.486%、codec参考的0.073%，沿用原5%/1%门槛。整模型六组smoke＋六组profile全部通过，并核验实际attention/MLP映射、量化mask、逻辑字节和内核计数，见[兼容性核验](../../../logs/a800/phase6/tp8-quant-measure-20261006/compatibility-checks.json)。
 
 ### 单节点TP8完整量化六组对照表
 
-下表汇总“远端组合”`remote_arrival_selective`（远端优先＋到达优先＋选择性量化）；完整六组及交替组合数据见[原始六组报告](../../logs/a800/phase6/tp8-quant-measure-20261006/report.md)。
+下表汇总“远端组合”`remote_arrival_selective`（远端优先＋到达优先＋选择性量化）；完整六组及交替组合数据见[原始六组报告](../../../logs/a800/phase6/tp8-quant-measure-20261006/report.md)。
 
 每轮6个位置平衡块，第二轮反转块与组顺序；每窗口10步预热＋20步完整optimizer step，取8rank最大耗时。ms/step为窗口中位数；下降为正表示更快，参考耗时增加为负表示候选更快。百分比采用同块耗时比的几何平均，95%区间按块bootstrap 10000次，不能用表中中位数相除。此处第1/2轮属于独立量化首测，不与下方BF16窗口混合统计。
 
@@ -52,9 +52,9 @@
 
 计划复用179139本次分配已有的八卡BF16校准，没有新GPU采样。远端/交替的有效训练tile为256/256和255/256；留出近临界命中率为83.33% / 79.17%，校准中位扰动为22.96% / 34.01%。这些是离线诊断，不等同于重排量化后重新测得的收益。
 
-原始[六组报告](../../logs/a800/phase6/tp8-quant-measure-20261006/report.md)、[验收](../../logs/a800/phase6/tp8-quant-measure-20261006/acceptance.md)、[正式核验](../../logs/a800/phase6/tp8-quant-measure-20261006/verification.json)、[结束检查](../../logs/a800/phase6/tp8-quant-measure-20261006/completion-checks.json)。计划及构建位于`outputs/a800/phase6/tp8-quant-adapt-20261006/`，本轮实际库映射见`outputs/a800/phase6/tp8-quant-measure-20261006/build/manifest.json`。
+原始[六组报告](../../../logs/a800/phase6/tp8-quant-measure-20261006/report.md)、[验收](../../../logs/a800/phase6/tp8-quant-measure-20261006/acceptance.md)、[正式核验](../../../logs/a800/phase6/tp8-quant-measure-20261006/verification.json)、[结束检查](../../../logs/a800/phase6/tp8-quant-measure-20261006/completion-checks.json)。计划及构建位于`outputs/a800/phase6/tp8-quant-adapt-20261006/`，本轮实际库映射见`outputs/a800/phase6/tp8-quant-measure-20261006/build/manifest.json`。
 
-[TP4保护核验](../../logs/a800/phase6/tp8-quant-measure-20261006/tp4-preservation-checks.json)确认三份归档、受保护源码和原运行库哈希未变；189341上S1024归档的六组smoke/profile已通过。该归档预检不替代新的TP4正式性能回归。
+[TP4保护核验](../../../logs/a800/phase6/tp8-quant-measure-20261006/tp4-preservation-checks.json)确认三份归档、受保护源码和原运行库哈希未变；189341上S1024归档的六组smoke/profile已通过。该归档预检不替代新的TP4正式性能回归。
 
 ## 2026-10-06 BF16六组测量结果（不优化）
 
@@ -93,10 +93,10 @@
 
 原到达表在同一179139分配内独立校准后冻结，本次未重新拟合、未调参；MLP-only构建只限制排序作用范围，attention GPU坐标映射与原始Flux一致。原单节点TP4、DP2入口及旧冻结库未改动。
 
-维护入口[tp8_single/README](../../tools/a800/phase6/tp8_single/README.md)，原始[汇总](../../logs/a800/phase6/tp8-single-bf16-measure-20261006/summary.md)、[JSON](../../logs/a800/phase6/tp8-single-bf16-measure-20261006/summary.json)、[核验](../../logs/a800/phase6/tp8-single-bf16-measure-20261006/verification.json)、[结束检查](../../logs/a800/phase6/tp8-single-bf16-measure-20261006/completion-checks.json)、[运行状态](../../logs/a800/phase6/tp8-single-bf16-measure-20261006/state.json)。
+维护入口[tp8_single/README](../../../tools/a800/phase6/tp8_single/README.md)，原始[汇总](../../../logs/a800/phase6/tp8-single-bf16-measure-20261006/summary.md)、[JSON](../../../logs/a800/phase6/tp8-single-bf16-measure-20261006/summary.json)、[核验](../../../logs/a800/phase6/tp8-single-bf16-measure-20261006/verification.json)、[结束检查](../../../logs/a800/phase6/tp8-single-bf16-measure-20261006/completion-checks.json)、[运行状态](../../../logs/a800/phase6/tp8-single-bf16-measure-20261006/state.json)。
 
 ## 已有算子测量来源
 
-179139于2026-10-06 05:18启动后，执行了先前已排队的BF16到达优先任务，05:49结束；该旧任务完成校准、预检和两轮算子测量，因原速度准入条件未通过而跳过正式模型计时。其[原始报告](../../outputs/a800/arrival-v2-tp8-20261003/report.md)、[状态](../../outputs/a800/arrival-v2-tp8-20261003/campaign-state.json)与到达表保留，本次不覆盖，也不把旧预检耗时当作完整模型结果。
+179139于2026-10-06 05:18启动后，执行了先前已排队的BF16到达优先任务，05:49结束；该旧任务完成校准、预检和两轮算子测量，因原速度准入条件未通过而跳过正式模型计时。其[原始报告](../../../outputs/a800/arrival-v2-tp8-20261003/report.md)、[状态](../../../outputs/a800/arrival-v2-tp8-20261003/campaign-state.json)与到达表保留，本次不覆盖，也不把旧预检耗时当作完整模型结果。
 
 其他布局：[单节点TP4](base-phase6-tp4.md) · [双节点TP4/DP2](base-phase6-tp4dp2.md) · [双节点TP8](base-phase6-tp8双节点.md)。当前资源及实验边界见[instruction.md](instruction.md)。

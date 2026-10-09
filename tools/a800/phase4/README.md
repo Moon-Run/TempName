@@ -1,6 +1,6 @@
 # Original-order, all-remote TACO baseline
 
-Implementation and protocol: [base-phase4.md](../../../docs/design/base-phase4.md).
+Implementation and protocol: [base-phase4.md](../../../docs/design/design-a800/base-phase4.md).
 
 This is BF16 GEMM with TACO E4M3/128 adaptive scaling + normalized Hadamard in
 the Stream-K epilogue, followed by fused decode/ring reduction. It keeps the

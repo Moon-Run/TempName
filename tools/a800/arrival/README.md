@@ -73,7 +73,7 @@ Do not run multiple pipeline processes for the same state file.
 
 After all jobs pass, `report.py` writes `operator-comparison.csv`,
 `model-comparison.csv`, `report.md`, and a marked result section in
-`docs/design/only-tile.md`. It reports regressions as well as gains.
+`docs/design/design-a800/only-tile.md`. It reports regressions as well as gains.
 
 `outputs/a800/arrival/compile-check` uses an explicitly labelled synthetic
 identity-table fixture only to verify C++/CUDA compilation and linking while
@@ -86,4 +86,4 @@ plans or update an old pipeline's script hashes to bypass its mismatch check.
 `prepare.py` must regenerate model snapshots to include the new timing protocol
 and reversed second repetition. The audited builder requires schema_version=2
 and a matching planner hash. Next steps and historical tables are in
-[only-tile.md](../../../docs/design/only-tile.md).
+[only-tile.md](../../../docs/design/design-a800/only-tile.md).

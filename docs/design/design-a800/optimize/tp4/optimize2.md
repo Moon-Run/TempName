@@ -2,7 +2,7 @@
 
 记录日期：2026-10-04（北京时间）。实验工作窗口 **10:01–12:22**，首次文档收尾约12:25，已在用户约2.5小时时限内结束。本次文档补充只整理既有结果，没有新增GPU实验。两个外层驻留作业保留；实验结束核验时内部测试step均已退出，无RELEASE或自动实验队列。
 
-任务依据：[instruction.md](../instruction.md)、[idea.md](../idea.md)。前轮对照：[optimize1](optimize1.md)；阶段记录：[base-phase6-tp4](../base-phase6-tp4.md)；原始会话汇总：[summary.md](../../../logs/a800/phase6/tp4-opt2-session-20261004/summary.md)。
+任务依据：[instruction.md](../../instruction.md)、[idea.md](../../idea.md)。前轮对照：[optimize1](optimize1.md)；阶段记录：[base-phase6-tp4](../../base-phase6-tp4.md)；原始会话汇总：[summary.md](../../../../../logs/a800/phase6/tp4-opt2-session-20261004/summary.md)。
 
 ## 1. 目标与最终结果
 
@@ -40,7 +40,7 @@
 
 GEMM、基础顺序、到达表、物理mask、实际通信字节、codec、ring来源加法顺序和BF16舍入均保持原协议。两套完整BF16/FP8工作区、每次GEMM后的全rank发布barrier及复用保护保留，输出仍有独立生命周期。优化仅作用于MLP `linear_fc2`前向；attention保持原后端，反向为BF16 STE，正式实验不启用CUDA Graph。
 
-主要源码：[CUDA runtime](../../../src/gemm_rs/taco_runtime.cu)、[配置结构](../../../src/gemm_rs/taco_runtime.h)、[Python实例](../../../python/flux/gemm_rs_taco.py)、[C++封装](../../../src/gemm_rs/ths_op/gemm_reduce_scatter.cc)。最终冻结构建为`outputs/a800/phase6/tp4-opt2-final-build-20261004`，包含四基础候选；必须Flux基线仍为原冻结融合v2，未重建或修改。
+主要源码：[CUDA runtime](../../../../../src/gemm_rs/taco_runtime.cu)、[配置结构](../../../../../src/gemm_rs/taco_runtime.h)、[Python实例](../../../../../python/flux/gemm_rs_taco.py)、[C++封装](../../../../../src/gemm_rs/ths_op/gemm_reduce_scatter.cc)。最终冻结构建为`outputs/a800/phase6/tp4-opt2-final-build-20261004`，包含四基础候选；必须Flux基线仍为原冻结融合v2，未重建或修改。
 
 ### 2.3 未采用的方向与失败记录
 
@@ -59,11 +59,11 @@ GEMM、基础顺序、到达表、物理mask、实际通信字节、codec、ring
 
 | 工作 | 作用 | 维护入口 |
 | --- | --- | --- |
-| 完整候选重建 | 在新目录冻结源码并重建ABI相关组件；支持指定基础顺序 | [rebuild_candidate.py](../../../tools/a800/phase6/rebuild_candidate.py)、[build.py](../../../tools/a800/phase6/build.py) |
-| 新候选正式准备 | 显式传`--decoder compact-v1`及有效`--job-id`；入口默认仍为`legacy` | [prepare_scenario.py](../../../tools/a800/phase6/prepare_scenario.py) |
-| 固定模型的解码/构建消融 | 先CPU绑核再初始化Torch/CUDA；分别比较同库变体或整套旧/新构建 | [decoder_ablation.py](../../../tools/a800/phase6/decoder_ablation.py)、[build_ablation.py](../../../tools/a800/phase6/build_ablation.py) |
-| GPU边界与profile协议 | 32/33混合tile分派边界、按mask计算每rank应有kernel次数及barrier检查 | [validate.py](../../../tools/a800/phase5/validate.py)、[summarize.py](../../../tools/a800/phase5/e2e/summarize.py) |
-| 诊断与汇总 | GEMM stage/SM筛选、解码变体诊断及显式目录会话汇总 | [gemm_tuning.py](../../../tools/a800/phase6/gemm_tuning.py)、[run_decode_diagnostics.py](../../../tools/a800/phase6/run_decode_diagnostics.py)、[session_report.py](../../../tools/a800/phase6/session_report.py) |
+| 完整候选重建 | 在新目录冻结源码并重建ABI相关组件；支持指定基础顺序 | [rebuild_candidate.py](../../../../../tools/a800/phase6/rebuild_candidate.py)、[build.py](../../../../../tools/a800/phase6/build.py) |
+| 新候选正式准备 | 显式传`--decoder compact-v1`及有效`--job-id`；入口默认仍为`legacy` | [prepare_scenario.py](../../../../../tools/a800/phase6/prepare_scenario.py) |
+| 固定模型的解码/构建消融 | 先CPU绑核再初始化Torch/CUDA；分别比较同库变体或整套旧/新构建 | [decoder_ablation.py](../../../../../tools/a800/phase6/decoder_ablation.py)、[build_ablation.py](../../../../../tools/a800/phase6/build_ablation.py) |
+| GPU边界与profile协议 | 32/33混合tile分派边界、按mask计算每rank应有kernel次数及barrier检查 | [validate.py](../../../../../tools/a800/phase5/validate.py)、[summarize.py](../../../../../tools/a800/phase5/e2e/summarize.py) |
+| 诊断与汇总 | GEMM stage/SM筛选、解码变体诊断及显式目录会话汇总 | [gemm_tuning.py](../../../../../tools/a800/phase6/gemm_tuning.py)、[run_decode_diagnostics.py](../../../../../tools/a800/phase6/run_decode_diagnostics.py)、[session_report.py](../../../../../tools/a800/phase6/session_report.py) |
 
 这些工具改动用于测量和复现，不计作运行时性能收益。诊断变体4–12与GEMM调优开关不作为正式默认。
 
@@ -107,7 +107,7 @@ GEMM、基础顺序、到达表、物理mask、实际通信字节、codec、ring
 
 短列表S1024消融在182708完成，整套构建S2048消融在183972完成；后者两路线新旧loss与梯度范数轨迹最大差均为0。保留方案在所测配置确认约0.15%–0.33%的正增量。不同模型配置不能相减来解释ABI或某个单独因素的成本。
 
-数据来源：[成对解码 S1024](../../../logs/a800/phase6/tp4-opt2-pair-s1024-ablation-20261004/results.json) · [连续布局 S1024](../../../logs/a800/phase6/tp4-opt2-flat-s1024-ablation-20261004/results.json) · [短列表 S1024](../../../logs/a800/phase6/tp4-opt2-compact-s1024-ablation-nodeb-20261004/results.json) · [整套旧/新构建 S2048](../../../logs/a800/phase6/tp4-opt2-build-s2048-ablation-nodea-20261004/results.json)。
+数据来源：[成对解码 S1024](../../../../../logs/a800/phase6/tp4-opt2-pair-s1024-ablation-20261004/results.json) · [连续布局 S1024](../../../../../logs/a800/phase6/tp4-opt2-flat-s1024-ablation-20261004/results.json) · [短列表 S1024](../../../../../logs/a800/phase6/tp4-opt2-compact-s1024-ablation-nodeb-20261004/results.json) · [整套旧/新构建 S2048](../../../../../logs/a800/phase6/tp4-opt2-build-s2048-ablation-nodea-20261004/results.json)。
 
 ## 5. 正式测试完整对照表
 
@@ -190,15 +190,15 @@ GPU检查覆盖全量/零/checkerboard/校准mask、N尾部、零/随机/尖峰�
 
 | 场景 / 作业 | 策略×块×轮 | 窗口 / rank记录 / 计时step | 证据 | 两轮验收 |
 | --- | --- | --- | --- | --- |
-| S2048/mb4 / 182708（旧构建起点） | 6×6×2 | 72 / 288 / 1440 | [验收](../../../logs/a800/phase6/tp4-opt2-s2048-start-nodeb-20261004/acceptance.md) · [核验](../../../logs/a800/phase6/tp4-opt2-s2048-start-nodeb-20261004/verification.json) | 未达到4% |
-| S1024/mb8 / 183972 | 6×6×2 | 72 / 288 / 1440 | [验收](../../../logs/a800/phase6/tp4-opt2-s1024-confirm-nodea-20261004/acceptance.md) · [核验](../../../logs/a800/phase6/tp4-opt2-s1024-confirm-nodea-20261004/verification.json) | 两条主要路线通过 |
-| S2048/mb4 / 182708 | 8×8×2 | 128 / 512 / 2560 | [验收](../../../logs/a800/phase6/tp4-opt2-s2048-confirm-nodeb-20261004/acceptance.md) · [核验](../../../logs/a800/phase6/tp4-opt2-s2048-confirm-nodeb-20261004/verification.json) | 未达到4% |
-| S2048/mb4 / 183972 | 6×6×2 | 72 / 288 / 1440 | [验收](../../../logs/a800/phase6/tp4-opt2-s2048-confirm-nodea-20261004/acceptance.md) · [核验](../../../logs/a800/phase6/tp4-opt2-s2048-confirm-nodea-20261004/verification.json) | 未达到4% |
-| S1024/mb8 / 182708 | 6×6×2 | 72 / 288 / 1440 | [验收](../../../logs/a800/phase6/tp4-opt2-s1024-confirm-nodeb-20261004/acceptance.md) · [核验](../../../logs/a800/phase6/tp4-opt2-s1024-confirm-nodeb-20261004/verification.json) | 两条主要路线通过 |
+| S2048/mb4 / 182708（旧构建起点） | 6×6×2 | 72 / 288 / 1440 | [验收](../../../../../logs/a800/phase6/tp4-opt2-s2048-start-nodeb-20261004/acceptance.md) · [核验](../../../../../logs/a800/phase6/tp4-opt2-s2048-start-nodeb-20261004/verification.json) | 未达到4% |
+| S1024/mb8 / 183972 | 6×6×2 | 72 / 288 / 1440 | [验收](../../../../../logs/a800/phase6/tp4-opt2-s1024-confirm-nodea-20261004/acceptance.md) · [核验](../../../../../logs/a800/phase6/tp4-opt2-s1024-confirm-nodea-20261004/verification.json) | 两条主要路线通过 |
+| S2048/mb4 / 182708 | 8×8×2 | 128 / 512 / 2560 | [验收](../../../../../logs/a800/phase6/tp4-opt2-s2048-confirm-nodeb-20261004/acceptance.md) · [核验](../../../../../logs/a800/phase6/tp4-opt2-s2048-confirm-nodeb-20261004/verification.json) | 未达到4% |
+| S2048/mb4 / 183972 | 6×6×2 | 72 / 288 / 1440 | [验收](../../../../../logs/a800/phase6/tp4-opt2-s2048-confirm-nodea-20261004/acceptance.md) · [核验](../../../../../logs/a800/phase6/tp4-opt2-s2048-confirm-nodea-20261004/verification.json) | 未达到4% |
+| S1024/mb8 / 182708 | 6×6×2 | 72 / 288 / 1440 | [验收](../../../../../logs/a800/phase6/tp4-opt2-s1024-confirm-nodeb-20261004/acceptance.md) · [核验](../../../../../logs/a800/phase6/tp4-opt2-s1024-confirm-nodeb-20261004/verification.json) | 两条主要路线通过 |
 
 上述416个正式窗口包含72个旧构建起点窗口；最终新构建正式验收为344窗口。四项消融合计128窗口/512份rank记录/2560个计时step；正式与消融合计544窗口/2176份rank记录/10880个计时step。算子诊断不并入完整step数量。
 
-表5.1从各目录`results/model-{1,2}/analysis.json`读取；表5.2/5.3从`acceptance.json`读取并与对应轮的analysis逐项核对。结束核验见[completion-checks.json](../../../logs/a800/phase6/tp4-opt2-session-20261004/completion-checks.json)，源码与冻结输入一致性见[source-consistency.json](../../../logs/a800/phase6/tp4-opt2-session-20261004/source-consistency.json)。
+表5.1从各目录`results/model-{1,2}/analysis.json`读取；表5.2/5.3从`acceptance.json`读取并与对应轮的analysis逐项核对。结束核验见[completion-checks.json](../../../../../logs/a800/phase6/tp4-opt2-session-20261004/completion-checks.json)，源码与冻结输入一致性见[source-consistency.json](../../../../../logs/a800/phase6/tp4-opt2-session-20261004/source-consistency.json)。
 
 ## 7. 实际量化比例、局限与接续
 
@@ -215,4 +215,4 @@ GPU检查覆盖全量/零/checkerboard/校准mask、N尾部、零/随机/尖峰�
 
 全部训练使用固定合成token，不含数据加载、checkpoint或评估；数值预算和有限loss不等于真实数据收敛。两个节点分别配对统计，没有跨节点TP8，也不跨节点合并区间。原S2048的4%目标仍需继续优化；本轮按时停止，不自动续跑任何准备目录。
 
-以后需新建实验目录，显式指定有效`--job-id`。采用本次构建时给`prepare_scenario.py`传`--decoder compact-v1`；冻结baseline和两轮验收口径继续保留。最终资源与结束状态见[instruction.md](../instruction.md)和[session.json](../../../logs/a800/phase6/tp4-opt2-session-20261004/session.json)。
+以后需新建实验目录，显式指定有效`--job-id`。采用本次构建时给`prepare_scenario.py`传`--decoder compact-v1`；冻结baseline和两轮验收口径继续保留。最终资源与结束状态见[instruction.md](../../instruction.md)和[session.json](../../../../../logs/a800/phase6/tp4-opt2-session-20261004/session.json)。

@@ -20,9 +20,9 @@ S256保留当时实际运行的旧库、八组配置及4%门槛；不改成compa
 
 | 配置 | 独立存档 | 原正式实验 |
 | --- | --- | --- |
-| S1024/mb8 | [tp4-s1024-mb8-20261006](../../outputs/a800/archives/tp4-s1024-mb8-20261006/archive-manifest.json) | [tp4-opt2-s1024-confirm-nodea-20261004](../../logs/a800/phase6/tp4-opt2-s1024-confirm-nodea-20261004/acceptance.md) |
-| S2048/mb4 | [tp4-s2048-mb4-20261006](../../outputs/a800/archives/tp4-s2048-mb4-20261006/archive-manifest.json) | [tp4-opt2-s2048-confirm-nodea-20261004](../../logs/a800/phase6/tp4-opt2-s2048-confirm-nodea-20261004/acceptance.md) |
-| S256/mb32 | [tp4-s256-mb32-20261006](../../outputs/a800/archives/tp4-s256-mb32-20261006/archive-manifest.json) | [tp4-opt-s256-confirm-nodeb-20261004](../../logs/a800/phase6/tp4-opt-s256-confirm-nodeb-20261004/acceptance.md) |
+| S1024/mb8 | [tp4-s1024-mb8-20261006](../../../outputs/a800/archives/tp4-s1024-mb8-20261006/archive-manifest.json) | [tp4-opt2-s1024-confirm-nodea-20261004](../../../logs/a800/phase6/tp4-opt2-s1024-confirm-nodea-20261004/acceptance.md) |
+| S2048/mb4 | [tp4-s2048-mb4-20261006](../../../outputs/a800/archives/tp4-s2048-mb4-20261006/archive-manifest.json) | [tp4-opt2-s2048-confirm-nodea-20261004](../../../logs/a800/phase6/tp4-opt2-s2048-confirm-nodea-20261004/acceptance.md) |
+| S256/mb32 | [tp4-s256-mb32-20261006](../../../outputs/a800/archives/tp4-s256-mb32-20261006/archive-manifest.json) | [tp4-opt-s256-confirm-nodeb-20261004](../../../logs/a800/phase6/tp4-opt-s256-confirm-nodeb-20261004/acceptance.md) |
 
 每份存档包含：
 
@@ -59,6 +59,6 @@ python3 "$tp4_archive/archive.py" audit "$tp4_archive" --originals
 
 后续TP8实现使用独立目录；每次结束后以三份归档的`audit --originals`检查原代码及库。数值/加载预检可验证可运行性，但不替代正式性能回归或保证新节点上百分比绝对不变。
 
-本次TP8适配后的[保护核验](../../logs/a800/phase6/tp8-quant-measure-20261006/tp4-preservation-checks.json)确认：三份归档、受保护源码以及各原实验的运行库均保持原哈希。
+本次TP8适配后的[保护核验](../../../logs/a800/phase6/tp8-quant-measure-20261006/tp4-preservation-checks.json)确认：三份归档、受保护源码以及各原实验的运行库均保持原哈希。
 
-2026-10-06三份归档均通过文件与受保护原件的哈希核验、新复跑目录的配置/路径检查，见[归档核验](../../logs/a800/phase6/tp4-archive-check-20261006/archive-audit.json)。在189341用S1024归档完成六组smoke＋六组profile，共12窗口/48份rank记录，均通过；动态库从归档内部加载，见[复跑核验](../../logs/a800/phase6/tp4-archive-check-20261006/replay-verification.json)。首次直接启动launcher缺少训练环境PATH，修正启动环境后在新预检子目录重试，旧失败日志保留，未改归档代码或库。本次只验证归档可运行性，不新增TP4正式性能结论。
+2026-10-06三份归档均通过文件与受保护原件的哈希核验、新复跑目录的配置/路径检查，见[归档核验](../../../logs/a800/phase6/tp4-archive-check-20261006/archive-audit.json)。在189341用S1024归档完成六组smoke＋六组profile，共12窗口/48份rank记录，均通过；动态库从归档内部加载，见[复跑核验](../../../logs/a800/phase6/tp4-archive-check-20261006/replay-verification.json)。首次直接启动launcher缺少训练环境PATH，修正启动环境后在新预检子目录重试，旧失败日志保留，未改归档代码或库。本次只验证归档可运行性，不新增TP4正式性能结论。

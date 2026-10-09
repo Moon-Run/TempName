@@ -50,4 +50,4 @@ still derived from the existing eight-rank BF16 calibration; neither execution
 tuning nor a smaller window constitutes post-quantization recalibration.
 
 The session results and selected reproducible configuration are recorded in
-`docs/design/optimize/tp8/optimize1.md` and `docs/design/base-phase6-tp8.md`.
+`docs/design/design-a800/optimize/tp8/optimize1.md` and `docs/design/design-a800/base-phase6-tp8.md`.

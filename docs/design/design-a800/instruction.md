@@ -1,6 +1,8 @@
-# 项目快速接续说明
+# A800 项目快速接续说明
 
-更新：2026-10-06（北京时间）。本页只保留接续必需的信息；详细实验、统计和历史过程见下方文档。资源表是最近一次核验快照，使用前须查询Slurm。
+实验与资源快照更新：2026-10-06（北京时间）；文档目录与链接更新：2026-10-09。本页只保留 A800 接续必需的信息；详细实验、统计和历史过程见下方文档。资源表是历史核验快照，使用前须查询Slurm。
+
+A800 文档统一位于 `docs/design/design-a800/`；上级导航见 [设计文档索引](../README.md)。本次目录整理不新增实验结果。
 
 ## 当前进度与结果入口
 
@@ -43,7 +45,7 @@ S2048的TP8第4轮只有1个配对块：Megatron、原始Flux、远端排序各1
 - TP4最新候选：`outputs/a800/phase6/tp4-opt2-final-build-20261004`，准备时显式传 **`--decoder compact-v1`**；复现历史三形状优先直接使用[归档](tp4-archive.md)，其中S256保留旧库及八组配置。
 - 单节点TP8候选及计划：`outputs/a800/phase6/tp8-quant-adapt-20261006`；已验证S2048/mb1/global4、TP8/DP1，实际词表9216。完整结果见[TP8记录](base-phase6-tp8.md)，不能直接与TP4的mb4/词表8704作强扩展比。
 - TP8本轮window16实验构建：`outputs/a800/phase6/tp8-opt1-20261006/build-window16`；正式结果`logs/a800/phase6/tp8-opt1-final-window16-20261006`。通用解码、默认GEMM、原3 tile/来源mask，未证明比旧window64稳定更快，保留原推荐。补充对照已停止。
-- v13短列表解码仅默认用于TP4、M8192/N2048、每rank≤32个混合tile且元数据有效的路径；其他形状或稠密mask沿用旧分派。改变ABI时使用[rebuild_candidate.py](../../tools/a800/phase6/rebuild_candidate.py)在新目录重建，不混用旧封装与新runtime。
+- v13短列表解码仅默认用于TP4、M8192/N2048、每rank≤32个混合tile且元数据有效的路径；其他形状或稠密mask沿用旧分派。改变ABI时使用[rebuild_candidate.py](../../../tools/a800/phase6/rebuild_candidate.py)在新目录重建，不混用旧封装与新runtime。
 - 两套完整BF16/FP8工作区交替，保留每次GEMM的全rank发布barrier和输出生命周期保护；不能仅双缓冲FP8包就删除同步。
 - 原推荐到达计划使用同目标分区64个合法槽位，本轮TP8试验候选为16；每来源最多1/64远端tile量化是**预算上限**。TP4计划来自`logs/a800/phase6/communication-confirm-h2048-tp4-20261003/scripts/selection-plan.json`；单节点TP8使用独立八卡校准表，不套用TP4表。均未在重排/量化后联合重校准，复用时须注明来源。
 - TP4四种基础映射是rank+1分区偏移、`L,R1,R2,R3`、`R1,L,R2,R3`、`R1,R2,R3,L`；名称不保证全局严格远端先行。各基础的顺序和mask可能同时不同，不能把整个组合收益归因于单一改动。
@@ -61,7 +63,7 @@ S2048的TP8第4轮只有1个配对块：Megatron、原始Flux、远端排序各1
 | **187567** | 单节点8×A800、16 CPU；取消前未分配节点 | CANCELLED；10-06 13:48:45，用户要求取消 | `logs/a800/allocations/a800-tp8-hold-20261005/` |
 | **179139** | 单节点8×A800、16 CPU；`d1n41a15g02` | CANCELLED；10-06 14:11:04，用户要求取消 | `outputs/a800/arrival-v2-tp8-20261003/` |
 
-179147、183972、182708均已到期，不再用于启动；182708于2026-10-06 00:00:54结束，由新申请189341接替。四卡作业187459/189341现均已取消，不再用于启动；187567也已取消。新作业[申请回执](../../logs/a800/allocations/a800-tp4-hold-20261006/submission.json)与[状态核验](../../logs/a800/allocations/a800-tp4-hold-20261006/validation.json)保存在控制目录。
+179147、183972、182708均已到期，不再用于启动；182708于2026-10-06 00:00:54结束，由新申请189341接替。四卡作业187459/189341现均已取消，不再用于启动；187567也已取消。新作业[申请回执](../../../logs/a800/allocations/a800-tp4-hold-20261006/submission.json)与[状态核验](../../../logs/a800/allocations/a800-tp4-hold-20261006/validation.json)保存在控制目录。
 
 **保护外层驻留：不在实验清理中取消有效作业、终止batch或创建`RELEASE`。** 只清理本次内部step；同节点性能计时串行，`--overlap`仅用于与驻留共存。新节点须重新核验GPU身份、拓扑和实际NCCL/IB通路，不能沿用强制单节点通信的配置。
 
@@ -79,17 +81,18 @@ squeue --steps -u scyb672
 
 | 用途 | 入口 |
 | --- | --- |
-| 单节点TP4准备、构建、验收 | [phase6/README](../../tools/a800/phase6/README.md)；`prepare_scenario.py`、`assess.py` |
+| 软件环境、Megatron 固定版本与迁移 | [env.md](env.md) |
+| 单节点TP4准备、构建、验收 | [phase6/README](../../../tools/a800/phase6/README.md)；`prepare_scenario.py`、`assess.py` |
 | TP4三形状冻结复跑 | [存档索引](tp4-archive.md)；`tools/a800/phase6/tp4_archive.py` |
-| 双节点TP4/DP2 | [dp2/README](../../tools/a800/phase6/dp2/README.md)；独立冻结准备与运行器 |
-| 单节点TP8 BF16 | [tp8_single/README](../../tools/a800/phase6/tp8_single/README.md) |
-| 单节点TP8完整量化组合 | [tp8_quant/README](../../tools/a800/phase6/tp8_quant/README.md)；独立计划、构建、六组对照 |
-| 双节点TP8 BF16及TP4回归 | [tp8/README](../../tools/a800/phase6/tp8/README.md) |
-| 量化与共享模型入口 | [phase4/e2e](../../tools/a800/phase4/e2e/README.md)、[phase5](../../tools/a800/phase5/README.md) |
+| 双节点TP4/DP2 | [dp2/README](../../../tools/a800/phase6/dp2/README.md)；独立冻结准备与运行器 |
+| 单节点TP8 BF16 | [tp8_single/README](../../../tools/a800/phase6/tp8_single/README.md) |
+| 单节点TP8完整量化组合 | [tp8_quant/README](../../../tools/a800/phase6/tp8_quant/README.md)；独立计划、构建、六组对照 |
+| 双节点TP8 BF16及TP4回归 | [tp8/README](../../../tools/a800/phase6/tp8/README.md) |
+| 量化与共享模型入口 | [phase4/e2e](../../../tools/a800/phase4/e2e/README.md)、[phase5](../../../tools/a800/phase5/README.md) |
 | 训练Python | `/data/run01/scyb672/conda_envs/flux-megatron-a800/bin/python` |
 | host侧CPU检查 | `outputs/a800/venv/bin/python` |
 
 CUDA主要修改点为`src/gemm_rs/epilogue_evt.hpp`、`taco_codec.cuh`、`taco_runtime.{h,cu}`和`src/gemm_rs/ths_op/gemm_reduce_scatter.cc`；Python入口为`python/flux/gemm_rs_taco.py`。本项目当前Phase6指组合执行成本优化，与早期路线图的阶段编号区分。
 
-新结果写`logs/a800/`，新构建写`outputs/a800/`；这两处与`docs/design/`均按[.gitignore](../../.gitignore)忽略，不纳入Git。维护代码放`tools/`、`src/`、`include/`、`python/`，保留旧日志、冻结库、兼容链接及其他未提交修改；不全局忽略JSON/CSV，也不取消Triton所需`.bc`/`.ll`文件的版本管理。提交前检查`git status`、`git diff --check`和`git check-ignore`。
+新结果写`logs/a800/`，新构建写`outputs/a800/`；这两处按[.gitignore](../../../.gitignore)忽略，不纳入Git。A800 设计文档位于`docs/design/design-a800/`，随维护代码纳入版本控制；原文中关于`design/`被忽略的说明已过时。维护代码放`tools/`、`src/`、`include/`、`python/`，保留旧日志、冻结库、兼容链接及其他未提交修改；不全局忽略JSON/CSV，也不取消Triton所需`.bc`/`.ll`文件的版本管理。提交前检查`git status`、`git diff --check`和`git check-ignore`。
 

@@ -54,7 +54,7 @@ model training are required. FP32 errors are diagnostic-only, as authorized.
 
 Outputs: outputs/a800/arrival8/; raw jobs, pipeline.json and reports:
 logs/a800/arrival8/. The final report is appended to a distinct arrival8-results
-section of docs/design/only-tile.md, preserving all TP4 results.
+section of docs/design/design-a800/only-tile.md, preserving all TP4 results.
 
 Audit (2026-10-03): run CPU checks with `python3 -m unittest discover -s tools/a800/arrival8 -p 'test_*.py'`.
 Use fresh experiment output/build directories for v2; do not overwrite frozen
@@ -62,4 +62,4 @@ plans or update an old pipeline's script hashes to bypass its mismatch check.
 `prepare.py` must regenerate model snapshots to include the new timing protocol
 and reversed second repetition. The audited builder requires schema_version=2
 and a matching planner hash. Next steps and historical tables are in
-[only-tile.md](../../../docs/design/only-tile.md).
+[only-tile.md](../../../docs/design/design-a800/only-tile.md).

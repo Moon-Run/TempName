@@ -2,7 +2,7 @@
 
 The reproducible **single-node TP4 archive** covers S1024/mb8, S2048/mb4 and
 S256/mb32, each with its actual historical binaries, plans and scripts. Use
-[the archive index](../../../docs/design/tp4-archive.md) and `tp4_archive.py`
+[the archive index](../../../docs/design/design-a800/tp4-archive.md) and `tp4_archive.py`
 for replay without rebuilding. S256 retains its older eight-policy version.
 For independent **single-node TP8 full quantization adaptation**, use
 [tp8_quant](tp8_quant/README.md); shared TP4 sources remain unchanged.
@@ -58,7 +58,7 @@ predicts the exact per-rank kernel counts from the frozen selection mask.
 
 Builds and experiments are immutable and use fresh directories. Do not modify
 old phase4/5 snapshots. Allocations 179147, 183972 and 182708 have expired; preserve the outer hold
-loops of the current allocations listed in `docs/design/instruction.md`. Check Slurm before starting
+loops of the current allocations listed in `docs/design/design-a800/instruction.md`. Check Slurm before starting
 and run GPU experiments serially within each allocation. With the user's explicit
 authorization, independent TP4 experiments can run on both nodes concurrently;
 every paired comparison must stay within one node and one model configuration.
@@ -180,6 +180,6 @@ The optional short-sequence/large-batch preparation arguments and the
 the user requested finishing the already started suite, documenting it, and
 stopping. They supply no performance or numerical evidence. Do not automatically
 launch them on a later continuation. Latest outcomes and the stopping boundary
-are recorded in `docs/design/instruction.md` and `docs/design/base-phase6-tp4.md`.
+are recorded in `docs/design/design-a800/instruction.md` and `docs/design/design-a800/base-phase6-tp4.md`.
 
-Phase6 results are separated by topology: [single-node TP4](../../../docs/design/base-phase6-tp4.md), [two-node TP4/DP2](../../../docs/design/base-phase6-tp4dp2.md), and [two-node TP8](../../../docs/design/base-phase6-tp8双节点.md).
+Phase6 results are separated by topology: [single-node TP4](../../../docs/design/design-a800/base-phase6-tp4.md), [two-node TP4/DP2](../../../docs/design/design-a800/base-phase6-tp4dp2.md), and [two-node TP8](../../../docs/design/design-a800/base-phase6-tp8双节点.md).

@@ -9,13 +9,13 @@
 - fragment暂存从128×128 BF16（32 KiB）缩为16×128（4 KiB），取消active-row数组；每个回调只保留暂存完成和复用前的2次CTA同步。host布局检查验证所有8个fragment的压缩行坐标与逆映射。
 - 编码公式和尾部补零语义相同，统计求和顺序变化不承诺逐位一致。保留独立codec参考、BF16误差预算和生命周期检查。
 
-新构建：[taco-fused-warp-20261003](../../outputs/a800/phase4/taco-fused-warp-20261003/)。9项CPU检查及80项GPU算子检查通过；最大relative-L2：相对BF16为0.022803、相对codec参考为0.000668，预算仍为0.05/0.01。实际选用GEMM仍为255寄存器，编译spill stores/loads由旧版16字节变为28字节，不能仅据暂存减少就承诺加速。
+新构建：[taco-fused-warp-20261003](../../../outputs/a800/phase4/taco-fused-warp-20261003/)。9项CPU检查及80项GPU算子检查通过；最大relative-L2：相对BF16为0.022803、相对codec参考为0.000668，预算仍为0.05/0.01。实际选用GEMM仍为255寄存器，编译spill stores/loads由旧版16字节变为28字节，不能仅据暂存减少就承诺加速。
 
 ### v2五组完整step结果
 
 2026-10-03T16:25:45.741445+08:00至2026-10-03T16:59:13.673328+08:00完成。每轮10个位置平衡块、五组策略、每窗口10步预热＋20步计时，第二轮反序。共100窗口、400份rank记录、2000个全局optimizer计时step，每策略400步。两轮在同一分配内独立进程，不是独立Slurm作业。
 
-[完整报告](../../logs/a800/phase4/taco-warp-e2e-tp4-20261003/report.md)、[核验记录](../../logs/a800/phase4/taco-warp-e2e-tp4-20261003/verification.json)、[profile分解](../../logs/a800/phase4/taco-warp-e2e-tp4-20261003/profile-components.csv)。
+[完整报告](../../../logs/a800/phase4/taco-warp-e2e-tp4-20261003/report.md)、[核验记录](../../../logs/a800/phase4/taco-warp-e2e-tp4-20261003/verification.json)、[profile分解](../../../logs/a800/phase4/taco-warp-e2e-tp4-20261003/profile-components.csv)。
 
 | 策略 | 第一轮ms/step | 第二轮ms/step |
 | --- | ---: | ---: |
@@ -68,11 +68,11 @@ attention无量化指保持其BF16算法与原始tile映射；融合编译可能
 
 模型接入使用显式autograd适配器：量化只在前向通信发生，反向仍采用相同BF16 AllGather和本地dgrad/wgrad，是对codec的直通近似，不是量化/scale选择的精确导数。输出clone和原有适配成本各组均保留。有限loss/梯度不替代配对梯度误差预算或真实数据收敛验证。
 
-四组均重新计时，12层/H=2048/FFN=8192/S=2048/TP4/global batch=4/BF16；每轮8个位置平衡块，每窗口10步预热＋20步完整optimizer step，第二轮反序，取四rank最慢墙钟。两轮都在179147内，不是独立Slurm作业。运行数据：[taco-e2e-tp4-20261003](../../logs/a800/phase4/taco-e2e-tp4-20261003/)，[进度](../../logs/a800/phase4/taco-e2e-tp4-20261003/campaign-state.json)；代码：[e2e入口](../../tools/a800/phase4/e2e/)。结果统一在logs，构建缓存在outputs，均已gitignore；原外层驻留循环保持存活。
+四组均重新计时，12层/H=2048/FFN=8192/S=2048/TP4/global batch=4/BF16；每轮8个位置平衡块，每窗口10步预热＋20步完整optimizer step，第二轮反序，取四rank最慢墙钟。两轮都在179147内，不是独立Slurm作业。运行数据：[taco-e2e-tp4-20261003](../../../logs/a800/phase4/taco-e2e-tp4-20261003/)，[进度](../../../logs/a800/phase4/taco-e2e-tp4-20261003/campaign-state.json)；代码：[e2e入口](../../../tools/a800/phase4/e2e/)。结果统一在logs，构建缓存在outputs，均已gitignore；原外层驻留循环保持存活。
 
 ### 本轮已通过的检查
 
-9项CPU检查通过。原融合构建先行在GPU通过80项检查；新分离与新融合构建又分别通过四rank共80项检查，覆盖零/随机/尖峰/重复调用、N=128/136/256、实际模型shape及输出生命周期。两者相对BF16参考的最大relative-L2均约0.022803，相对独立codec参考最大约0.000668，低于预设0.05/0.01预算。见[融合预检](../../logs/a800/phase4/taco-e2e-tp4-20261003/results/codec-fused/)、[分离预检](../../logs/a800/phase4/taco-e2e-tp4-20261003/results/codec-separate/)。
+9项CPU检查通过。原融合构建先行在GPU通过80项检查；新分离与新融合构建又分别通过四rank共80项检查，覆盖零/随机/尖峰/重复调用、N=128/136/256、实际模型shape及输出生命周期。两者相对BF16参考的最大relative-L2均约0.022803，相对独立codec参考最大约0.000668，低于预设0.05/0.01预算。见[融合预检](../../../logs/a800/phase4/taco-e2e-tp4-20261003/results/codec-fused/)、[分离预检](../../../logs/a800/phase4/taco-e2e-tp4-20261003/results/codec-separate/)。
 
 四组模型smoke/profile均通过。每个量化策略每rank的12个attention目标模块标记为BF16、12个MLP为对应codec；完整step profile实际检出96次Flux GEMM、48次TACO DQ，分离路径另有48次独立编码，融合路径独立编码次数为0。stock和关闭量化控制的TACO kernel次数为0。
 
@@ -89,13 +89,13 @@ attention无量化指保持其BF16算法与原始tile映射；融合编译可能
 | 分离TACO | 7.485 | 7.408 | 2.530 |
 | 融合TACO | 34.180 | 0 | 2.604 |
 
-融合组的GEMM时间已包含内联编码，不能据此说纯矩阵乘法慢了相同倍数。该诊断支持重点检查融合epilogue的逐行编码、同步与资源成本，但不是缓存/occupancy瓶颈的独立证明。原始数据见[profile-components.csv](../../logs/a800/phase4/taco-e2e-tp4-20261003/profile-components.csv)。
+融合组的GEMM时间已包含内联编码，不能据此说纯矩阵乘法慢了相同倍数。该诊断支持重点检查融合epilogue的逐行编码、同步与资源成本，但不是缓存/occupancy瓶颈的独立证明。原始数据见[profile-components.csv](../../../logs/a800/phase4/taco-e2e-tp4-20261003/profile-components.csv)。
 
 ## 本轮四卡量化端到端结果
 
 2026-10-03 15:04:16–15:26:20（北京时间）完成，内部step `179147.11`。两条codec各80项GPU检查、四组模型smoke/profile和两轮计时均通过。正式计时共64窗口、256份rank记录、1280个全局optimizer step，每策略320步；两轮同一分配内独立进程，第二轮反序。
 
-[完整报告](../../logs/a800/phase4/taco-e2e-tp4-20261003/report.md)、[记录核验](../../logs/a800/phase4/taco-e2e-tp4-20261003/verification.json)、[第一轮原始汇总](../../logs/a800/phase4/taco-e2e-tp4-20261003/results/model-1/summary.csv)、[第二轮原始汇总](../../logs/a800/phase4/taco-e2e-tp4-20261003/results/model-2/summary.csv)。
+[完整报告](../../../logs/a800/phase4/taco-e2e-tp4-20261003/report.md)、[记录核验](../../../logs/a800/phase4/taco-e2e-tp4-20261003/verification.json)、[第一轮原始汇总](../../../logs/a800/phase4/taco-e2e-tp4-20261003/results/model-1/summary.csv)、[第二轮原始汇总](../../../logs/a800/phase4/taco-e2e-tp4-20261003/results/model-2/summary.csv)。
 
 | 策略 | 第1轮ms/step | 第2轮ms/step | 第1轮tokens/s | 第2轮tokens/s |
 | --- | ---: | ---: | ---: | ---: |
@@ -126,7 +126,7 @@ attention无量化指保持其BF16算法与原始tile映射；融合编译可能
 
 两轮完整step中，初版融合相对独立编码版分别增加约9.005%和9.149%的配对耗时。这是初版实现的重复退化，不能推导为融合编码本身没有优化空间；改进版见页首v2。
 
-诊断profile取同一个rank 0比较，避免拼接不同rank的最大值：独立版GEMM累计7.258 ms、编码7.328 ms、解码2.530 ms；融合版GEMM（包含编码）累计34.180 ms、解码2.596 ms。GEMM统计包含attention和MLP共96次调用，编码/解码各48次；这些是插桩窗口的kernel累计时间，不是完整step耗时或严格关键路径分解。主要退化集中于融合GEMM＋编码区域，解码差异很小。原始数据见 [profile-components.csv](../../logs/a800/phase4/taco-e2e-tp4-20261003/profile-components.csv)。
+诊断profile取同一个rank 0比较，避免拼接不同rank的最大值：独立版GEMM累计7.258 ms、编码7.328 ms、解码2.530 ms；融合版GEMM（包含编码）累计34.180 ms、解码2.596 ms。GEMM统计包含attention和MLP共96次调用，编码/解码各48次；这些是插桩窗口的kernel累计时间，不是完整step耗时或严格关键路径分解。主要退化集中于融合GEMM＋编码区域，解码差异很小。原始数据见 [profile-components.csv](../../../logs/a800/phase4/taco-e2e-tp4-20261003/profile-components.csv)。
 
 源码和编译记录给出以下原因线索：
 
@@ -146,9 +146,9 @@ attention无量化指保持其BF16算法与原始tile映射；融合编译可能
 
 策略名为 `original_taco_all_remote`。所有远端输出贡献都走相同的 TACO 编解码，本地贡献保留 BF16；这对应 [base.md](base.md) 中的“全量远端压缩”对照，不按预测、tile位置或数值大小选择是否压缩。
 
-参考代码是 [COCCL_TACO 的 taco.cu](../../../COCCL_TACO/src/device/compress/taco/taco.cu) 和 [ReduceScatter 配置](../../../COCCL_TACO/src/device/compress/configs/taco/taco_RS.config)。复用的是128元素分组的自适应缩放、归一化 Hadamard 和 E4M3 编解码公式；通信仍走 Flux 的 NVLink/IPC scatter，不替换成 COCCL 的集合通信算法，也不将 NCCL、SDP4Bit 或 TAHQuant 当作 TACO。
+参考代码是 [COCCL_TACO 的 taco.cu](../../../../COCCL_TACO/src/device/compress/taco/taco.cu) 和 [ReduceScatter 配置](../../../../COCCL_TACO/src/device/compress/configs/taco/taco_RS.config)。复用的是128元素分组的自适应缩放、归一化 Hadamard 和 E4M3 编解码公式；通信仍走 Flux 的 NVLink/IPC scatter，不替换成 COCCL 的集合通信算法，也不将 NCCL、SDP4Bit 或 TAHQuant 当作 TACO。
 
-固定参数：E4M3、有限值饱和、group_size=128、target_range=448、lambda=1e-6、Hadamard开启。本版没有E5M2、格式自适应或在线参数选择。来源与BSD许可证保存在 [TACO_LICENSE.txt](../../tools/a800/phase4/TACO_LICENSE.txt)，构建manifest记录参考源码哈希。
+固定参数：E4M3、有限值饱和、group_size=128、target_range=448、lambda=1e-6、Hadamard开启。本版没有E5M2、格式自适应或在线参数选择。来源与BSD许可证保存在 [TACO_LICENSE.txt](../../../tools/a800/phase4/TACO_LICENSE.txt)，构建manifest记录参考源码哈希。
 
 对一组输入 `x`，先算 `s_a=clip(448/sqrt(mean(x²)+1e-6), 1e-3, 1e3)`，再做 `z=H128(s_a*x)/sqrt(128)`；取 `s_q=clip(max(max(abs(z)),1e-12)/448, 1e-12, 1e6)`，把 `z/s_q` 饱和舍入为E4M3。解码为 `H128(q*s_q)/sqrt(128)/s_a`，转回BF16。接收端按原 `ring_reduction=True` 的来源顺序 `rank+1,…,rank` 做BF16逐次加法。
 
@@ -165,12 +165,12 @@ attention无量化指保持其BF16算法与原始tile映射；融合编译可能
 
 | 文件 | 作用 |
 | --- | --- |
-| [epilogue_evt.hpp](../../src/gemm_rs/epilogue_evt.hpp) | 在 `FLUX_TACO_BASELINE` 开关下接入远端融合编码；未定义宏时保留原路径 |
-| [taco_codec.cuh](../../src/gemm_rs/taco_codec.cuh) | 128线程协作的统计、Hadamard、E4M3编码和解码 |
-| [taco_runtime.h](../../src/gemm_rs/taco_runtime.h)、[taco_runtime.cu](../../src/gemm_rs/taco_runtime.cu) | 精确shape的packet协议、线程局部配置与DQ+ring归约kernel |
-| [gemm_reduce_scatter.cc](../../src/gemm_rs/ths_op/gemm_reduce_scatter.cc) | 宏开关下的配置校验、接收归约和缓冲区重用同步 |
-| [gemm_rs_taco.py](../../python/flux/gemm_rs_taco.py) | 独立 `GemmRSTaco` 前向入口，拥有IPC packet并在每次调用后复位配置 |
-| [build.py](../../tools/a800/phase4/build.py) | 单独编译CUDA注册、运行时和C++ wrapper，复用已验证的IPC修复对象；不覆盖历史库 |
+| [epilogue_evt.hpp](../../../src/gemm_rs/epilogue_evt.hpp) | 在 `FLUX_TACO_BASELINE` 开关下接入远端融合编码；未定义宏时保留原路径 |
+| [taco_codec.cuh](../../../src/gemm_rs/taco_codec.cuh) | 128线程协作的统计、Hadamard、E4M3编码和解码 |
+| [taco_runtime.h](../../../src/gemm_rs/taco_runtime.h)、[taco_runtime.cu](../../../src/gemm_rs/taco_runtime.cu) | 精确shape的packet协议、线程局部配置与DQ+ring归约kernel |
+| [gemm_reduce_scatter.cc](../../../src/gemm_rs/ths_op/gemm_reduce_scatter.cc) | 宏开关下的配置校验、接收归约和缓冲区重用同步 |
+| [gemm_rs_taco.py](../../../python/flux/gemm_rs_taco.py) | 独立 `GemmRSTaco` 前向入口，拥有IPC packet并在每次调用后复位配置 |
+| [build.py](../../../tools/a800/phase4/build.py) | 单独编译CUDA注册、运行时和C++ wrapper，复用已验证的IPC修复对象；不覆盖历史库 |
 
 配置只在调用线程中临时启用，并按值进入CUDA kernel参数。Python入口绑定创建时的device/stream，检查shape、dtype、连续布局和加载库，拒绝CUDA Graph及隐式autograd使用；异常时也复位配置。它是阶段4的前向算子入口，完整模型autograd接入现已在本页上方的MLP-only实验中实现，反向近似与验收范围以上方说明为准。
 
@@ -180,7 +180,7 @@ attention无量化指保持其BF16算法与原始tile映射；融合编译可能
 
 只接受128×128×32 tile、64×64×32 warp、128线程、8元素向量访问的实际CUTLASS epilogue布局。若实际dispatch选择其他布局，host参数构造直接报错，不静默回退。原始swizzle文件必须与冻结的 `original` 构建逐字节一致。
 
-[check_layout.cc](../../tools/a800/phase4/check_layout.cc) 使用实际CUTLASS坐标划分验证：一个tile的8个fragment互不重叠，每个fragment包含16条完整128元素行，总计覆盖16384元素一次。因此每个Stream-K归约回调可以独立压缩其16行，不等待其他CTA产生完整tile。编码用共享内存暂存当前fragment涉及的行；新增共享内存、寄存器和同步都算融合成本。
+[check_layout.cc](../../../tools/a800/phase4/check_layout.cc) 使用实际CUTLASS坐标划分验证：一个tile的8个fragment互不重叠，每个fragment包含16条完整128元素行，总计覆盖16384元素一次。因此每个Stream-K归约回调可以独立压缩其16行，不等待其他CTA产生完整tile。编码用共享内存暂存当前fragment涉及的行；新增共享内存、寄存器和同步都算融合成本。
 
 每个接收rank为每个source预留独立slot：`[G×128 bytes FP8][G×float quant_scale][G×float adaptive_scale]`，其中 `G=(M/TP)*ceil(N/128)`。本地source的packet slot不使用。当前保留原BF16工作区分配，新增packet；不能宣称峰值显存下降。
 
@@ -188,7 +188,7 @@ attention无量化指保持其BF16算法与原始tile映射；融合编译可能
 
 ## 4. 检查、构建与GPU预检
 
-已完成8项CPU检查，其中6项数值/布局参考检查覆盖Hadamard正交/可逆、零值/脉冲、跨尺度随机误差、非有限值拒绝、尾组系数不能丢失、含两份scale和padding的字节账。另外2项入口检查覆盖非法shape和子组rank拒绝。实际CUTLASS布局的host检查通过；CUDA helper已按SM80编译。完整融合CUDA注册、device link和C++ wrapper现已编译/链接通过，产物位于 [taco-build](../../outputs/a800/phase4/taco-build/)，命令和源码/库哈希见 [manifest.json](../../outputs/a800/phase4/taco-build/manifest.json)。已核对TACO导出符号、原始swizzle一致性，以及排队TP4/TP8快照哈希均未改变。
+已完成8项CPU检查，其中6项数值/布局参考检查覆盖Hadamard正交/可逆、零值/脉冲、跨尺度随机误差、非有限值拒绝、尾组系数不能丢失、含两份scale和padding的字节账。另外2项入口检查覆盖非法shape和子组rank拒绝。实际CUTLASS布局的host检查通过；CUDA helper已按SM80编译。完整融合CUDA注册、device link和C++ wrapper现已编译/链接通过，产物位于 [taco-build](../../../outputs/a800/phase4/taco-build/)，命令和源码/库哈希见 [manifest.json](../../../outputs/a800/phase4/taco-build/manifest.json)。已核对TACO导出符号、原始swizzle一致性，以及排队TP4/TP8快照哈希均未改变。
 
 编译资源检查显示：128×128融合GEMM使用255个寄存器、33824字节静态共享内存，另有16字节spill stores/loads；DQ归约使用47个寄存器、536字节静态共享内存。GEMM原有动态共享内存另计。这些是初次编译的资源记录；它们可能影响occupancy与性能，本轮已加入同构建关闭量化控制并开始GPU实测。
 
@@ -199,7 +199,7 @@ outputs/a800/venv/bin/python -m unittest discover -s tools/a800/phase4 -p 'test_
 python3 tools/a800/phase4/build.py --out outputs/a800/phase4/taco-build
 ```
 
-登录节点没有 `libcuda.so.1`，因此直接加载完整Flux Python包会因驱动库缺失而失败；编译/链接通过不等于GPU可运行。当时尚未进行GPU验收；本轮A800数值、生命周期与同步预检已完成，见页首。使用驱动链接stub的host导入尝试在45秒后超时，也未记为通过；汇总见 [validation-summary.json](../../outputs/a800/phase4/validation-summary.json)。
+登录节点没有 `libcuda.so.1`，因此直接加载完整Flux Python包会因驱动库缺失而失败；编译/链接通过不等于GPU可运行。当时尚未进行GPU验收；本轮A800数值、生命周期与同步预检已完成，见页首。使用驱动链接stub的host导入尝试在45秒后超时，也未记为通过；汇总见 [validation-summary.json](../../../outputs/a800/phase4/validation-summary.json)。
 
 当前常规CMake构建不默认打开实验宏。阶段4必须使用该独立入口；它复用冻结基础对象，只重编译本策略必需的部分，并保存overlay、命令、源码/库哈希、原始swizzle哈希和许可证。默认Flux库不能直接使用 `GemmRSTaco`。
 
@@ -215,7 +215,7 @@ outputs/a800/venv/bin/python -m torch.distributed.run --standalone --nproc_per_n
   tools/a800/phase4/validate.py outputs/a800/phase4/preflight-tp4
 ```
 
-[validate.py](../../tools/a800/phase4/validate.py) 覆盖零值、随机值、尖峰、N=128/136/256和重复调用，核对旧输出生命周期；分别比较BF16参考和独立TACO tensor参考，并单独profile确认GEMM与DQ归约kernel。预先设定relative-L2上限：相对BF16为0.05，相对codec参考为0.01；max-abs全部记录，有限值必须通过。这是压缩原型预检预算，不沿用BF16重排的逐元素0.02容差，也不代表训练收敛预算已通过。
+[validate.py](../../../tools/a800/phase4/validate.py) 覆盖零值、随机值、尖峰、N=128/136/256和重复调用，核对旧输出生命周期；分别比较BF16参考和独立TACO tensor参考，并单独profile确认GEMM与DQ归约kernel。预先设定relative-L2上限：相对BF16为0.05，相对codec参考为0.01；max-abs全部记录，有限值必须通过。这是压缩原型预检预算，不沿用BF16重排的逐元素0.02容差，也不代表训练收敛预算已通过。
 
 参考实现返回的饱和计数是tensor参考中的统计，不是融合kernel实测计数。GPU预检必须收齐全部rank并通过，之后再做包含额外同步、packet访存和Q/DQ的完整算子计时。独立Q/DQ成本、与GEMM并发干扰、全量FP32误差对照、模型梯度和训练误差预算仍待资源到位后补齐。
 

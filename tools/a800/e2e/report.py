@@ -114,8 +114,8 @@ if len(jobs)==2:
     lines += ['', '两轮使用相同四个GPU UUID。' if metadata[0]['uuids']==metadata[1]['uuids'] else '两轮GPU UUID不同，数据按作业分别报告。']
 lines += ['', f'准备记录目录：`logs/a800/e2e/comparison/{validation.name}/`。此前的接入与逐张量诊断保留在原始日志中，本页按本轮要求汇总运行指标。', '']
 for job in ids:
-    lines += [f'- [{job} 时间汇总](../../logs/a800/e2e/comparison/{job}/summary.csv)、[配对块](../../logs/a800/e2e/comparison/{job}/paired_blocks.csv)、[所有窗口](../../logs/a800/e2e/comparison/{job}/windows.csv)。']
-lines += ['- [loss/梯度与时间联合汇总](../../logs/a800/e2e/comparison/training_metrics.csv)。逐rank JSON还保留全部30步loss/梯度范数、GPU UUID、参数/RNG/token指纹和库哈希。', '',
+    lines += [f'- [{job} 时间汇总](../../../logs/a800/e2e/comparison/{job}/summary.csv)、[配对块](../../../logs/a800/e2e/comparison/{job}/paired_blocks.csv)、[所有窗口](../../../logs/a800/e2e/comparison/{job}/windows.csv)。']
+lines += ['- [loss/梯度与时间联合汇总](../../../logs/a800/e2e/comparison/training_metrics.csv)。逐rank JSON还保留全部30步loss/梯度范数、GPU UUID、参数/RNG/token指纹和库哈希。', '',
  '## 5. 复跑入口', '',
  '脚本位于`tools/a800/e2e/`；需要现有独立Conda训练环境及`outputs/a800/phase3/three-way-build`。所有GPU作业通过普通`gpu_a800`队列提交。', '',
  '```bash', '# 从TempName根目录运行四组准备与诊断',
@@ -127,7 +127,7 @@ lines += ['- [loss/梯度与时间联合汇总](../../logs/a800/e2e/comparison/t
  '  '+' \\\n  '.join(f'logs/a800/e2e/comparison/{job}' for job in ids), '```', '',
  '后续扩展优先增加更大hidden/sequence及真实数据，同时保持四组配置一致；当前表只代表上述固定小型GPT。']
 text='\n'.join(lines)+'\n'
-(ROOT/'docs/design/base-e2e.md').write_text(text)
+(ROOT/'docs/design/design-a800/base-e2e.md').write_text(text)
 parent=jobs[0].parent
 with (parent/'training_metrics.csv').open('w',newline='') as f:
     writer=csv.DictWriter(f,fieldnames=list(flat[0]));writer.writeheader();writer.writerows(flat)

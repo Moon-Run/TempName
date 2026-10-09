@@ -33,11 +33,11 @@
 
 回归结论：所有六策略的loss和梯度范数前后最大差均为0，原源码及冻结库哈希一致。S1024远端/交替组合的配对耗时变化分别为−0.148%/+0.044%；S2048分别为+0.101%/+0.108%，同期原生Flux为+0.064%。两形状的两条候选在相对原生Flux校正后的95%区间均跨零，本次未检测到候选额外退化；这不等于证明绝对零影响或性能等价。
 
-该回归共144正式窗口/576份rank记录/2880个计时step。原始[会话汇总](../../logs/a800/phase6/tp8-bf16-measure-20261004/summary.md)、[S1024核验](../../logs/a800/phase6/tp8-regression-s1024-nodea-20261004/verification.json)、[S2048核验](../../logs/a800/phase6/tp8-regression-s2048-nodeb-20261004/verification.json)。该次原单节点代码和冻结库保持不变；固定合成token，轨迹一致不构成真实数据收敛或性能等价证明。
+该回归共144正式窗口/576份rank记录/2880个计时step。原始[会话汇总](../../../logs/a800/phase6/tp8-bf16-measure-20261004/summary.md)、[S1024核验](../../../logs/a800/phase6/tp8-regression-s1024-nodea-20261004/verification.json)、[S2048核验](../../../logs/a800/phase6/tp8-regression-s2048-nodeb-20261004/verification.json)。该次原单节点代码和冻结库保持不变；固定合成token，轨迹一致不构成真实数据收敛或性能等价证明。
 
 ## 2026-10-04 第二轮：接收端短列表优化与正式复验
 
-工作窗口为北京时间 **10:01–12:22**，按用户最新约2.5小时时限完成。全部本轮内部测试step已退出，183972与182708外层驻留保留，无RELEASE、无自动实验队列。状态见[session.json](../../logs/a800/phase6/tp4-opt2-session-20261004/session.json)，完整过程见[optimize2](optimize/optimize2.md)与[会话汇总](../../logs/a800/phase6/tp4-opt2-session-20261004/summary.md)。
+工作窗口为北京时间 **10:01–12:22**，按用户最新约2.5小时时限完成。全部本轮内部测试step已退出，183972与182708外层驻留保留，无RELEASE、无自动实验队列。状态见[session.json](../../../logs/a800/phase6/tp4-opt2-session-20261004/session.json)，完整过程见[optimize2](optimize/tp4/optimize2.md)与[会话汇总](../../../logs/a800/phase6/tp4-opt2-session-20261004/summary.md)。
 
 - **S1024/mb8：两个节点均正式通过。** 远端相对冻结融合v2：183972为4.101% / 4.114%，182708为4.128% / 4.221%；各自对Megatron＋量化也通过。远端比原生Flux耗时增加分别为+0.153% / +0.067%、+0.142% / +0.111%。两条主要路线按各自两轮结果验收，不能跨节点相除。
 - **原S2048/mb4：仍未达到4%。** 远端在183972为3.162% / 3.131%，182708为3.042% / 3.146%；182708保留了四基础的八组两轮对照。S1024达标不能替代原场景达标。
@@ -51,7 +51,7 @@
 <!-- tp4-opt-20261004-start -->
 ## 2026-10-04 限时 TP4 优化总结与完整结果（本次已结束）
 
-用户选择继续单节点TP4，工作窗口为北京时间00:23–02:53；01:20又授权182708并行运行独立TP4实验。每个节点内部串行，所有baseline与候选在同节点、同模型内配对，不跨节点或跨配置相除。原始汇总快照：[summary.md](../../logs/a800/phase6/tp4-opt-session-20261004/summary.md)（2026-10-04 02:53）；运行记录：`logs/a800/phase6/tp4-opt-session-20261004/session.json`。本节集中保存该次优化的总结、完整表格和结果入口。
+用户选择继续单节点TP4，工作窗口为北京时间00:23–02:53；01:20又授权182708并行运行独立TP4实验。每个节点内部串行，所有baseline与候选在同节点、同模型内配对，不跨节点或跨配置相除。原始汇总快照：[summary.md](../../../logs/a800/phase6/tp4-opt-session-20261004/summary.md)（2026-10-04 02:53）；运行记录：`logs/a800/phase6/tp4-opt-session-20261004/session.json`。本节集中保存该次优化的总结、完整表格和结果入口。
 
 ### 最终结论与统计口径
 
@@ -90,21 +90,21 @@ MLP-only，12层、H2048、FFN8192、TP4、8192 token/step；S256、S1024、S204
 | S2048/mb4 / 182708 | 3 | 160.242 | 29.953 [29.898,29.996] | 3.042 [2.972,3.099] | -1.361 | +0.065 |
 | S2048/mb4 / 182708 | 4 | 160.147 | 29.988 [29.956,30.016] | 3.146 [3.103,3.192] | -1.436 | +0.037 |
 
-第3、4轮数据来源：S1024 [183972](../../logs/a800/phase6/tp4-opt2-s1024-confirm-nodea-20261004/acceptance.json)、[182708](../../logs/a800/phase6/tp4-opt2-s1024-confirm-nodeb-20261004/acceptance.json)；S2048 [183972](../../logs/a800/phase6/tp4-opt2-s2048-confirm-nodea-20261004/acceptance.json)、[182708](../../logs/a800/phase6/tp4-opt2-s2048-confirm-nodeb-20261004/acceptance.json)。本次S1024两节点均通过各自两轮4%门槛，原S2048仍未通过；完整实现、消融与全部候选对照见[optimize2](optimize/optimize2.md)。
+第3、4轮数据来源：S1024 [183972](../../../logs/a800/phase6/tp4-opt2-s1024-confirm-nodea-20261004/acceptance.json)、[182708](../../../logs/a800/phase6/tp4-opt2-s1024-confirm-nodeb-20261004/acceptance.json)；S2048 [183972](../../../logs/a800/phase6/tp4-opt2-s2048-confirm-nodea-20261004/acceptance.json)、[182708](../../../logs/a800/phase6/tp4-opt2-s2048-confirm-nodeb-20261004/acceptance.json)。本次S1024两节点均通过各自两轮4%门槛，原S2048仍未通过；完整实现、消融与全部候选对照见[optimize2](optimize/tp4/optimize2.md)。
 
 后续方向（2026-10-04更新）：按用户要求，暂不继续优化单节点4卡结果，转向双节点8卡实验。先测每节点一个TP组的TP=4、DP=2，再考虑TP=8、DP=1；前者检验跨节点梯度同步加入后完整step收益能否保留，后者检验跨节点张量并行通信。两者是不同场景，结果分别建表。用户授权的TP4/DP2测试已于21:00结束，目录为`logs/a800/phase6/tp4-dp2-measure-20261004/`；本次只测结果，不调优，完整结果见本页顶部双节点表格。
 
 ### 完整性与结果入口
 
-以下数量与入口为第一轮优化的五项正式实验（上表第1、2轮），合计 **528窗口、2112份rank记录、10560个全局计时optimizer step**，全部通过各自冻结的完整性核验。每窗口10步预热、20步完整optimizer step，每项完成两轮反序；每轮的策略数与位置平衡块数相同。不同节点、不同序列长度分别统计，不合并区间。追加第3、4轮对应本次最终构建的四项正式实验，共344窗口、1376份rank记录、6880个计时step；本次另有72窗口旧构建起点复测，合计416个正式窗口，详见[optimize2的完整性记录](optimize/optimize2.md#6-实验完整性与证据入口)。
+以下数量与入口为第一轮优化的五项正式实验（上表第1、2轮），合计 **528窗口、2112份rank记录、10560个全局计时optimizer step**，全部通过各自冻结的完整性核验。每窗口10步预热、20步完整optimizer step，每项完成两轮反序；每轮的策略数与位置平衡块数相同。不同节点、不同序列长度分别统计，不合并区间。追加第3、4轮对应本次最终构建的四项正式实验，共344窗口、1376份rank记录、6880个计时step；本次另有72窗口旧构建起点复测，合计416个正式窗口，详见[optimize2的完整性记录](optimize/tp4/optimize2.md#6-实验完整性与证据入口)。
 
 | 场景 / 作业 | 策略×块×轮 | 正式窗口数 | 结果入口 | 4%门槛 |
 | --- | --- | ---: | --- | --- |
-| S256/mb32 / 179147 | 8×8×2 | 128 | [验收](../../logs/a800/phase6/tp4-opt-s256-confirm-20261004-r2/acceptance.md) · [核验](../../logs/a800/phase6/tp4-opt-s256-confirm-20261004-r2/verification.json) | 四基础组合均通过 |
-| S256/mb32 / 182708 | 8×8×2 | 128 | [验收](../../logs/a800/phase6/tp4-opt-s256-confirm-nodeb-20261004/acceptance.md) · [核验](../../logs/a800/phase6/tp4-opt-s256-confirm-nodeb-20261004/verification.json) | 四基础组合均通过 |
-| S1024/mb8 / 182708 | 6×6×2 | 72 | [验收](../../logs/a800/phase6/tp4-opt-s1024-confirm-nodeb-20261004/acceptance.md) · [核验](../../logs/a800/phase6/tp4-opt-s1024-confirm-nodeb-20261004/verification.json) | 未通过 |
-| S1024/mb8 / 179147 | 6×6×2 | 72 | [验收](../../logs/a800/phase6/tp4-opt-s1024-confirm-nodea-20261004/acceptance.md) · [核验](../../logs/a800/phase6/tp4-opt-s1024-confirm-nodea-20261004/verification.json) | 未通过 |
-| 原S2048/mb4 / 179147 | 8×8×2 | 128 | [验收](../../logs/a800/phase6/tp4-opt-s2048-all-confirm-20261004/acceptance.md) · [核验](../../logs/a800/phase6/tp4-opt-s2048-all-confirm-20261004/verification.json) | 未通过 |
+| S256/mb32 / 179147 | 8×8×2 | 128 | [验收](../../../logs/a800/phase6/tp4-opt-s256-confirm-20261004-r2/acceptance.md) · [核验](../../../logs/a800/phase6/tp4-opt-s256-confirm-20261004-r2/verification.json) | 四基础组合均通过 |
+| S256/mb32 / 182708 | 8×8×2 | 128 | [验收](../../../logs/a800/phase6/tp4-opt-s256-confirm-nodeb-20261004/acceptance.md) · [核验](../../../logs/a800/phase6/tp4-opt-s256-confirm-nodeb-20261004/verification.json) | 四基础组合均通过 |
+| S1024/mb8 / 182708 | 6×6×2 | 72 | [验收](../../../logs/a800/phase6/tp4-opt-s1024-confirm-nodeb-20261004/acceptance.md) · [核验](../../../logs/a800/phase6/tp4-opt-s1024-confirm-nodeb-20261004/verification.json) | 未通过 |
+| S1024/mb8 / 179147 | 6×6×2 | 72 | [验收](../../../logs/a800/phase6/tp4-opt-s1024-confirm-nodea-20261004/acceptance.md) · [核验](../../../logs/a800/phase6/tp4-opt-s1024-confirm-nodea-20261004/verification.json) | 未通过 |
+| 原S2048/mb4 / 179147 | 8×8×2 | 128 | [验收](../../../logs/a800/phase6/tp4-opt-s2048-all-confirm-20261004/acceptance.md) · [核验](../../../logs/a800/phase6/tp4-opt-s2048-all-confirm-20261004/verification.json) | 未通过 |
 
 原S2048其他三条组合对融合v2约下降2.83%–2.91%；S1024在182708上的交替组合为3.818% / 3.828%。完整候选数据见各项验收报告。原S2048旧单轮2.897%与新两轮点估计不能直接作为配对增量。
 

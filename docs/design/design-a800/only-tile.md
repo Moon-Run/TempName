@@ -8,13 +8,13 @@
 
 新增`mlp_remote_arrival`，仅MLP命中已冻结v2 tail映射，attention保持原始Flux映射。共享kernel的索引判断成本包含在完整step中；未按本轮性能重拟合标签。新增组分别对原始Flux和`mlp_remote`配对，叠加收益以后一对比为准。
 
-本轮固定四组、每轮8个位置平衡块，第二轮同时反转块和组顺序，共64个计时窗口、每窗口10步预热＋20步完整optimizer step。配置仍为12层/H=2048/FFN=8192/S=2048/TP4/global batch=4/BF16。结果写入[logs实验目录](../../logs/a800/e2e/mlp-arrival-tp4-20261003-r2/)，[进度](../../logs/a800/e2e/mlp-arrival-tp4-20261003-r2/campaign-state.json)；构建与plan缓存位于`outputs/a800/mlp-arrival-tp4-20261003-r2/`。最初尝试在映射检查器编译阶段因生成数组重名失败，已修正并新增CPU编译回归，失败目录保留，不计入性能结果。这里目录后缀r2表示第二次构建尝试，不表示计时第二轮。
+本轮固定四组、每轮8个位置平衡块，第二轮同时反转块和组顺序，共64个计时窗口、每窗口10步预热＋20步完整optimizer step。配置仍为12层/H=2048/FFN=8192/S=2048/TP4/global batch=4/BF16。结果写入[logs实验目录](../../../logs/a800/e2e/mlp-arrival-tp4-20261003-r2/)，[进度](../../../logs/a800/e2e/mlp-arrival-tp4-20261003-r2/campaign-state.json)；构建与plan缓存位于`outputs/a800/mlp-arrival-tp4-20261003-r2/`。最初尝试在映射检查器编译阶段因生成数组重名失败，已修正并新增CPU编译回归，失败目录保留，不计入性能结果。这里目录后缀r2表示第二次构建尝试，不表示计时第二轮。
 
 ### 四组MLP-only完整step结果
 
 2026-10-03 14:26:58–14:50:02（北京时间），179147内部step `179147.9`完成构建、四组预检和两轮计时。共64个计时窗口、256份rank记录、1280个全局计时optimizer step，每策略320步；第二轮反序，构建/脚本、初始化权重、RNG、输入token、GPU标识均通过跨轮核对。
 
-[完整报告](../../logs/a800/e2e/mlp-arrival-tp4-20261003-r2/report.md)、[记录核验](../../logs/a800/e2e/mlp-arrival-tp4-20261003-r2/verification.json)、[逐tile映射等价](../../logs/a800/e2e/mlp-arrival-tp4-20261003-r2/mapping-equivalence.json)。三种Flux策略的attention映射均与原始Flux一致；新增策略MLP映射与预先冻结的v2 remote_arrival一致。采用shape选择，不是任意模型通用路由；共享kernel选择开销计入端到端。
+[完整报告](../../../logs/a800/e2e/mlp-arrival-tp4-20261003-r2/report.md)、[记录核验](../../../logs/a800/e2e/mlp-arrival-tp4-20261003-r2/verification.json)、[逐tile映射等价](../../../logs/a800/e2e/mlp-arrival-tp4-20261003-r2/mapping-equivalence.json)。三种Flux策略的attention映射均与原始Flux一致；新增策略MLP映射与预先冻结的v2 remote_arrival一致。采用shape选择，不是任意模型通用路由；共享kernel选择开销计入端到端。
 
 | 策略 | 第1轮ms/step | 第2轮ms/step | 第1轮tokens/s | 第2轮tokens/s |
 | --- | ---: | ---: | ---: | ---: |
@@ -60,7 +60,7 @@
 
 本轮在现有179147内进行三组完整optimizer step对照：原始Megatron、原始Flux、MLP远端优先＋attention原始Flux。基线一起重跑；沿用12层、H=2048、FFN=8192、S=2048、TP4、global batch=4、BF16，每窗口10步预热+20步计时，每轮6个位置平衡块，第二轮反序。共完成36个计时窗口，属于同一分配内两轮独立进程，不能标为独立Slurm作业。
 
-实验目录：[mlp-remote-tp4-e2e-20261003](../../outputs/a800/mlp-remote-tp4-e2e-20261003/)；[进度](../../outputs/a800/mlp-remote-tp4-e2e-20261003/campaign-state.json)；[入口与构建](../../tools/a800/e2e/mlp/)。先检查attention逐tile映射与原始Flux一致、MLP逐tile映射与原远端策略一致，再做模型输出/kernel预检和正式计时。模块选择按本冻结模型不同shape在host构造时确定，无新增GPU查表；入口逐层核对名称与shape，不支持任意模型套用。原179147驻留step及外层循环保留。
+实验目录：[mlp-remote-tp4-e2e-20261003](../../../outputs/a800/mlp-remote-tp4-e2e-20261003/)；[进度](../../../outputs/a800/mlp-remote-tp4-e2e-20261003/campaign-state.json)；[入口与构建](../../../tools/a800/e2e/mlp/)。先检查attention逐tile映射与原始Flux一致、MLP逐tile映射与原远端策略一致，再做模型输出/kernel预检和正式计时。模块选择按本冻结模型不同shape在host构造时确定，无新增GPU查表；入口逐层核对名称与shape，不支持任意模型套用。原179147驻留step及外层循环保留。
 
 后续MLP交替、MLP基础＋到达优先也遵守上述模块范围；此次只验证MLP远端基础，不同时更改到达标签或引入压缩。下文历史实验曾同时重排attention与MLP，其数值保留，但不能标成MLP-only结果。
 
@@ -68,7 +68,7 @@
 
 2026-10-03于13:56:43开始构建/预检，14:10:10（北京时间）完成。179147内部step `179147.7`退出成功；原驻留step与外层分配保留。36个计时窗口、144份rank记录均通过核验，共720个全局计时optimizer step，每策略240步。两轮初始化权重、RNG、输入token、GPU标识、构建和脚本哈希均一致；第二轮实际反序。
 
-[完整报告](../../logs/a800/e2e/mlp-remote-tp4-e2e-20261003/report.md)、[全记录核验](../../outputs/a800/mlp-remote-tp4-e2e-20261003/verification.json)、[GPU映射等价检查](../../outputs/a800/mlp-remote-tp4-e2e-20261003/mapping-equivalence.json)。原始Flux库哈希与既有基线一致，并在本轮重新计时；新组合四rank共96项首次前向输出检查通过，逐层核验12个attention保持原始映射、12个MLP使用远端映射。
+[完整报告](../../../logs/a800/e2e/mlp-remote-tp4-e2e-20261003/report.md)、[全记录核验](../../../outputs/a800/mlp-remote-tp4-e2e-20261003/verification.json)、[GPU映射等价检查](../../../outputs/a800/mlp-remote-tp4-e2e-20261003/mapping-equivalence.json)。原始Flux库哈希与既有基线一致，并在本轮重新计时；新组合四rank共96项首次前向输出检查通过，逐层核验12个attention保持原始映射、12个MLP使用远端映射。
 
 | 策略 | 第1轮ms/step | 第2轮ms/step | 第1轮tokens/s | 第2轮tokens/s |
 | --- | ---: | ---: | ---: | ---: |
@@ -92,7 +92,7 @@ loss/梯度有限、optimizer跳步与fallback均为0。初始/末步loss、梯�
 
 2026-10-03核验：**179147正在RUNNING**，节点`d1n41a28g03`，单节点4×A800、8 CPU、`normal`。实际启动时间为**10月3日06:18:11**，调度器结束时间为**10月4日06:18:11（北京时间）**，时限`1-00:00:00`。原提交时间02:04:17及原地续时记录保留。原驻留step `179147.1`、batch和外层循环均保留；内部实验结束不会释放分配。
 
-首轮完整流程于06:18:13–06:39:16完成：两次四来源校准、独立标签验证、v2 tail/gap离线拟合、CUDA构建、算子和模型预检、正序/反序两轮五策略算子计时。详见[完整报告](../../logs/a800/arrival/arrival-v2-tp4-20261003/report.md)、[状态与各阶段退出码](../../outputs/a800/arrival-v2-tp4-20261003/campaign-state.json)。此前本页“尚未开始/无GPU结果”的状态未更新，现已订正。
+首轮完整流程于06:18:13–06:39:16完成：两次四来源校准、独立标签验证、v2 tail/gap离线拟合、CUDA构建、算子和模型预检、正序/反序两轮五策略算子计时。详见[完整报告](../../../logs/a800/arrival/arrival-v2-tp4-20261003/report.md)、[状态与各阶段退出码](../../../outputs/a800/arrival-v2-tp4-20261003/campaign-state.json)。此前本页“尚未开始/无GPU结果”的状态未更新，现已订正。
 
 **v2 tail没有通过叠加收益验收。** 算子预检240项正确性检查通过，两轮分别1440项通过，FP32诊断失败均为0；映射与实际kernel检查通过，模型预检也完成。两轮均未满足同一候选在两个模型实际shape上的配对95%区间下界都大于0，因此按既定门槛跳过正式模型计时。它们是同一分配内独立进程重复，不是两个独立Slurm作业。
 
@@ -113,7 +113,7 @@ BF16、`ring_reduction=True`；shape列为`M/N/K_global`。正值表示更快，
 
 ### 独立标签验证：排序与采样扰动
 
-以下范围为四个接收目标分区各自统计量的最小–最大值，不是置信区间。覆盖数只计可配对的有效tile；采样开销列是匹配子集开销中位数的跨分区范围。来源集合命中率、轮询误差及集合大小保留在[原始验证结果](../../logs/a800/arrival/arrival-v2-tp4-20261003/results/label-validation.json)。
+以下范围为四个接收目标分区各自统计量的最小–最大值，不是置信区间。覆盖数只计可配对的有效tile；采样开销列是匹配子集开销中位数的跨分区范围。来源集合命中率、轮询误差及集合大小保留在[原始验证结果](../../../logs/a800/arrival/arrival-v2-tp4-20261003/results/label-validation.json)。
 
 | 基础 | shape | 有效tile / 总tile | 尾部排序Spearman范围 | 尾10%召回范围 | 采样开销范围% |
 | --- | --- | --- | --- | --- | --- |
@@ -130,7 +130,7 @@ BF16、`ring_reduction=True`；shape列为`M/N/K_global`。正值表示更快，
 
 ### 上一轮结果：attention与MLP同时重排的六组端到端
 
-2026-10-03 **12:40:23–13:02:39（北京时间）**，179147内独立step `179147.5`完成两轮六组完整optimizer step。详见[完整端到端报告](../../logs/a800/e2e/arrival-v2-tp4-e2e-20261003/report.md)、[状态](../../outputs/a800/arrival-v2-tp4-e2e-20261003/campaign-state.json)、[汇总核验](../../outputs/a800/arrival-v2-tp4-e2e-20261003/verification.json)。按用户要求直接执行，不以算子收益门槛跳过；使用首次实验已通过预检的v2 tail构建。
+2026-10-03 **12:40:23–13:02:39（北京时间）**，179147内独立step `179147.5`完成两轮六组完整optimizer step。详见[完整端到端报告](../../../logs/a800/e2e/arrival-v2-tp4-e2e-20261003/report.md)、[状态](../../../outputs/a800/arrival-v2-tp4-e2e-20261003/campaign-state.json)、[汇总核验](../../../outputs/a800/arrival-v2-tp4-e2e-20261003/verification.json)。按用户要求直接执行，不以算子收益门槛跳过；使用首次实验已通过预检的v2 tail构建。
 
 12层GPT、H=2048、FFN=8192、S=2048、TP4、micro batch=1、global batch=4，BF16、ring_reduction=True，每步8192 token。每轮6个位置平衡块，每窗口10步预热+20步计时，第二轮块与组均反序；每窗口取四rank最大墙钟。共72窗口、288份rank记录、1440个全局计时optimizer step，每策略240步。两轮均在同一分配内，不是两个独立Slurm作业。
 
@@ -159,17 +159,17 @@ BF16、`ring_reduction=True`；shape列为`M/N/K_global`。正值表示更快，
 
 两轮loss/梯度均有限，optimizer跳步与fallback均为0。初始/末步loss、梯度范数及显存详见完整报告；有限训练不替代同输入/权重/输出梯度下的配对dgrad、wgrad和参数更新误差预算，也不作为真实数据收敛结论。`remote_first`仍是rank+1分区偏移。
 
-先前补开的gap消融step `179147.4`已单独停止，日志及已完成构建保存在[gap目录](../../outputs/a800/arrival-v2-tp4-gap-20261003/)，未完成计时不作为性能结果。恒等/随机查表控制及重排后机制采样仍待后续。原驻留step `179147.1`和外层batch保留。
+先前补开的gap消融step `179147.4`已单独停止，日志及已完成构建保存在[gap目录](../../../outputs/a800/arrival-v2-tp4-gap-20261003/)，未完成计时不作为性能结果。恒等/随机查表控制及重排后机制采样仍待后续。原驻留step `179147.1`和外层batch保留。
 
-驻留包装器仍是[resident_campaign.py](../../tools/a800/arrival/resident_campaign.py)；[原提交记录](../../outputs/a800/arrival-v2-tp4-20261003/submission.json)与[时限/驻留调整记录](../../outputs/a800/arrival-v2-tp4-20261003/allocation-adjustment.json)保留。没有创建`RELEASE`，没有取消或重启179147，也没有修改其他作业。
+驻留包装器仍是[resident_campaign.py](../../../tools/a800/arrival/resident_campaign.py)；[原提交记录](../../../outputs/a800/arrival-v2-tp4-20261003/submission.json)与[时限/驻留调整记录](../../../outputs/a800/arrival-v2-tp4-20261003/allocation-adjustment.json)保留。没有创建`RELEASE`，没有取消或重启179147，也没有修改其他作业。
 
 ## 当前执行：独立3天分配已提交
 
 按用户要求，只借鉴其他项目的外层驻留方式；示例目录及已有作业没有改动。2026-10-03 01:47:52（北京时间）已提交本项目独立作业 **179139**：`gpu_a800`、`normal`、单节点8×A800、16 CPU、`3-00:00:00`。01:55核验为 `PENDING (Priority)`，尚未分配GPU；3天从实际启动计算。调度器暂估10月17日开始，但排队估计会变化，不能视为确定时间。
 
-实验目录为 [arrival-v2-tp8-20261003](../../outputs/a800/arrival-v2-tp8-20261003/)，[提交记录](../../outputs/a800/arrival-v2-tp8-20261003/submission.json)与39份文件的[snapshot](../../outputs/a800/arrival-v2-tp8-20261003/snapshot.json)已保存。新目录用于保存修正版映射、构建、脚本和分轮数据；它不负责占用GPU，持有资源的是[外层batch进程](../../tools/a800/arrival8/allocation.sbatch)。
+实验目录为 [arrival-v2-tp8-20261003](../../../outputs/a800/arrival-v2-tp8-20261003/)，[提交记录](../../../outputs/a800/arrival-v2-tp8-20261003/submission.json)与39份文件的[snapshot](../../../outputs/a800/arrival-v2-tp8-20261003/snapshot.json)已保存。新目录用于保存修正版映射、构建、脚本和分轮数据；它不负责占用GPU，持有资源的是[外层batch进程](../../../tools/a800/arrival8/allocation.sbatch)。
 
-获配后自动执行：[两次八来源校准 → tail拟合/gap离线消融 → 独立标签验证 → CUDA构建 → 算子/模型预检 → 两轮五策略算子计时](../../tools/a800/arrival8/campaign.py)。同一候选在两种模型实际shape、两轮配对区间下界均为正时，再跑两轮六组模型计时；否则保留负结果，跳过正式模型计时。gap、恒等/随机表控制及重排后机制采样尚未自动接入本轮GPU流程。
+获配后自动执行：[两次八来源校准 → tail拟合/gap离线消融 → 独立标签验证 → CUDA构建 → 算子/模型预检 → 两轮五策略算子计时](../../../tools/a800/arrival8/campaign.py)。同一候选在两种模型实际shape、两轮配对区间下界均为正时，再跑两轮六组模型计时；否则保留负结果，跳过正式模型计时。gap、恒等/随机表控制及重排后机制采样尚未自动接入本轮GPU流程。
 
 所有内部实验串行运行，完成或失败后外层均继续驻留，直到显式释放或3天时限到达。脚本仅使用179139，不提交子作业，不取消或重配置其他作业。新入口24项TP8 CPU检查通过，包含“等待就绪、实验成功、实验失败”三种情况均继续持有外层进程。
 
@@ -179,7 +179,7 @@ BF16、`ring_reduction=True`；shape列为`M/N/K_global`。正值表示更快，
 
 ### 离线“优先最晚 tile”
 
-已同步修正 [TP4 plan.py](../../tools/a800/arrival/plan.py) 和 [TP8 plan.py](../../tools/a800/arrival8/plan.py)。
+已同步修正 [TP4 plan.py](../../../tools/a800/arrival/plan.py) 和 [TP8 plan.py](../../../tools/a800/arrival8/plan.py)。
 
 - **旧分数优化了滞后差，而非最晚 tile。** `A(r,t)−max(other)` 很大，可能只是一个很早完成但偏斜大的 tile。v2默认 `--score tail`：每次采样先计算 `a(r,t)=(max_fragment observed_ns − receiver.local_markers[0])/1000`，再取两次训练采样的 `max_r a(r,t)` 中位数作为 tile 分数。仅在同一接收目标分区内比较，不跨GPU比较绝对时钟，也不把不同次调用的绝对时间戳混排。
 - **旧中位数会掩盖最后来源不一致。** v2要求来源在两次训练中都满足 `max(a)−a(r) ≤ 2×本次最大轮询周期`，允许多个近似并列来源。另保留 `--score gap` 消融，要求同一来源两次都以大于各自不确定性的差距最后到达，再取滞后中位数。它与历史v1结果不同。
@@ -194,13 +194,13 @@ BF16、`ring_reduction=True`；shape列为`M/N/K_global`。正值表示更快，
 
 `interleaved` 的 `destination=(tile_idx % TP + rank) % TP` 在已支持shape上覆盖全部目标分区：TP4为本地1/4、远端3/4，TP8为本地1/8、远端7/8，不是固定本地/远端1:1。拟合仅在同目标槽位窗口内置换，保持这个节奏。含填充cohort槽位的配置继续拒绝，不宣称任意shape可用。
 
-核查了 [swizzle](../../src/gemm_rs/tile_scheduler/threadblock_swizzle.hpp) 和 [Stream-K调用点](../../src/gemm_rs/cutlass_impls/sm80/gemmk_universal_with_visitor_streamk.h)：生产与归约都以相同逻辑tile索引调用映射，工作区与依赖索引仍用逻辑索引；本轮未发现重排只作用于生产者而破坏归约配对的问题。映射顺序不保证CTA实际完成顺序，仍须运行时正确性及kernel检查。
+核查了 [swizzle](../../../src/gemm_rs/tile_scheduler/threadblock_swizzle.hpp) 和 [Stream-K调用点](../../../src/gemm_rs/cutlass_impls/sm80/gemmk_universal_with_visitor_streamk.h)：生产与归约都以相同逻辑tile索引调用映射，工作区与依赖索引仍用逻辑索引；本轮未发现重排只作用于生产者而破坏归约配对的问题。映射顺序不保证CTA实际完成顺序，仍须运行时正确性及kernel检查。
 
 ### 算子与整步计时
 
 - 算子测的是完整 `GemmRS.forward`，包含其同步与最后归约；逐trial取全部rank最大持续时间，然后做窗口中位数与同块配对比值。未发现只计GEMM、漏掉RS的边界问题。
-- 修正 [算子worker](../../tools/a800/arrival/operator_worker.py) 及其生成源：开始/结束CUDA Event在测量前预先创建并记录，复用到每个trial；barrier后等待GPU再记录start，避免惰性事件初始化落入测量窗口。
-- 修正 [算子汇总](../../tools/a800/arrival/summarize_operator.py) 和 [模型汇总](../../tools/a800/e2e/scale/summarize.py)：取max前逐rank检查正有限时长，并核对算子迭代数/预热配置。原来的 `max(正常值, NaN)` 可能隐藏坏rank。已保留此前“排除profile JSON”的文件名修正。
+- 修正 [算子worker](../../../tools/a800/arrival/operator_worker.py) 及其生成源：开始/结束CUDA Event在测量前预先创建并记录，复用到每个trial；barrier后等待GPU再记录start，避免惰性事件初始化落入测量窗口。
+- 修正 [算子汇总](../../../tools/a800/arrival/summarize_operator.py) 和 [模型汇总](../../../tools/a800/e2e/scale/summarize.py)：取max前逐rank检查正有限时长，并核对算子迭代数/预热配置。原来的 `max(正常值, NaN)` 可能隐藏坏rank。已保留此前“排除profile JSON”的文件名修正。
 - 修正单节点scale及双节点distributed整步worker：每个step更新后清梯度一次，首次清理在预热前；旧实现每步开头清理、窗口末尾再额外清一次。梯度范数转Python数值放到计时外。仍用本rank墙钟持续时间，结束等待GPU，再由汇总取全rank最大值；不跨主机相减时间戳，不重复乘TP算token数。
 - 修正生成器：第二轮 `ARRIVAL_REVERSE=1` 现在同时作用于模型实际执行顺序并写入protocol。旧版本仅反转算子，模型两轮仍是相同的六组位置平衡顺序；旧模型结果没有失去位置平衡，但不能声称第二轮已反序。
 
@@ -210,9 +210,9 @@ BF16、`ring_reduction=True`；shape列为`M/N/K_global`。正值表示更快，
 
 已通过52项CPU回归，包括TP4/TP8映射约束、来源一致性、近似并列、时钟平移、留出集隔离、恒等回退、逐rank异常时长、八rank聚合、生成脚本与清梯度顺序。生成器在临时目录验证，没有覆盖历史快照。
 
-只读重放了校准178934，生成 [tail plan](../../outputs/a800/tile-audit-20261003/plan-tail.json) 和 [gap消融plan](../../outputs/a800/tile-audit-20261003/plan-gap.json)。按新tail口径，交替路线两个大shape的留出来源集合命中率约55.42%和54.20%；不能据此认可尾部排序。远端路线对应命中率较高，也仍不足以证明重排收益。
+只读重放了校准178934，生成 [tail plan](../../../outputs/a800/tile-audit-20261003/plan-tail.json) 和 [gap消融plan](../../../outputs/a800/tile-audit-20261003/plan-gap.json)。按新tail口径，交替路线两个大shape的留出来源集合命中率约55.42%和54.20%；不能据此认可尾部排序。远端路线对应命中率较高，也仍不足以证明重排收益。
 
-用新时长校验重放算子179073/179076及模型179074/179077，原始时长均通过，汇总数值完全一致，见 [重放核验](../../outputs/a800/tile-audit-20261003/replay-validation.json)。因此旧版叠加无稳定增益的判断保留；本轮没有证据将负结果归因于NaN或漏计RS。
+用新时长校验重放算子179073/179076及模型179074/179077，原始时长均通过，汇总数值完全一致，见 [重放核验](../../../outputs/a800/tile-audit-20261003/replay-validation.json)。因此旧版叠加无稳定增益的判断保留；本轮没有证据将负结果归因于NaN或漏计RS。
 
 此前CPU审计阶段未进行新GPU运行；现179147已完成v2 tail构建、正确性与两轮性能测试，详见页首。旧TP8校准179128的状态记录已更新为用户取消；TP8分配提交记录见页首。旧流水线记录了旧脚本哈希，不能更新哈希绕过检查后混跑v1/v2。
 
@@ -228,7 +228,7 @@ BF16、`ring_reduction=True`；shape列为`M/N/K_global`。正值表示更快，
 
 ### 新增离线检查：实际合法窗口内的预测能力
 
-使用179147既有训练与独立验证采样重放，未新增GPU实验。对每个基础顺序，按实际每目标分区16槽位分组；同一物理tile集合跨来源去重，窗口至少含8个可配对有效tile。先分别汇总训练两次/验证三次的receiver-local join中位数，再计算每个窗口的Spearman，下表为窗口相关性的中位数。使用窗口内所有有效tile，并非仅准入来源的候选子集；它是join排序诊断，不是调度收益或因果证明。见[审计数据](../../logs/a800/arrival/arrival-v2-tp4-analysis-20261003/window-audit.json)与[可重放脚本](../../tools/a800/arrival/window_audit.py)。
+使用179147既有训练与独立验证采样重放，未新增GPU实验。对每个基础顺序，按实际每目标分区16槽位分组；同一物理tile集合跨来源去重，窗口至少含8个可配对有效tile。先分别汇总训练两次/验证三次的receiver-local join中位数，再计算每个窗口的Spearman，下表为窗口相关性的中位数。使用窗口内所有有效tile，并非仅准入来源的候选子集；它是join排序诊断，不是调度收益或因果证明。见[审计数据](../../../logs/a800/arrival/arrival-v2-tp4-analysis-20261003/window-audit.json)与[可重放脚本](../../../tools/a800/arrival/window_audit.py)。
 
 | shape M/N/K_global | 远端基础窗口内相关性中位数 | 交替基础窗口内相关性中位数 |
 | --- | ---: | ---: |
@@ -431,13 +431,13 @@ sbatch --qos=normal \
 
 | 作业 | 布局 | 阶段 | 结果 | 产物 |
 | --- | --- | --- | --- | --- |
-| 178774 | TP4/DP2 | preflight | 完成 | [记录](../../logs/a800/e2e/distributed/0627962ded3e/submission.json) |
-| 178775 | TP8/DP1 | preflight | 失败（退出码1） | [记录](../../logs/a800/e2e/distributed/93b45d69af69/submission.json) |
-| 178776 | TP4/DP2 | timing | 完成 | [记录](../../logs/a800/e2e/distributed/0d7697b0e98d/submission.json) |
-| 178777 | TP4/DP2 | timing | 完成 | [记录](../../logs/a800/e2e/distributed/8543423361d9/submission.json) |
-| 178781 | TP8/DP1 | preflight | 完成 | [记录](../../logs/a800/e2e/distributed/tp8-sync-preflight/submission.json) |
-| 178785 | TP8/DP1 | timing | 完成 | [记录](../../logs/a800/e2e/distributed/b58dd8138140/submission.json) |
-| 178786 | TP8/DP1 | timing | 完成 | [记录](../../logs/a800/e2e/distributed/e54091370074/submission.json) |
+| 178774 | TP4/DP2 | preflight | 完成 | [记录](../../../logs/a800/e2e/distributed/0627962ded3e/submission.json) |
+| 178775 | TP8/DP1 | preflight | 失败（退出码1） | [记录](../../../logs/a800/e2e/distributed/93b45d69af69/submission.json) |
+| 178776 | TP4/DP2 | timing | 完成 | [记录](../../../logs/a800/e2e/distributed/0d7697b0e98d/submission.json) |
+| 178777 | TP4/DP2 | timing | 完成 | [记录](../../../logs/a800/e2e/distributed/8543423361d9/submission.json) |
+| 178781 | TP8/DP1 | preflight | 完成 | [记录](../../../logs/a800/e2e/distributed/tp8-sync-preflight/submission.json) |
+| 178785 | TP8/DP1 | timing | 完成 | [记录](../../../logs/a800/e2e/distributed/b58dd8138140/submission.json) |
+| 178786 | TP8/DP1 | timing | 完成 | [记录](../../../logs/a800/e2e/distributed/e54091370074/submission.json) |
 
 #### 双节点：首次前向数值检查
 

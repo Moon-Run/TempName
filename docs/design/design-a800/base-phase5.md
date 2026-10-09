@@ -4,7 +4,7 @@
 
 ## 最新扩展：到达优先叠加与Megatron量化基线
 
-2026-10-03按用户后续要求新增三组：`remote_arrival_selective`、`interleaved_arrival_selective`、`native_taco`，与原九组共十二组重新测完整step。运行目录：[arrival-native-e2e-tp4-20261003-r2](../../logs/a800/phase5/arrival-native-e2e-tp4-20261003-r2/)，[实时状态](../../logs/a800/phase5/arrival-native-e2e-tp4-20261003-r2/campaign-state.json)。每轮12个位置平衡块，每窗口10步预热＋20步正式计时，第二轮反序，已完成288窗口、1152份rank记录、5760个全局计时optimizer step。复用179147，保留原驻留step `179147.1`及外层batch。
+2026-10-03按用户后续要求新增三组：`remote_arrival_selective`、`interleaved_arrival_selective`、`native_taco`，与原九组共十二组重新测完整step。运行目录：[arrival-native-e2e-tp4-20261003-r2](../../../logs/a800/phase5/arrival-native-e2e-tp4-20261003-r2/)，[实时状态](../../../logs/a800/phase5/arrival-native-e2e-tp4-20261003-r2/campaign-state.json)。每轮12个位置平衡块，每窗口10步预热＋20步正式计时，第二轮反序，已完成288窗口、1152份rank记录、5760个全局计时optimizer step。复用179147，保留原驻留step `179147.1`及外层batch。
 
 到达优先使用既有v2 tail计划中实际MLP shape的16合法槽位置换，远端各rank改变29/16/231/201个槽位，交替改变74/71/202/174个槽位；attention保持原映射。查表索引用物理来源rank，不能误用rank+1偏移。量化mask继续按物理tile查询，新增组复用对应基础完全相同的选择表和字节比例；不随着逻辑位置重排mask，也不在本轮重新拟合选择集合。这是叠加到达优先的消融，尚未验证新顺序下重新选择关键贡献的方案。
 
@@ -16,7 +16,7 @@ Megatron量化基线保留原始Megatron attention以及RowParallelLinear的GEMM
 
 2026-10-03T19:36:47.799531+08:00至2026-10-03T21:13:58.080176+08:00完成，内部step `179147.15`。288窗口、1152份rank记录、5760个全局计时optimizer step，每策略480步。八组映射、1184项codec检查及四rank的Megatron通信反向检查通过；十二组模型smoke/profile、初始化/token/GPU一致性、反序、物理mask/逻辑字节核验均通过，loss/梯度有限、零跳步、零fallback。
 
-[完整报告](../../logs/a800/phase5/arrival-native-e2e-tp4-20261003-r2/report.md)、[核验记录](../../logs/a800/phase5/arrival-native-e2e-tp4-20261003-r2/verification.json)、[第一轮](../../logs/a800/phase5/arrival-native-e2e-tp4-20261003-r2/results/model-1/summary.csv)、[第二轮](../../logs/a800/phase5/arrival-native-e2e-tp4-20261003-r2/results/model-2/summary.csv)。
+[完整报告](../../../logs/a800/phase5/arrival-native-e2e-tp4-20261003-r2/report.md)、[核验记录](../../../logs/a800/phase5/arrival-native-e2e-tp4-20261003-r2/verification.json)、[第一轮](../../../logs/a800/phase5/arrival-native-e2e-tp4-20261003-r2/results/model-1/summary.csv)、[第二轮](../../../logs/a800/phase5/arrival-native-e2e-tp4-20261003-r2/results/model-2/summary.csv)。
 
 | 策略 | 第一轮ms/step | 第二轮ms/step |
 | --- | ---: | ---: |
@@ -81,7 +81,7 @@ GEMM仍为BF16。TACO沿用phase4 v2的warp并行编码、4 KiB暂存、E4M3、g
 
 ## 选择规则与混合协议
 
-复用179147已完成的[calibration-fit](../../logs/a800/arrival/arrival-v2-tp4-20261003/results/calibration-fit/)中**实际MLP shape `[2048,2048,8192]`**的远端/交替各三遍采样，而非其他shape的预测表。记录输入哈希，并要求新GPU映射逐tile与该基础顺序一致。
+复用179147已完成的[calibration-fit](../../../logs/a800/arrival/arrival-v2-tp4-20261003/results/calibration-fit/)中**实际MLP shape `[2048,2048,8192]`**的远端/交替各三遍采样，而非其他shape的预测表。记录输入哈希，并要求新GPU映射逐tile与该基础顺序一致。
 
 1. 仅使用采样0/1拟合：来源在两遍中均处于最后到达者的两倍轮询周期以内，才是候选。
 2. 按接收端本次起点归一化的join时刻中位数，从晚到早选择；同分按物理tile索引。每来源最多选择其远端tile的25%，不强行补足预算。
@@ -104,14 +104,14 @@ GEMM仍为BF16。TACO沿用phase4 v2的warp并行编码、4 KiB暂存、E4M3、g
 
 ## 实现、检查与运行入口
 
-- [phase5代码与命令](../../tools/a800/phase5/README.md)：`build.py`生成两种仅MLP重排的融合构建；`plan.py`生成冻结选择表；`e2e/`包含九组模型入口及核验。
+- [phase5代码与命令](../../../tools/a800/phase5/README.md)：`build.py`生成两种仅MLP重排的融合构建；`plan.py`生成冻结选择表；`e2e/`包含九组模型入口及核验。
 - 混合协议扩展`src/gemm_rs/taco_runtime.{h,cu}`、`epilogue_evt.hpp`和`python/flux/gemm_rs_taco.py`；空选择表指针保持全量远端量化，显式全零mask支持纯BF16混合协议控制。
 - 4项选择器CPU检查覆盖预算、本地排除、确定性同分和验证数据不参与拟合；原phase4的9项CPU检查通过。两种独立构建编译/链接及fragment布局检查通过。
 - GPU必须先过attention原映射、MLP映射与校准一致性；混合codec检查包括全量、全零、棋盘及校准mask、N尾部、随机/尖峰/重复调用和输出生命周期。再做九组模型smoke/profile，最后两轮完整step。
 
-构建：[joint-build-20261003](../../outputs/a800/phase5/joint-build-20261003/)。运行：[joint-e2e-tp4-20261003](../../logs/a800/phase5/joint-e2e-tp4-20261003/)，复用任务179147的独立内部step；原驻留step `179147.1`和外层batch保留。每轮9个位置平衡块，每窗口10步预热＋20步完整step，第二轮反序；实际完成162窗口、648份rank记录、3240个全局计时optimizer step。两轮同一分配内新进程，不是独立Slurm作业。
+构建：[joint-build-20261003](../../../outputs/a800/phase5/joint-build-20261003/)。运行：[joint-e2e-tp4-20261003](../../../logs/a800/phase5/joint-e2e-tp4-20261003/)，复用任务179147的独立内部step；原驻留step `179147.1`和外层batch保留。每轮9个位置平衡块，每窗口10步预热＋20步完整step，第二轮反序；实际完成162窗口、648份rank记录、3240个全局计时optimizer step。两轮同一分配内新进程，不是独立Slurm作业。
 
-本轮预检和两轮正式计时均已完成，进度归档见[campaign-state.json](../../logs/a800/phase5/joint-e2e-tp4-20261003/campaign-state.json)，正式结果见下节。数据统一在被Git忽略的`logs/a800/phase5`，构建在`outputs/a800/phase5`；仅维护代码进入版本控制。
+本轮预检和两轮正式计时均已完成，进度归档见[campaign-state.json](../../../logs/a800/phase5/joint-e2e-tp4-20261003/campaign-state.json)，正式结果见下节。数据统一在被Git忽略的`logs/a800/phase5`，构建在`outputs/a800/phase5`；维护代码和设计文档按当前规则进入版本控制。
 
 预检更新：attention/MLP的4组GPU映射检查通过；远端/交替混合路径各256项GPU检查、独立编码80项检查通过。混合路径相对BF16最大relative-L2均0.022803，相对独立codec参考最大分别0.000740/0.000672，仍采用0.05/0.01预算。九组模型smoke/profile及逐层选择表/逻辑字节核验通过，正式第一轮于17:30:15（北京时间）开始。
 
@@ -119,7 +119,7 @@ GEMM仍为BF16。TACO沿用phase4 v2的warp并行编码、4 KiB暂存、E4M3、g
 
 2026-10-03T17:25:22.323714+08:00至2026-10-03T18:19:51.288311+08:00完成，内部step `179147.13`。共162窗口、648份rank记录、3240个全局计时optimizer step，每策略360步。GPU映射、592项算子预检、九组模型smoke/profile、两轮正式计时及跨轮初始化/输入/GPU/反序核验全部通过。全部loss/梯度有限，跳步与fallback均为0。
 
-[完整报告](../../logs/a800/phase5/joint-e2e-tp4-20261003/report.md)、[核验记录](../../logs/a800/phase5/joint-e2e-tp4-20261003/verification.json)、[第一轮](../../logs/a800/phase5/joint-e2e-tp4-20261003/results/model-1/summary.csv)、[第二轮](../../logs/a800/phase5/joint-e2e-tp4-20261003/results/model-2/summary.csv)、[profile诊断](../../logs/a800/phase5/joint-e2e-tp4-20261003/profile-components.csv)。
+[完整报告](../../../logs/a800/phase5/joint-e2e-tp4-20261003/report.md)、[核验记录](../../../logs/a800/phase5/joint-e2e-tp4-20261003/verification.json)、[第一轮](../../../logs/a800/phase5/joint-e2e-tp4-20261003/results/model-1/summary.csv)、[第二轮](../../../logs/a800/phase5/joint-e2e-tp4-20261003/results/model-2/summary.csv)、[profile诊断](../../../logs/a800/phase5/joint-e2e-tp4-20261003/profile-components.csv)。
 
 | 策略 | 第一轮ms/step | 第二轮ms/step |
 | --- | ---: | ---: |

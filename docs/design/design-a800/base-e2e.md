@@ -6,7 +6,7 @@
 
 当前另行进行仅MLP的TACO量化端到端对照，attention保持BF16原始Flux、所有组固定原始tile映射；包含stock Flux、同构建关闭量化控制、分离TACO、融合TACO。方案和结果入口见[base-phase4.md](base-phase4.md)，不与tile重排收益混算。
 
-四组MLP-only复测已完成：MLP远端相对原始Flux为+0.113% / +0.051%，未达到两轮区间下界均为正的重复增益标准。MLP到达优先相对MLP远端基础为-0.134% / -0.179%，两轮区间上界均为负，重复退化。 64个窗口/256份rank记录通过，详细时长、吞吐与配对区间见[only-tile.md](only-tile.md)和[完整报告](../../logs/a800/e2e/mlp-arrival-tp4-20261003-r2/report.md)。
+四组MLP-only复测已完成：MLP远端相对原始Flux为+0.113% / +0.051%，未达到两轮区间下界均为正的重复增益标准。MLP到达优先相对MLP远端基础为-0.134% / -0.179%，两轮区间上界均为负，重复退化。 64个窗口/256份rank记录通过，详细时长、吞吐与配对区间见[only-tile.md](only-tile.md)和[完整报告](../../../logs/a800/e2e/mlp-arrival-tp4-20261003-r2/report.md)。
 
 本次补测扩为四组MLP-only：新增“MLP远端优先＋到达优先、attention原始Flux”，与三组基线一起重测。每轮8个配对块、两轮反序；运行结果统一在`logs/a800`，构建在`outputs/a800`，均不纳入Git。两种窗口及点估计/95%区间的说明见[only-tile.md](only-tile.md)。
 
@@ -16,16 +16,16 @@
 
 本轮在现有179147内进行三组完整optimizer step对照：原始Megatron、原始Flux、MLP远端优先＋attention原始Flux。基线一起重跑；沿用12层、H=2048、FFN=8192、S=2048、TP4、global batch=4、BF16，每窗口10步预热+20步计时，每轮6个位置平衡块，第二轮反序。共完成36个计时窗口，属于同一分配内两轮独立进程，不能标为独立Slurm作业。
 
-实验目录：[mlp-remote-tp4-e2e-20261003](../../outputs/a800/mlp-remote-tp4-e2e-20261003/)；[进度](../../outputs/a800/mlp-remote-tp4-e2e-20261003/campaign-state.json)；[入口与构建](../../tools/a800/e2e/mlp/)。先检查attention逐tile映射与原始Flux一致、MLP逐tile映射与原远端策略一致，再做模型输出/kernel预检和正式计时。模块选择按本冻结模型不同shape在host构造时确定，无新增GPU查表；入口逐层核对名称与shape，不支持任意模型套用。原179147驻留step及外层循环保留。
+实验目录：[mlp-remote-tp4-e2e-20261003](../../../outputs/a800/mlp-remote-tp4-e2e-20261003/)；[进度](../../../outputs/a800/mlp-remote-tp4-e2e-20261003/campaign-state.json)；[入口与构建](../../../tools/a800/e2e/mlp/)。先检查attention逐tile映射与原始Flux一致、MLP逐tile映射与原远端策略一致，再做模型输出/kernel预检和正式计时。模块选择按本冻结模型不同shape在host构造时确定，无新增GPU查表；入口逐层核对名称与shape，不支持任意模型套用。原179147驻留step及外层循环保留。
 
 后续MLP交替、MLP基础＋到达优先也遵守上述模块范围；此次只验证MLP远端基础，不同时更改到达标签或引入压缩。下文历史实验曾同时重排attention与MLP，其数值保留，但不能标成MLP-only结果。
 
-本轮三组两轮端到端已完成，36个窗口/144份rank记录通过；MLP-only远端组合相对原始Flux两轮配对点估计均更快，但两轮95%区间均跨零，尚不能确立可重复的端到端正增量。 详细数值见[only-tile.md的MLP-only结果](only-tile.md)及[完整报告](../../logs/a800/e2e/mlp-remote-tp4-e2e-20261003/report.md)。
+本轮三组两轮端到端已完成，36个窗口/144份rank记录通过；MLP-only远端组合相对原始Flux两轮配对点估计均更快，但两轮95%区间均跨零，尚不能确立可重复的端到端正增量。 详细数值见[only-tile.md的MLP-only结果](only-tile.md)及[完整报告](../../../logs/a800/e2e/mlp-remote-tp4-e2e-20261003/report.md)。
 
 <!-- distributed-results:start -->
 ## 双节点实测更新（2026-10-02）
 
-本轮复用`outputs/a800/phase3/three-way-build`：94项文件及`outputs/a800/megatron-e2e/scale-mapping`的6项文件哈希全部匹配，未修改或重编译`tools/a800/phase3`及其Flux二进制。复用依据是节点内仍调用相同IPC/GEMM-RS kernel，跨节点交换由新的Python适配器处理；这不代表C++直接跨节点路径已经验证。审计见[build-reuse-audit.json](../../logs/a800/e2e/distributed/build-reuse-audit.json)。
+本轮复用`outputs/a800/phase3/three-way-build`：94项文件及`outputs/a800/megatron-e2e/scale-mapping`的6项文件哈希全部匹配，未修改或重编译`tools/a800/phase3`及其Flux二进制。复用依据是节点内仍调用相同IPC/GEMM-RS kernel，跨节点交换由新的Python适配器处理；这不代表C++直接跨节点路径已经验证。审计见[build-reuse-audit.json](../../../logs/a800/e2e/distributed/build-reuse-audit.json)。
 
 集群提交插件要求多节点增加`--qos=gpugpu`，已补入`distributed/submit.py`；仍使用普通`gpu_a800`分区，查询到该QoS优先级为0。首次缺少QoS的提交被Slurm拒绝，未产生GPU作业。
 
@@ -33,13 +33,13 @@
 
 | 作业 | 布局 | 阶段 | 结果 | 产物 |
 | --- | --- | --- | --- | --- |
-| 178774 | TP4/DP2 | preflight | 完成 | [记录](../../logs/a800/e2e/distributed/0627962ded3e/submission.json) |
-| 178775 | TP8/DP1 | preflight | 失败（退出码1） | [记录](../../logs/a800/e2e/distributed/93b45d69af69/submission.json) |
-| 178776 | TP4/DP2 | timing | 完成 | [记录](../../logs/a800/e2e/distributed/0d7697b0e98d/submission.json) |
-| 178777 | TP4/DP2 | timing | 完成 | [记录](../../logs/a800/e2e/distributed/8543423361d9/submission.json) |
-| 178781 | TP8/DP1 | preflight | 完成 | [记录](../../logs/a800/e2e/distributed/tp8-sync-preflight/submission.json) |
-| 178785 | TP8/DP1 | timing | 完成 | [记录](../../logs/a800/e2e/distributed/b58dd8138140/submission.json) |
-| 178786 | TP8/DP1 | timing | 完成 | [记录](../../logs/a800/e2e/distributed/e54091370074/submission.json) |
+| 178774 | TP4/DP2 | preflight | 完成 | [记录](../../../logs/a800/e2e/distributed/0627962ded3e/submission.json) |
+| 178775 | TP8/DP1 | preflight | 失败（退出码1） | [记录](../../../logs/a800/e2e/distributed/93b45d69af69/submission.json) |
+| 178776 | TP4/DP2 | timing | 完成 | [记录](../../../logs/a800/e2e/distributed/0d7697b0e98d/submission.json) |
+| 178777 | TP4/DP2 | timing | 完成 | [记录](../../../logs/a800/e2e/distributed/8543423361d9/submission.json) |
+| 178781 | TP8/DP1 | preflight | 完成 | [记录](../../../logs/a800/e2e/distributed/tp8-sync-preflight/submission.json) |
+| 178785 | TP8/DP1 | timing | 完成 | [记录](../../../logs/a800/e2e/distributed/b58dd8138140/submission.json) |
+| 178786 | TP8/DP1 | timing | 完成 | [记录](../../../logs/a800/e2e/distributed/e54091370074/submission.json) |
 
 ### 预检与数值检查
 
@@ -71,10 +71,10 @@
 | 178786 TP8/DP1 | 远端重排 | 964.983 | 8,499 | 9.543344 | 0.067097 | 2.25 | +1.65 [-3.03, +5.21] |
 | 178786 TP8/DP1 | 交替重排 | 1019.037 | 8,039 | 9.543452 | 0.067946 | 2.25 | -1.67 [-9.50, +5.60] |
 
-- [178776汇总](../../logs/a800/e2e/distributed/0d7697b0e98d/summary.csv)、[窗口](../../logs/a800/e2e/distributed/0d7697b0e98d/windows.csv)、[配对块](../../logs/a800/e2e/distributed/0d7697b0e98d/paired_blocks.csv)。
-- [178777汇总](../../logs/a800/e2e/distributed/8543423361d9/summary.csv)、[窗口](../../logs/a800/e2e/distributed/8543423361d9/windows.csv)、[配对块](../../logs/a800/e2e/distributed/8543423361d9/paired_blocks.csv)。
-- [178785汇总](../../logs/a800/e2e/distributed/b58dd8138140/summary.csv)、[窗口](../../logs/a800/e2e/distributed/b58dd8138140/windows.csv)、[配对块](../../logs/a800/e2e/distributed/b58dd8138140/paired_blocks.csv)。
-- [178786汇总](../../logs/a800/e2e/distributed/e54091370074/summary.csv)、[窗口](../../logs/a800/e2e/distributed/e54091370074/windows.csv)、[配对块](../../logs/a800/e2e/distributed/e54091370074/paired_blocks.csv)。
+- [178776汇总](../../../logs/a800/e2e/distributed/0d7697b0e98d/summary.csv)、[窗口](../../../logs/a800/e2e/distributed/0d7697b0e98d/windows.csv)、[配对块](../../../logs/a800/e2e/distributed/0d7697b0e98d/paired_blocks.csv)。
+- [178777汇总](../../../logs/a800/e2e/distributed/8543423361d9/summary.csv)、[窗口](../../../logs/a800/e2e/distributed/8543423361d9/windows.csv)、[配对块](../../../logs/a800/e2e/distributed/8543423361d9/paired_blocks.csv)。
+- [178785汇总](../../../logs/a800/e2e/distributed/b58dd8138140/summary.csv)、[窗口](../../../logs/a800/e2e/distributed/b58dd8138140/windows.csv)、[配对块](../../../logs/a800/e2e/distributed/b58dd8138140/paired_blocks.csv)。
+- [178786汇总](../../../logs/a800/e2e/distributed/e54091370074/summary.csv)、[窗口](../../../logs/a800/e2e/distributed/e54091370074/windows.csv)、[配对块](../../../logs/a800/e2e/distributed/e54091370074/paired_blocks.csv)。
 
 ms/step与tokens/s分别取窗口中位数；配对百分比用各块耗时比的几何均值计算，不能直接用两个中位数相除重算。正值表示相对原始Flux更快；区间来自同一作业内4个配对块，不等同于跨节点/跨作业总体置信区间。两种布局的累积步数、跨节点通信内容不同，分别报告；不将单节点结果和双节点结果合并统计。
 
@@ -85,11 +85,11 @@ ms/step与tokens/s分别取窗口中位数；配对百分比用各块耗时比�
 
 修正版预检178781已在原容差下通过全部四实现的数值、映射、实际kernel与短训练检查。修正仅涉及Python分层路径；节点内TP4路径未改变。
 
-同步改动见[修正补丁](../../logs/a800/e2e/distributed/hierarchical-workspace-sync.patch)和[适配器](../../tools/a800/e2e/distributed/adapter.py)；另有[CPU工作区回归](../../tools/a800/e2e/test_hierarchical_workspace.py)。
+同步改动见[修正补丁](../../../logs/a800/e2e/distributed/hierarchical-workspace-sync.patch)和[适配器](../../../tools/a800/e2e/distributed/adapter.py)；另有[CPU工作区回归](../../../tools/a800/e2e/test_hierarchical_workspace.py)。
 
 实际padded vocabulary随TP变化：TP4=8704，TP8=9216；每rank原生参数量分别为164,296,704和84,583,424。各布局内部的四候选配置一致，但跨布局的词表补齐和分片初始化不同，不能将两者时间/loss作为严格同模型strong-scaling或训练轨迹等价对照。
 
-TP4/DP2正式作业178776/178777及TP8/DP1正式作业178785/178786均已完成，Slurm退出码均为`0:0`，共64个计时窗口、512份rank结果。状态与节点见[Slurm验收记录](../../logs/a800/e2e/distributed/slurm-accounting.txt)。两个通过的预检为178774、178781；首次TP8失败作业178775保留追溯，不计入性能结果。
+TP4/DP2正式作业178776/178777及TP8/DP1正式作业178785/178786均已完成，Slurm退出码均为`0:0`，共64个计时窗口、512份rank结果。状态与节点见[Slurm验收记录](../../../logs/a800/e2e/distributed/slurm-accounting.txt)。两个通过的预检为178774、178781；首次TP8失败作业178775保留追溯，不计入性能结果。
 
 ### 结果判断与边界
 
@@ -141,8 +141,8 @@ TP4/DP2的178776/178777中，远端重排相对原始Flux的配对耗时下降�
 
 正值表示配对耗时下降，负值表示增加。绝对ms/step取窗口中位数，配对百分比按相同块内比值汇总。
 
-- [178759 完整汇总](../../logs/a800/e2e/scale/178759/summary.csv)、[窗口](../../logs/a800/e2e/scale/178759/windows.csv)、[配对块](../../logs/a800/e2e/scale/178759/paired_blocks.csv)。
-- [178760 完整汇总](../../logs/a800/e2e/scale/178760/summary.csv)、[窗口](../../logs/a800/e2e/scale/178760/windows.csv)、[配对块](../../logs/a800/e2e/scale/178760/paired_blocks.csv)。
+- [178759 完整汇总](../../../logs/a800/e2e/scale/178759/summary.csv)、[窗口](../../../logs/a800/e2e/scale/178759/windows.csv)、[配对块](../../../logs/a800/e2e/scale/178759/paired_blocks.csv)。
+- [178760 完整汇总](../../../logs/a800/e2e/scale/178760/summary.csv)、[窗口](../../../logs/a800/e2e/scale/178760/windows.csv)、[配对块](../../../logs/a800/e2e/scale/178760/paired_blocks.csv)。
 
 ### 扩展测试口径
 
