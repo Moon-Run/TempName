@@ -72,7 +72,7 @@ def verify(root):
     if 'native_taco' in info['policies']:
         result.update(native_taco_no_flux_and_native_linear_checked=True,
                       native_taco_ste_gather_checked=True,
-                      native_taco_effective_replaced_modules=12,
+                      native_taco_effective_replaced_modules=config['common']['layers'],
                       native_taco_legacy_count_note='Early frozen worker reports replaced_modules=24 (audit wrappers); timed routes and CPU profile scope counts verify only 12 MLP communications are replaced. Canonical worker field corrected for future runs.')
     if 'remote_arrival_selective' in info['policies']:
         result['arrival_coordinate_and_fixed_physical_mask_checks_passed']=True

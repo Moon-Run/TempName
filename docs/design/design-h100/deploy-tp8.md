@@ -1,8 +1,8 @@
 # 新服务器：单机 8 张 H100 部署与运行
 
-更新：2026-10-09。以下命令在**新服务器**执行，使用当前受维护的 `tools/h100/phase6/` 入口。无需 Slurm；如果服务器受调度器管理，GPU 步骤须在已分配的计算节点内执行。
+更新：2026-10-10。以下命令在**新服务器**执行，使用当前受维护的 `tools/h100/phase6/` 入口，默认GPT 6.7B。无需Slurm；如果服务器受调度器管理，GPU步骤须在已分配的计算节点内执行。
 
-当前完成的是 CPU 检查与 CUDA 编译验证，尚未完成 H100 GPU 正确性和性能验证。2026-10-09 的四卡短测因 Slurm 返回 `AssocMaxSubmitJobLimit` 未能提交，用户随后要求保留现有作业并停止测试，没有产生 GPU 结果。本指南提供部署步骤，不表示新服务器已经验证成功。
+当前6.7B配置只完成代码/文档更新，本次不编译、不测试。旧0.64B在gxn74的GPU结果见[历史记录](base-phase6.md)，不能作为新模型验证。此前本机四卡短测因Slurm返回 `AssocMaxSubmitJobLimit` 未能提交，也没有GPU结果。新配置、参数量和旧表失效边界见[模型说明](../model-gpt-6.7b.md)，生成数据与文件目录见[instruction](instruction.md#生成数据与文件放置规范)。
 
 ## 1. 获取完整源码
 
@@ -158,7 +158,7 @@ PY
 下面用一个全新会话名组织所有产物。后续命令在同一个 shell 中顺序执行；重新连接后恢复这些变量，继续已有阶段时不要重新生成会话名。
 
 ```bash
-export H100_SESSION="tp8-$(date +%Y%m%d-%H%M%S)"
+export H100_SESSION="gpt67-tp8-$(date +%Y%m%d-%H%M%S)"
 export H100_BUILD="$REPO/outputs/h100/phase6/$H100_SESSION"
 export H100_LOG="$REPO/logs/h100/phase6/$H100_SESSION"
 export H100_CONFIG="$REPO/tools/h100/phase6/config.json"
@@ -231,6 +231,6 @@ python tools/h100/phase6/report.py "$H100_LOG/compare"
 
 查看 `$H100_LOG/compare/report.md`、`report.json`；各次独立进程的错误和日志位于 `compare/results/*/process.log`。失败时先查看日志，保留失败目录，并以新会话重做需要变更的阶段，不覆盖原记录。
 
-第一次部署包含依赖安装、多套库编译、校准、正确性检查及完整对比，**没有 20 分钟内完成的保证**。默认对比使用 12 层、H2048/FFN8192、S2048、micro batch1/global batch4，并执行两轮各 36 个独立计时窗口。校准完成后不要移动源码/产物路径、修改被冻结的输入或更新 Megatron；manifest 会核验路径和哈希。
+第一次部署包含依赖安装、多套库编译、校准、正确性检查及完整对比，**没有20分钟内完成的保证**。默认对比使用32层、H4096/FFN16384、32 heads、词表32768、S2048、micro batch1/global batch4，并执行两轮各36个独立计时窗口。新模型的显存和运行情况尚未测试。校准完成后不要移动源码/产物路径、修改冻结输入或更新Megatron；manifest会核验路径和哈希。
 
 量化 MLP 是 SM90 编译的 Phase6 GemmV2 移植版，attention 与原生 Flux 参考使用 Hopper GemmV3。通过 preflight 后取得的实际计时数据才用于判断该机器上的运行效果；本指南不预设提速结果。

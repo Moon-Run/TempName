@@ -6,8 +6,11 @@ from pathlib import Path
 def write_report(root):
     info = json.loads((root/'submission.json').read_text())
     plan = json.loads((root/'scripts/selection-plan.json').read_text())
+    config = json.loads((root/'scripts/config.json').read_text())
+    model = dict(config['common'], **config['cases'][0])
+    padding = config.get('expected_padded_vocab_size', 9216)
     lines = ['# 单节点 TP8 完整量化组合首测', '',
-             '12层GPT，H2048/FFN8192，S2048/mb1/global4，TP8/DP1，8192 token/optimizer step，padded vocab9216。仅适配并测量，未做参数扫描或性能优化。', '',
+             f'{model["layers"]}层GPT，H{model["hidden"]}/FFN{model["ffn"]}，S{model["sequence"]}/mb{model["micro_batch"]}/global{model["global_batch"]}，TP8/DP1，{model["sequence"]*model["global_batch"]} token/optimizer step，padded vocab{padding}。', '',
              '仅MLP linear_fc2前向远端贡献采用FP8 E4M3/H128；GEMM、本地贡献和反向保持BF16，attention保持各自原后端。候选沿用两套完整工作区和通用解码；必须Flux基线为冻结的原顺序融合v2。', '',
              '到达表与mask从本次分配已有的TP8 BF16校准生成，0/1遍拟合、2遍留出诊断；未在重排或量化后重校准。window64及1/64预算沿用既有规则，未调参。', '',
              '| 基础顺序 | 每来源选中tile | 远端贡献选中比例 | 留出近临界命中率 |',

@@ -1,15 +1,19 @@
 """Apply the existing phase6 tail/selection rules to eight-rank BF16 calibration."""
-import argparse,csv,hashlib,importlib.util,json,statistics
+import argparse,csv,hashlib,importlib.util,json,statistics,sys
 from pathlib import Path
 REPO=Path(__file__).resolve().parents[4]
+sys.path.insert(0,str(Path(__file__).resolve().parents[1]))
+from model_config import DEFAULT_MODEL, read_model, mlp_shape
 def load(name,path):
  spec=importlib.util.spec_from_file_location(name,path);m=importlib.util.module_from_spec(spec);spec.loader.exec_module(m);return m
 arrival=load('tp8_arrival',REPO/'tools/a800/arrival/plan.py')
 selection=load('tp8_selection',REPO/'tools/a800/phase5/plan.py')
 sha=lambda p:hashlib.sha256(Path(p).read_bytes()).hexdigest()
-def main(source,out):
+def main(source,out,model_path=None):
  source,out=source.resolve(),out.resolve();cfg=json.loads((source/'calibration-complete.json').read_text());assert cfg['completed'] and cfg['config']['world_size']==8
- world=8;window=64;fraction=1/64;m,n,k=2048,2048,8192;tiles=m//128*(n//128);per=tiles//world;nt=n//128
+ model=read_model(model_path,8) if model_path else None
+ world=8;window=64;fraction=1/64;m,n,k=mlp_shape(model) if model else [2048,2048,8192];tiles=m//128*(n//128);per=tiles//world;nt=n//128
+ assert [m,n,k] in cfg['config']['shapes'], 'Fresh BF16 calibration for the requested model shape is required'
  result=dict(schema=2,world=world,window=window,budget_fraction=fraction,training_passes=[0,1],heldout_passes=[2],shape_catalog=[[m,n,k]],policies={},inputs={},limitation='Existing same-allocation TP8 BF16 samples; phase6 rules with fixed window64 and budget1/64. No tuning, no post-quantization or post-reorder recalibration.')
  for policy in ['remote_first','interleaved']:
   paths=[source/f'b0-{policy}-instrumented-rank{r}.json' for r in range(world)]
@@ -47,7 +51,10 @@ def main(source,out):
   result['policies'][policy]=[entry]
   for p in paths:result['inputs'][str(p)]=sha(p)
   print(policy,'valid',valid,'changed',changed,'selected',entry['selected_per_source'],'fraction',entry['selected_remote_fraction'],flush=True)
+ if model_path:result['inputs'][str(model_path.resolve())]=sha(model_path)
  for p in [source/'calibration-complete.json',Path(__file__),REPO/'tools/a800/arrival/plan.py',REPO/'tools/a800/phase5/plan.py']:result['inputs'][str(p.resolve())]=sha(p)
  out.parent.mkdir(parents=True,exist_ok=True);assert not out.exists();out.write_text(json.dumps(result,indent=2)+'\n')
 if __name__=='__main__':
- p=argparse.ArgumentParser();p.add_argument('source',type=Path);p.add_argument('out',type=Path);a=p.parse_args();main(a.source,a.out)
+ p=argparse.ArgumentParser();p.add_argument('source',type=Path);p.add_argument('out',type=Path)
+ p.add_argument('--model-config',type=Path,default=DEFAULT_MODEL)
+ a=p.parse_args();main(a.source,a.out,a.model_config)

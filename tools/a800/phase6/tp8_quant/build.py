@@ -73,7 +73,10 @@ def main(plan_path, out):
         checker = checker.replace(old, new)
     (out/'check_mapping.cu').write_text(checker)
     for base, entries in plan['policies'].items():
-        assert all((s['M'], s['N'], s['K_local']) == (2048, 2048, 1024) for s in entries)
+        assert entries and all(s['M'] % 1024 == 0 and s['N'] % 128 == 0 and
+                               s['K_local'] % 32 == 0 and s['tiles'] == (s['M']//128)*(s['N']//128) and
+                               s['tiles'] <= 2048 and s['shape'] == [s['M'],s['N'],8*s['K_local']]
+                               for s in entries), 'Unsupported calibrated TP8 MLP shape'
         name = 'remote_arrival' if base == 'remote_first' else 'interleaved_arrival'
         folder = out/name
         compiler.main(folder, 'fused', lambda old: patch(old, base, entries), name)

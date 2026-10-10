@@ -1,17 +1,22 @@
 # H100 单节点 Phase6 接续说明
 
-更新：2026-10-09。本目录记录 H100 代码移植，与 [A800 接续说明](../design-a800/instruction.md) 分开维护。
+更新：2026-10-10。本目录记录 H100 代码移植，与 [A800 接续说明](../design-a800/instruction.md) 分开维护。
 
-当前目标是单节点 TP4/TP8 下的 baseline 与“基础顺序＋到达优先＋选择性量化”完整 optimizer-step 对比。默认 TP8/DP1，不支持跨节点。首轮仅完成 CPU/编译验证；之后获准的四卡限时测试因提交名额限制未能启动，用户要求保留现有作业并停止。本地尚无 H100 正确性、到达校准、性能或收敛结果。
+当前目标是单节点 TP4/TP8 下的 baseline 与“基础顺序＋到达优先＋选择性量化”完整 optimizer-step 对比。默认 TP8/DP1，不支持跨节点。**后续主模型已改为 GPT 6.7B：32层、H4096、FFN16384、32 heads、词表32768；默认 S2048/mb1/global4。** 参数量按当前独立嵌入/输出头及词表补齐约6.729B，详见[统一模型说明](../model-gpt-6.7b.md)。本次按用户要求仅改代码与文档，不编译、不测试、不提交作业。
+
+已有 `gxn74` 的[六组两轮实测](base-phase6.md)属于旧12层、约0.64B模型，记录原样保留；此前本机四卡短测未能提交的记录也保留。旧模型的编译/正确性/性能结果不代表6.7B已通过验证，新模型需要新的构建、校准、计划和预检。
 
 ## 入口
 
 | 内容 | 路径 |
 | --- | --- |
+| A800/H100 6.7B模型定义、形状与准备入口 | [model-gpt-6.7b.md](../model-gpt-6.7b.md) |
 | 新服务器环境、源码迁移与八卡运行步骤 | [单机 TP8 部署指南](deploy-tp8.md) |
 | 完整命令、baseline 定义与实现边界 | [H100 Phase6 README](../../../tools/h100/phase6/README.md) |
 | 模型、TP、SM 数、基础顺序和预算 | [config.json](../../../tools/h100/phase6/config.json) |
-| TP4、S1024、micro/global batch8 场景 | [config-tp4-s1024.json](../../../tools/h100/phase6/config-tp4-s1024.json) |
+| 6.7B TP4、S1024、micro1/global8 场景 | [config-tp4-s1024.json](../../../tools/h100/phase6/config-tp4-s1024.json) |
+| 历史0.64B配置，仅用于旧模型复现 | [TP8](../../../tools/h100/phase6/config-0.64b-tp8.json) · [TP4 S1024](../../../tools/h100/phase6/config-0.64b-tp4-s1024.json) |
+| 历史0.64B的H100实测 | [base-phase6.md](base-phase6.md) |
 | 独立源码快照与无 GPU 编译 | [build.py](../../../tools/h100/phase6/build.py) |
 | 新 H100 校准准备/执行 | [calibrate.py](../../../tools/h100/phase6/calibrate.py) |
 | 到达表与量化 mask 拟合 | [plan.py](../../../tools/h100/phase6/plan.py) |
@@ -19,6 +24,74 @@
 | 单节点 torchrun 控制器 | [run.py](../../../tools/h100/phase6/run.py) |
 | 完整性核验与配对统计 | [report.py](../../../tools/h100/phase6/report.py) |
 | CPU 协议检查 | [test_protocol.py](../../../tools/h100/phase6/test_protocol.py) |
+
+## 生成数据与文件放置规范
+
+所有路径都以 **TempName 仓库根目录**为基准。每个模型/TP/形状/节点校准使用独立会话名，6.7B建议 `gpt67-tp8-YYYYMMDD-HHMMSS`；不要复用旧0.64B的会话目录，也不要把产物放进 `src/`、`tools/` 或 `docs/`。
+
+| 文件类别 | 放置位置 | 是否纳入 Git |
+| --- | --- | --- |
+| 维护的模型配置、脚本、CUDA/C++源码 | `tools/h100/phase6/`、`src/`、`include/`、`python/` | 是 |
+| 实验设计、已核验结论、结果摘要 | `docs/design/design-h100/` | 是；标明模型、节点、配置和证据路径 |
+| baseline/sampler源码快照、编译库、NCCL开发构建 | `outputs/h100/phase6/<会话>/base/` | 否 |
+| 到达置换表与量化mask合并计划 | `outputs/h100/phase6/<会话>/selection-plan.json` | 否；由真实校准生成 |
+| 候选源码快照、查表头文件、动态库 | `outputs/h100/phase6/<会话>/candidates/` | 否 |
+| 接收端到达采样、GPU映射CSV、校准worker与日志 | `logs/h100/phase6/<会话>/calibration/` | 否 |
+| 对比用脚本/配置快照、输入清单 | `logs/h100/phase6/<会话>/compare/scripts/`、`compare/submission.json` | 否 |
+| smoke/profile/计时的每rank记录、trace、进程日志 | `logs/h100/phase6/<会话>/compare/results/` | 否 |
+| 自动生成的统计结果 | `compare/report.json`、`compare/report.md`、`compare/preflight.json`及阶段状态文件 | 否；择要归纳到设计文档 |
+| 如以后使用真实训练语料 | `data/h100/<数据集>/`或外部数据盘 | 否；当前入口不读取这里 |
+| 如以后启用保存权重 | `checkpoints/h100/<会话>/` | 否；当前测量入口不保存checkpoint |
+
+**当前合成数据不用提前生成磁盘语料文件。** `--mock-data`/NullTokenizer入口由worker按固定 `token_seed` 生成GPU驻留token bank，模型初始化使用 `seed`；同配置的对照组复用相同生成规则。默认有效token为0–32767，EOD/词表补齐由Megatron处理。种子、模型配置和token哈希保存在配置快照及每rank报告中，不生成待提交Git的 `.bin/.idx` 数据集。
+
+典型目录结构如下，文件由对应工具生成，不手工补写“完成”标志或虚构测量数据：
+
+```text
+TempName/
+├── tools/h100/phase6/config.json               # 维护的6.7B默认配置
+├── docs/design/design-h100/                   # 设计说明和结果摘要
+├── outputs/h100/phase6/gpt67-tp8-<时间>/
+│   ├── base/                                 # build.py prepare/compile
+│   │   ├── manifest.json
+│   │   ├── config.json
+│   │   ├── compile.log
+│   │   ├── original/
+│   │   ├── taco_fused/
+│   │   ├── sampler_remote_first/
+│   │   └── sampler_interleaved/
+│   ├── selection-plan.json                   # plan.py
+│   └── candidates/                           # 第二次build.py prepare/compile
+└── logs/h100/phase6/gpt67-tp8-<时间>/
+    ├── calibration/                          # calibrate.py
+    │   ├── worker.py / config.json / plan.json
+    │   ├── mapping-*.csv
+    │   ├── b0-*-instrumented-rank*.json        # 原始到达观察
+    │   ├── *.log / execution.json
+    │   └── calibration-complete.json          # 全部校准成功后生成
+    └── compare/                              # prepare.py / run.py / report.py
+        ├── scripts/                          # 包含冻结的selection-plan.json副本
+        ├── build/                            # 指向本会话动态库的链接
+        ├── submission.json / preflight.json
+        ├── results/
+        │   ├── smoke-<策略>/rank*.json
+        │   ├── profile-<策略>/rank*-profile.json.gz
+        │   ├── round1/window-*/rank*.json
+        │   └── round2/window-*/rank*.json
+        └── report.json / report.md
+```
+
+在同一个shell中设置并保存会话路径，然后按[部署指南](deploy-tp8.md)传给每个阶段：
+
+```bash
+export REPO="$PWD"  # 必须在TempName根目录执行
+export H100_SESSION="gpt67-tp8-$(date +%Y%m%d-%H%M%S)"
+export H100_BUILD="$REPO/outputs/h100/phase6/$H100_SESSION"
+export H100_LOG="$REPO/logs/h100/phase6/$H100_SESSION"
+export H100_CONFIG="$REPO/tools/h100/phase6/config.json"
+```
+
+相邻 `Megatron-LM`、Apex源码和Conda环境按[环境说明](../env.md)管理，不放在实验结果目录冒充生成数据。`outputs/`、`logs/`、`data/`、`checkpoints/` 已被根目录 `.gitignore` 忽略；clone不会携带它们。原始证据需要另行备份，文档只保存摘要与来源路径。冻结后保持本机路径、代码/配置哈希、GPU UUID及顺序一致；改变配置、移动会话或更换服务器时建立新会话并重新准备/校准，不通过改manifest绕过核验。
 
 ## 实现边界
 
@@ -32,7 +105,7 @@
 
 ## 本次无 GPU 验证（2026-10-09）
 
-在当前编译节点完成以下检查，编译和导入进程均设置 `CUDA_VISIBLE_DEVICES=''`：
+以下是2026-10-09、旧0.64B配置的历史记录，未在6.7B上重跑。编译和导入进程均设置 `CUDA_VISIBLE_DEVICES=''`：
 
 | 检查 | 结果与范围 |
 | --- | --- |
@@ -48,4 +121,4 @@
 
 修复了无 GPU 编译发现的两处问题：H100 快照避免 `setup_requires` 再次联网下载 CMake；删除没有调用方的全局 CUDA 分配，使导入发生在绑定 rank 设备之前时也不会隐式分配设备内存。检查器改为查询实际编译 kernel 的 occupancy，不再沿用 A800 的固定数值。
 
-真实 H100 校准、带真实计划的候选构建、GPU swizzle/模型正确性、profile、性能和收敛均未验证。合成表只用于验证候选 CUDA 代码可以编译，不作为校准计划或性能证据。
+上述编译记录当时不包含GPU验证；后来旧0.64B在gxn74的实测见[独立记录](base-phase6.md)。6.7B的真实校准、候选构建、GPU正确性、profile、性能和收敛均未验证。合成表只用于历史编译诊断，不作为真实校准计划或性能证据。

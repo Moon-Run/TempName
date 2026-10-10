@@ -1,5 +1,13 @@
 # Frozen TP4/DP2 measurement
 
+2026-10-10: new model preparation defaults to GPT 6.7B. Pass
+`--source <fresh-6.7B-TP4-prepared-run>` and
+`--model-config tools/a800/phase6/model-6.7b.json` to `prepare.py`.
+The source model and calibration shape must match; DP2 doubles global batch
+while preserving each replica's workload. Reports read the actual model.
+No tests were run. The historical 0.64B workflows below retain their recorded
+scope; the old H2048 source is not automatically substituted for a 6.7B run.
+
 Two independent existing Slurm allocations each host one four-GPU TP group.
 Global world size is eight; DP groups pair corresponding TP shards across nodes.
 This runner does not change the single-node worker, adapter, CUDA code or frozen

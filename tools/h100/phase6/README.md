@@ -1,10 +1,10 @@
 # H100 单节点 Phase6
 
-本入口把 A800 Phase6 的完整 step 对比协议移植到单节点 H100，默认 TP8，支持 TP4，DP/PP/CP 均为 1。无需 Slurm，使用独立 `torchrun --standalone` 进程。A800 源码入口、冻结库、到达表和结果均不改写。
+本入口把 A800 Phase6 的完整 step 对比协议移植到单节点 H100，默认 TP8，支持 TP4，DP/PP/CP 均为 1。无需 Slurm，使用独立 `torchrun --standalone` 进程。H100构建只生成独立快照，A800冻结库、到达表和历史结果均不改写。
 
 新服务器首次部署请按 [单机八卡 H100 部署指南](../../../docs/design/design-h100/deploy-tp8.md) 配置环境、重新编译并运行。
 
-**当前是代码移植版本，尚未进行 H100 GPU 正确性、校准或性能测试，不能据此宣称提速。** 下文 GPU 命令只供之后在 H100 上执行；`calibrate.py run` 和 `run.py` 没有 `--execute` 时只打印命令。
+**2026-10-10默认模型已升级为GPT 6.7B，本次不编译、不测试。** 旧0.64B的H100实测见[历史记录](../../../docs/design/design-h100/base-phase6.md)，不作为新模型证据。下文GPU命令供之后执行；`calibrate.py run` 和 `run.py` 没有 `--execute` 时只打印命令。
 
 ## 算法与 baseline
 
@@ -36,7 +36,9 @@ H100 baseline 从当前受版本控制的源码生成并冻结，**不读取 `ou
 - 当前只实例化 BF16/RCR/无 bias/单节点 RS。MLP 使用 128×128×32、3 stages 的 V2 配置；Hopper 保留上游两个 BF16 cluster 选择。未覆盖其他 dtype、转置或融合 reduction。
 - 形状要求 `M % (128*TP) == 0`、`N % 128 == 0`，attention/MLP 的本地 K 都是 32 的倍数，物理 tile 总数不超过 2048，且每个目标分区的 tile 数是 4 的倍数。
 
-默认模型为 12 层、H2048/FFN8192、S2048、micro batch1/global batch4、TP8，8192 token/step。[config-tp4-s1024.json](config-tp4-s1024.json) 对应 A800 Phase6 的 TP4、S1024、micro/global batch8 场景，同样为 8192 token/step。选择配置后必须在该配置下重新构建、校准；两个构建阶段传入同一配置文件。不同 TP 的 padded vocabulary/参数量可能不同，不做跨 TP 的直接强扩展结论。
+默认模型为 **32层、H4096/FFN16384、32 heads、词表32768，约6.7B**，S2048、micro batch1/global batch4、TP8，8192 token/step。[config-tp4-s1024.json](config-tp4-s1024.json) 为6.7B TP4、S1024、micro1/global8，使用梯度累积维持8192 token/step。原12层配置另存为 [TP8旧配置](config-0.64b-tp8.json) 和 [TP4旧配置](config-0.64b-tp4-s1024.json)。参数量计算和新shape见[模型说明](../../../docs/design/model-gpt-6.7b.md)。新模型必须重新构建和校准，不能复用旧H2048表；两个构建阶段传入同一配置。不同TP的词表补齐/参数量可能不同，不做跨TP直接强扩展结论。
+
+所有产物按会话放到 `outputs/h100/phase6/<会话>/` 和 `logs/h100/phase6/<会话>/`；完整分类、合成token生成方式与Git规则见[文件放置说明](../../../docs/design/design-h100/instruction.md#生成数据与文件放置规范)。下面的短路径示例只用于说明阶段，实际新实验按部署指南使用 `gpt67-tp8-<时间>` 等全新会话名。
 
 ## 1. 准备并编译 baseline 和 sampler（不使用 GPU）
 
@@ -135,4 +137,4 @@ CUDA_VISIBLE_DEVICES='' PYTHONNOUSERSITE=1 \
 
 这些检查不导入 Torch、不初始化 CUDA，覆盖 TP4/TP8、四种基础顺序、训练/留出分离、mask 预算、本地 BF16、不合法计划拒绝、两轮平衡顺序、worker 快照、架构/布局/barrier 分派及配对统计。编译检查与 GPU 正确性、吞吐测试应分别记录。
 
-2026-10-09：15 项 CPU 检查通过；默认 132 SM 配置的四套 baseline/sampler 库及 Python binding 完成编译和链接，并使用 SDK 驱动桩通过无 CUDA 上下文的 CPU 导入检查。SM90(a) 合成候选及 mapping 检查器仅完成编译，未运行。完整范围和本地记录见 [H100 验证记录](../../../docs/design/design-h100/instruction.md#本次无-gpu-验证2026-10-09)；尚无 GPU 正确性或性能结果。
+2026-10-09旧0.64B配置：15项CPU检查通过，132 SM的四套库及Python binding完成编译/CPU导入，合成候选及mapping检查器仅完成编译。记录见[历史编译验证](../../../docs/design/design-h100/instruction.md#本次无-gpu-验证2026-10-09)。后来gxn74的旧模型GPU实测另见上方链接；6.7B更新未重跑这些检查。

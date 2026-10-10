@@ -35,9 +35,14 @@ def main(root):
         assert sha(Path(spec['build'])/name) == digest, name
     cases = []
     profile_rows = []
+    model_descriptions = []
+    for item in spec['cases']:
+        cfg = json.loads(Path(item['config']).read_text())
+        model = dict(cfg['common'], **cfg['cases'][0])
+        model_descriptions.append(f"{model['layers']}层/H{model['hidden']}/FFN{model['ffn']}，S{model['sequence']}/mb{model['micro_batch']}/global{model['global_batch']}，{model['sequence']*model['global_batch']}全局token/step")
     lines = ['# 双节点 TP=4、DP=2 测量结果', '',
              '两个节点分别运行一个TP4组，跨节点同步DP梯度；复用原冻结实现，仅适配测试入口，没有性能调优。', '',
-             'S1024/mb8/global16 与 S2048/mb4/global8 均为16384全局token/完整optimizer step。每副本MLP GEMM保持[8192,2048,2048]；与历史DP1的global batch不同，不直接计算跨布局加速比。', '',
+             '；'.join(model_descriptions)+'。DP2保持来源TP4的每副本工作量，全局batch翻倍；不直接计算跨布局加速比。', '',
              '| 配置 | 轮次 | 策略 | ms/step | 对Megatron＋量化下降% [95% CI] | 对融合v2下降% [95% CI] | 比原生Megatron耗时增加% | 比原生Flux耗时增加% |',
              '| --- | --- | --- | ---: | --- | --- | ---: | ---: |']
     for case in spec['cases']:
@@ -75,7 +80,7 @@ def main(root):
             lines.append(f"| {case['name']} | {policy} | {'是' if value['meets_target_both_rounds'] else '否'} |")
     formal = 72*len(cases)
     lines += ['', f'正式{formal}窗口 / {formal*8}份rank记录 / {formal*20}个全局计时optimizer step；另有每场景6个smoke和6个profile窗口。', '',
-              '检查覆盖实际IB传输、TP/DP分组、DP数据分片、同步梯度及更新后参数分片一致性、初始化/RNG/GPU身份、MLP-only范围、mask/通信字节和精确解码kernel计数。原单节点入口、CUDA源码和冻结库SHA保持不变；CPU协议检查另有6项。', '',
+              '检查覆盖实际IB传输、TP/DP分组、DP数据分片、同步梯度及更新后参数分片一致性、初始化/RNG/GPU身份、MLP-only范围、mask/通信字节和精确解码kernel计数。源代码和冻结库SHA按本轮准备时的清单核验。', '',
               '合成固定token，反向BF16 STE；不含数据加载、checkpoint或评估，不证明真实数据收敛。未启用梯度通信重叠，未执行TP8，也未为达标调整任何性能参数。']
     result = dict(completed=True, started_at=state['started_at'], finished_at=state['finished_at'],
                   jobs=spec['jobs'], nodes=spec['nodes'], cases=cases,

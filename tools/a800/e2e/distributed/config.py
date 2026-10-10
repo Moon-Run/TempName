@@ -54,10 +54,10 @@ def validate(c):
 def parser():
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument('--config', type=Path, help='JSON defaults; explicit CLI options override')
-    for key, default in dict(nodes=2, gpus_per_node=4, tp=4, layers=12, hidden=2048,
-                             ffn=8192, heads=32, sequence=2048, micro_batch=1, global_batch=4,
+    for key, default in dict(nodes=2, gpus_per_node=4, tp=4, layers=32, hidden=4096,
+                             ffn=16384, heads=32, sequence=2048, micro_batch=1, global_batch=4,
                              warmup_steps=10, timed_steps=20, blocks=4, seed=1234,
-                             token_seed=4321, vocab=8192).items():
+                             token_seed=4321, vocab=32768).items():
         p.add_argument('--'+key.replace('_', '-'), type=int, default=default)
     p.add_argument('--policies', nargs='+', choices=POLICIES, default=POLICIES)
     p.add_argument('--flux-transport', choices=['local', 'hierarchical'], default='local')

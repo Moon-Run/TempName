@@ -1,5 +1,21 @@
 # Phase6: execution cost and full-step acceptance
 
+## Current model: GPT 6.7B (2026-10-10, not tested)
+
+New A800 TP4/TP8 model preparation uses 32 layers, H4096/FFN16384,
+32 attention heads, vocab32768, S2048/mb1/global4. See
+[the shared model and command guide](../../../docs/design/model-gpt-6.7b.md)
+and [model-6.7b.json](model-6.7b.json). Pass `--model-config` to
+`prepare_scenario.py` or `tp8_quant/prepare.py`; TP8 plan/build/mapping checks
+now accept the actual calibrated model shape. `prepare_calibration.py` accepts
+that profile, `--world-size 4|8`, and a required current `--job-id`.
+Recalibrate each base at M2048/N4096/Kglobal16384 and build fresh candidates.
+The compact M8192/N2048 specialization and old arrival masks are not reused.
+No compilation or tests were run for this model change. H100 defaults were
+updated separately; preserve all historical artifacts and their model labels.
+
+## Historical 0.64B workflows and evidence
+
 The reproducible **single-node TP4 archive** covers S1024/mb8, S2048/mb4 and
 S256/mb32, each with its actual historical binaries, plans and scripts. Use
 [the archive index](../../../docs/design/design-a800/tp4-archive.md) and `tp4_archive.py`

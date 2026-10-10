@@ -5,10 +5,13 @@ import hashlib
 import json
 from pathlib import Path
 import shutil
+import sys
 
 HERE = Path(__file__).resolve().parent
 REPO = HERE.parents[3]
 COMMON = HERE.parents[1]/'phase5/e2e'
+sys.path.insert(0, str(HERE.parent))
+from model_config import DEFAULT_MODEL, read_model, mlp_shape, padded_vocab
 POLICIES = ['native', 'original', 'native_taco', 'taco_fused',
             'remote_arrival_selective', 'interleaved_arrival_selective']
 sha = lambda p: hashlib.sha256(Path(p).read_bytes()).hexdigest()
@@ -24,7 +27,13 @@ def main(args):
     assert REPO/'logs/a800' in root.parents
     plan = json.loads(plan_path.read_text())
     assert plan['schema'] == 2 and plan['world'] == 8
-    assert plan['shape_catalog'] == [[2048, 2048, 8192]]
+    profile = getattr(args, 'model_config', None)
+    model = read_model(profile, 8) if profile else dict(layers=12,hidden=2048,ffn=8192,
+        heads=32,sequence=2048,micro_batch=1,global_batch=4,seed=1234,token_seed=4321,vocab=8192)
+    m, n, k = mlp_shape(model)
+    assert plan['shape_catalog'] == [[m,n,k]], 'Recalibrate arrival and quantization masks for the requested model'
+    for entries in plan['policies'].values():
+        assert len(entries)==1 and entries[0]['shape']==[m,n,k] and entries[0]['K_local']==k//8
     assert set(plan['policies']) == {'remote_first', 'interleaved'}
     for name, digest in plan['inputs'].items():
         assert sha(name) == digest, name
@@ -76,18 +85,22 @@ def main(args):
     p.write_text(replace(p.read_text(), 'self.world==4', 'self.world==8'))
     cfg = json.loads((scripts/'config.json').read_text())
     cfg.update(policies=POLICIES, orders=[POLICIES[i:]+POLICIES[:i] for i in range(6)],
-               cases=[dict(name='l12-h2048-s2048-mb1-gb4-tp8-quant', hidden=2048, ffn=8192, heads=32, sequence=2048, tp=8)],
+               cases=[dict(name=f'l{model["layers"]}-h{n}-s{model["sequence"]}-mb{model["micro_batch"]}-gb{model["global_batch"]}-tp8-quant',
+                           hidden=n, ffn=k, heads=model['heads'], sequence=model['sequence'], tp=8)],
                scenario_extension=True, graph_forward=False, double_buffered=True, selective_decoder='legacy',
                base_orders=['remote_first', 'interleaved'],
                acceptance=dict(version='paired-full-step-v2-20261004', target_percent=4.),
                scope='Single-node TP8 compatibility and measurement only; existing phase6 window64/budget1/64 rules, generic decoder and double-buffered workspaces. No kernel tuning or speed admission gate. Synthetic full optimizer steps; no convergence claim.')
-    assert cfg['common']['micro_batch'] == 1 and cfg['common']['global_batch'] == 4
+    cfg['common'] = {key:model[key] for key in ('layers','micro_batch','global_batch','seed','token_seed','vocab')}
+    cfg['expected_padded_vocab_size'] = padded_vocab(model, 8)
+    if profile:
+        snapshot(profile, scripts/'model-profile.json')
     (scripts/'config.json').write_text(json.dumps(cfg, indent=2)+'\n')
     for name in ['selection-plan.json', 'arrival-plan.json']:
         shutil.copy2(plan_path, scripts/name)
     p = scripts/'worker.py'
     text = replace(p.read_text(), 'import sys\n', 'import sys\nimport socket\n')
-    text = replace(text, "if POLICY not in ('native','native_taco'):\n", """assert args.padded_vocab_size == 9216
+    text = replace(text, "if POLICY not in ('native','native_taco'):\n", """assert args.padded_vocab_size == PLAN['expected_padded_vocab_size']
 report.update(host=socket.gethostname(), local_rank=local_rank,
     tp_rank=parallel_state.get_tensor_model_parallel_rank(),
     dp_rank=parallel_state.get_data_parallel_rank(),
@@ -110,11 +123,11 @@ if POLICY not in ('native','native_taco'):
     text = replace(p.read_text(), "int(os.environ['WORLD_SIZE'])==4", "int(os.environ['WORLD_SIZE'])==8")
     text = replace(text, 'range(4)', 'range(8)', 2)
     text = replace(text, '[(512,128,256),(512,136,256),(512,256,256),(2048,2048,512),(2048,2048,2048)]',
-                   '[(1024,128,256),(1024,136,256),(1024,256,256),(2048,2048,256),(2048,2048,1024)]')
+                   repr([(1024,128,256),(1024,136,256),(1024,256,256),(m,n,n//8),(m,n,k//8)]))
     p.write_text(text)
     p = scripts/'validate_separate.py'
     text = replace(p.read_text(), "assert world==4, 'Frozen model-shape preflight is TP4 only'", "assert world==8, 'This frozen model-shape preflight is TP8 only'")
-    text = replace(text, '[(2048,2048,512),(2048,2048,2048)]', '[(2048,2048,256),(2048,2048,1024)]')
+    text = replace(text, '[(2048,2048,512),(2048,2048,2048)]', repr([(m,n,n//8),(m,n,k//8)]))
     p.write_text(text)
     snapshot(COMMON/'verify.py', root/'verify.py')
     p = root/'verify.py'
@@ -123,7 +136,7 @@ if POLICY not in ('native','native_taco'):
     text = replace(text, "                model=r['model'];", """                assert r['world_size'] == 8 and r['rank'] == r['local_rank'] == r['tp_rank'] == rank
                 assert r['job_id'] == str(info['job_id']) and r['host'] == info['node']
                 assert r['dp_rank'] == 0 and r['tp_group_ranks'] == list(range(8)) and r['dp_group_ranks'] == [rank]
-                assert r['padded_vocab_size'] == 9216
+                assert r['padded_vocab_size'] == config['expected_padded_vocab_size']
                 if r['policy'] not in ('native','native_taco'):
                     for lib in ['libflux_cuda.so','libflux_cuda_ths_op.so']:
                         expected = (Path(info['artifact_root'])/'build'/r['policy']/lib).resolve()
@@ -162,7 +175,9 @@ assert set(snapshot.split()) <= allowed, snapshot
     for p in root.rglob('*.py'):
         ast.parse(p.read_text(), filename=str(p))
     archive = REPO/'outputs/a800/archives/tp4-s1024-mb8-20261006/archive-manifest.json'
-    protected = json.loads(archive.read_text())['protected_original_files']
+    # New model runs freeze their own inputs; the old TP4 archive remains an
+    # independent historical replay, not a dependency on mutable old scripts.
+    protected = {} if profile else json.loads(archive.read_text())['protected_original_files']
     protected.update(sources)
     for name, digest in protected.items():
         assert sha(name) == digest, name
@@ -182,6 +197,7 @@ if __name__ == '__main__':
     p.add_argument('out', type=Path)
     p.add_argument('--build', type=Path, required=True)
     p.add_argument('--plan', type=Path, required=True)
+    p.add_argument('--model-config', type=Path, default=DEFAULT_MODEL)
     p.add_argument('--job-id', type=int, required=True)
     p.add_argument('--node', required=True)
     main(p.parse_args())

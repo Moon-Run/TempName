@@ -1,5 +1,18 @@
 # Single-node TP8 arrival and selective TACO
 
+2026-10-10: the CLI defaults in `plan.py` and `prepare.py` now select
+[GPT 6.7B](../model-6.7b.json): 32 layers, H4096/FFN16384, 32 heads,
+vocab32768, S2048/mb1/global4. Both accept `--model-config` explicitly.
+The MLP calibration shape is [2048,4096,16384], padded vocab33792;
+new calibration and candidate compilation are required. Mapping, codec
+preflight and report shape/wording now derive from the selected profile.
+See [new-model commands](../../../../docs/design/model-gpt-6.7b.md).
+This update was not compiled or tested.
+
+The remaining text and commands describe the historical 0.64B campaign.
+Replay those results from their frozen scripts/configuration; do not pass the
+old calibration into the new default model or reuse expired job IDs.
+
 This isolated entrypoint adapts the complete six-policy comparison to one
 eight-A800 node. It retains the existing kernels and phase6 window64/budget1/64
 rules. It does not tune kernels, masks, budgets or decoder parameters.

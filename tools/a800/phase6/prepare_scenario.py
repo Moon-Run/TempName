@@ -12,6 +12,7 @@ HERE=Path(__file__).resolve().parent
 REPO=HERE.parents[2]
 sys.path.insert(0,str(HERE.parent/'phase5/e2e'))
 from routing import mapping_policy
+from model_config import DEFAULT_MODEL, read_model
 
 
 def sha(p):return hashlib.sha256(p.read_bytes()).hexdigest()
@@ -22,9 +23,27 @@ def main(args):
     assert REPO/'logs/a800' in out.parents
     plan=json.loads(plan_path.read_text());assert plan['schema']==2 and plan['world']==4
     for p,h in plan['inputs'].items():assert sha(Path(p))==h,p
-    hidden=args.hidden;sequence=args.sequence;m=args.tokens_per_microbatch
+    profile = getattr(args, 'model_config', None)
+    if profile is not None or args.hidden is None:
+        profile = Path(profile or DEFAULT_MODEL).resolve()
+        model = read_model(profile, 4)
+    else:
+        # Explicit --hidden retains the historical scenario-suite defaults.
+        model = dict(layers=12, hidden=args.hidden, ffn=4*args.hidden,
+                     heads=args.hidden//64, sequence=2048, micro_batch=4,
+                     global_batch=4, vocab=8192, seed=1234, token_seed=4321)
+    hidden = args.hidden or model['hidden']
+    sequence = args.sequence or model['sequence']
+    m = args.tokens_per_microbatch or (model['sequence']*model['micro_batch'] if profile else 8192)
+    layers = getattr(args, 'layers', None) or model['layers']
+    heads = getattr(args, 'heads', None) or model['heads']
+    vocab = getattr(args, 'vocab', None) or model['vocab']
     assert m%sequence==0 and sequence%4==0
     micro=m//sequence;ffn=hidden*4
+    global_batch = getattr(args, 'global_batch', None) or (model['global_batch'] if profile else micro)
+    assert layers>0 and hidden%heads==0 and heads%4==0 and global_batch%micro==0
+    assert m%512==0 and (m//128)*(hidden//128)<=2048
+    assert args.decoder!='compact-v1' or (m,hidden)==(8192,2048), 'compact-v1 is a historical exact-shape specialization'
     bases=args.bases or list(plan['policies'])
     assert len(set(bases))==len(bases) and set(bases)<=set(plan['policies'])
     if not args.pilot:
@@ -77,9 +96,11 @@ def main(args):
     cfg=json.loads((common/'config.json').read_text())
     cfg['policies']=policies;cfg['orders']=[policies[i:]+policies[:i] for i in range(len(policies))]
     if args.pilot:cfg['orders']=cfg['orders'][:2]
-    cfg['common']['micro_batch']=micro
-    cfg['common']['global_batch']=micro
-    cfg['cases']=[dict(name=f'l12-h{hidden}-s{sequence}-mb{micro}-tp4',hidden=hidden,ffn=ffn,heads=hidden//64,sequence=sequence,tp=4)]
+    cfg['common'].update(layers=layers, micro_batch=micro, global_batch=global_batch,
+                         vocab=vocab, seed=model['seed'], token_seed=model['token_seed'])
+    cfg['cases']=[dict(name=f'l{layers}-h{hidden}-s{sequence}-mb{micro}-gb{global_batch}-tp4',hidden=hidden,ffn=ffn,heads=heads,sequence=sequence,tp=4)]
+    if profile:
+        shutil.copy2(profile, out/'scripts/model-profile.json')
     cfg.update(scenario_extension=True,graph_forward=False,double_buffered=True,base_orders=bases,
                selective_decoder=args.decoder,
                acceptance=dict(version='paired-full-step-v2-20261004',target_percent=args.target_percent),
@@ -91,6 +112,13 @@ def main(args):
     for source,name in ((HERE.parent/'phase5/validate.py','validate.py'),(HERE.parent/'phase5/validate_megatron.py','validate_megatron.py'),
                         (HERE.parent/'phase4/validate.py','validate_separate.py'),(HERE.parent/'phase4/reference.py','reference.py')):
         shutil.copy2(source,out/'scripts'/name)
+    # All baselines must check the actual new model, not only the old H2048 case.
+    for name in ('validate_megatron.py','validate_separate.py'):
+        path=out/'scripts'/name
+        text=path.read_text()
+        old='(2048,2048,512),(2048,2048,2048)'
+        assert text.count(old)==1
+        path.write_text(text.replace(old,f'({m},{hidden},{hidden//4}),({m},{hidden},{ffn//4})'))
     for name in ('campaign.py','verify.py','profile_components.py'):shutil.copy2(common/name,out/name)
     shutil.copy2(HERE/'scenario_mapping.py',out/'check_mappings.py')
     shutil.copy2(HERE/'scenario_report.py',out/'report.py')
@@ -108,11 +136,14 @@ def main(args):
 if __name__=='__main__':
     p=argparse.ArgumentParser(__doc__);p.add_argument('out',type=Path)
     p.add_argument('--build',type=Path,required=True);p.add_argument('--plan',type=Path,required=True)
-    p.add_argument('--hidden',type=int,choices=[512,1024,2048],required=True);p.add_argument('--pilot',action='store_true')
-    p.add_argument('--sequence',type=int,default=2048)
-    p.add_argument('--tokens-per-microbatch',type=int,default=8192)
+    p.add_argument('--model-config',type=Path,help='Default is GPT 6.7B when --hidden is omitted')
+    p.add_argument('--hidden',type=int,choices=[512,1024,2048,4096]);p.add_argument('--pilot',action='store_true')
+    p.add_argument('--layers',type=int);p.add_argument('--heads',type=int);p.add_argument('--vocab',type=int)
+    p.add_argument('--global-batch',type=int)
+    p.add_argument('--sequence',type=int)
+    p.add_argument('--tokens-per-microbatch',type=int)
     p.add_argument('--bases',nargs='+',choices=['remote_first','interleaved','interleaved_remote','interleaved_remote_group'])
     p.add_argument('--target-percent',type=float,default=4.)
     p.add_argument('--decoder',choices=['legacy','compact-v1'],default='legacy')
-    p.add_argument('--job-id',type=int,default=179147)
+    p.add_argument('--job-id',type=int,required=True)
     main(p.parse_args())

@@ -16,6 +16,7 @@ selection=importlib.util.module_from_spec(spec);spec.loader.exec_module(selectio
 
 def main(source,out,fraction=1/64,window=64):
     cfg=json.loads((source/'calibration-complete.json').read_text());assert cfg['completed']
+    assert cfg['config']['world_size']==4, 'Use tp8_quant/plan.py for eight-rank calibration'
     info=json.loads((source/'plan.json').read_text())
     result=dict(schema=2,world=4,window=window,budget_fraction=fraction,training_passes=[0,1],heldout_passes=[2],
                 shape_catalog=cfg['config']['shapes'],policies={},inputs={},

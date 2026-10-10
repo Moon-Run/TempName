@@ -1,5 +1,7 @@
 # A800 GEMM-RS：实施阶段与验收标准
 
+2026-10-10模型更新：后续主模型为32层、约6.7B，配置与入口见[统一模型说明](../model-gpt-6.7b.md)。本页原有实测表与冻结记录保留其原模型（主实验约0.64B；算子微基准按表内shape），不作为6.7B结果。本次没有运行测试。
+
 2026-10-03十二组扩展已完成：在phase5九组上加入远端＋到达优先＋选择性量化、交替＋到达优先＋选择性量化，以及朴素Megatron＋TACO量化基线，共十二组重新做两轮完整step。到达优先组固定原物理tile量化mask；Megatron量化组保留原生attention/GEMM/线性层反向，仅替换MLP通信。最新进度与定义见[base-phase5.md](base-phase5.md)和[instruction.md](instruction.md)。
 
 2026-10-03新增phase5：已实现MLP远端/交替基础＋全量融合TACO、两种基础＋校准选择性融合TACO；与原始Megatron、原始Flux、Flux＋独立量化及两种仅BF16重排共九组对照。选择规则已获用户确认，已在179147内完成九组两轮162窗口比较与核验；原驻留循环保留。设计、代码和最新状态见[base-phase5.md](base-phase5.md)。
