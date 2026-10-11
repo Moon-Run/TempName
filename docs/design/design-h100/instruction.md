@@ -4,11 +4,13 @@
 
 H100端“怎么测试、测试完交什么”统一维护在 [instruction-h100.md](instruction-h100.md)，部署命令在 [deploy-tp8.md](deploy-tp8.md)。本页负责告诉开发端在哪里找代码、数据、结论，以及哪些事情尚未验证。最新用户任务决定本轮范围，不因历史实验记录或待验证列表自动启动新测试。
 
+**2026-10-11 基线实现对齐更新：** 用户要求新 H100 融合 v2 对齐 A800 冻结基线。新 `build.py prepare` 的 `taco_fused` 使用 [固定 A800 源码](../../../tools/h100/phase6/fused_v2/README.md)，标识 `a800-fused-v2-cta-v1`：CTA 解码、旧融合编码转换、逐次 configure/reset、单工作区及两次 barrier；保留 H100 V2 MLP/V3 attention 的实例路由。候选与采样算法不变。历史所有 H100 结果仍对应此前 `phase6-warp-v1` 基线，不能当作新实现的性能证据。新旧版本须使用不同构建和 compare 目录；本轮未启动 H100 GPU 测试，性能仍待执行端验证。
+
 ## 新对话先读什么
 
 1. 先看工作区状态与最近提交，保留用户未提交改动；确认是否新拉取了数据，不能把下方历史快照当作远端实时进度。
 2. 读本页[数据索引](#已接收数据与当前缺项)，然后读 [base-phase6.md](base-phase6.md) 的对应模型结果，6.7B统一展示第1–4轮：原实验为第1–2轮、复测为第3–4轮；旧0.64B另列。
-3. 性能分析约定放在 `docs/design/design-h100/thinking.md`，当前磁盘缺失，先确认是否另存或尚未提交。不要假称已读到其内容。**旧小模型在H100上也没有相对融合v2的稳定优势，不能主要归因于6.7B变大或其OOM。**
+3. 性能分析见 [thinking.md](thinking.md)，已补充基线实现差异、原始 trace 与计划诊断；其统计对象是历史 `phase6-warp-v1` 会话。**旧小模型在H100上也没有相对融合v2的稳定优势，不能主要归因于6.7B变大或其OOM。**
 4. 涉及方法或实现时，按下方源码地图看维护入口及对应实验快照；涉及新测试/补交数据时，将要求与执行端文档对齐。
 5. 读用户当前指定的文件再工作；论文目录的实际内容以文件为准，不把此前讨论中的计划当作已完成论文。
 
@@ -28,7 +30,7 @@ rg --files docs/design/design-h100 tools/h100/phase6
 | H100执行与数据交付约定 | [instruction-h100.md](instruction-h100.md) |
 | 新服务器环境、八卡部署命令 | [deploy-tp8.md](deploy-tp8.md)、[公共环境](../env.md) |
 | H100模型结果与证据链接 | [base-phase6.md](base-phase6.md) |
-| H100收益减弱的分析 | `docs/design/design-h100/thinking.md`（当前缺失，待恢复/补交） |
+| H100收益减弱的分析 | [thinking.md](thinking.md)，涵盖旧基线版本差异及 CPU 复核 |
 | 模型层数、参数量、全局/局部shape | [model-gpt-6.7b.md](../model-gpt-6.7b.md) |
 | 原始方法与A800历史 | [A800接续](../design-a800/instruction.md)、[idea.md](../design-a800/idea.md) |
 | A800可比数据 | [TP8](../design-a800/base-phase6-tp8.md)、[TP4](../design-a800/base-phase6-tp4.md)、[TP4优化](../design-a800/optimize/tp4/optimize2.md)；不要混入跨节点/DP实验 |
@@ -90,7 +92,7 @@ rg --files docs/design/design-h100 tools/h100/phase6
 
 2026-10-11本次对两套6.7B对比共1152份计时rank记录进行了CPU核对，包含完成状态、身份、步数及preflight指纹；各自冻结scripts/preflight文件哈希、中位数、配对收益和95%区间均与报告一致。没有在本机重新执行GPU或原路径动态库核验，环境独占性也不能从这些检查推断。
 
-**新对话注意：`base-phase6.md`、`thinking.md`的旧副本若出现“43/72、未完成”，那是过时快照，阅读时以对应会话最新回传report和阶段状态为准。** 本次已直接替换base-phase6的过时进度段落，合并原实验与复测为完整第1–4轮结果；不保留旧进度表。`thinking.md`当前未在磁盘找到，若以后恢复，需要更新其证据范围，不能声称已读到缺失文件。交接/环境记录如果缺失，按[执行端交付清单](instruction-h100.md#交接说明与环境记录放在哪里)补交。
+**新对话注意：`base-phase6.md`、`thinking.md`的旧副本若出现“43/72、未完成”，那是过时快照，阅读时以对应会话最新回传report和阶段状态为准。** base-phase6 已合并原实验与复测为完整第1–4轮结果；thinking.md 已补充完整证据范围及新旧基线版本区别。交接/环境记录如果缺失，按[执行端交付清单](instruction-h100.md#交接说明与环境记录放在哪里)补交。
 
 ## 本机收到新数据后怎么检查
 

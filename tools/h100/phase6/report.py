@@ -89,6 +89,9 @@ def preflight(root):
                 if p!='original':
                     require(any('flux_bf16' in name and 'sm80' in name.lower() for name in names),'Phase6 V2 MLP kernel absent')
                     require(any('taco_decode' in name for name in names),'TACO decode kernel absent')
+                    if p=='taco_fused' and info['variants'][p].get('implementation')=='a800-fused-v2-cta-v1':
+                        require(any('taco_decode_ring_kernel(' in name for name in names),
+                                'A800-aligned fused baseline must execute the non-templated CTA decoder')
             profiles[f'{p}/rank{rank}']=sorted(set(names))
     for name,v in info['variants'].items():
         if v['role']=='candidate':
@@ -123,8 +126,10 @@ def report(root):
     verify_files(root,gate['files'])
     result=dict(protocol=PROTOCOL,completed=False,gpu_validated=True,rounds=[],target_percent=c['target_percent'],
                 scope='H100 full optimizer steps only; SM90-compiled V2 quantized MLP vs native Hopper reference; no convergence claim.')
+    result['fused_baseline_implementation']=info['variants']['taco_fused'].get('implementation','phase6-warp-v1')
     lines=['# H100 单节点 Phase6 完整 step 对比','',
            '原生 Flux 参考使用 Hopper V3；融合量化 baseline 与组合候选使用编译为 SM90 的 V2 MLP 路径。',
+           f'融合基线实现：`{result["fused_baseline_implementation"]}`；不同基线版本的收益分开报告。',
            '正值为配对耗时下降；95% 区间按配对块 bootstrap。只报告本次同节点、同模型数据。','',
            '| 轮次 | 候选 | 对照 | 下降% | 95%区间 |','| --- | --- | --- | ---: | --- |']
     targets={policy(b):True for b in c['bases']}

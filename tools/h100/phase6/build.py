@@ -66,15 +66,20 @@ def swizzle(source, c, base, entry=None):
     return source
 
 
-def wrapper(source, force_v2=False):
+def wrapper(source, force_v2=False, legacy_fused=False):
     # Local algorithm selection, not a global lie about device capability.
-    # owned_taco is captured before init_output_buffer, so the buffer, dispatch,
+    # Instance identity is captured before init_output_buffer, so buffer, dispatch,
     # padding, reduction and publication barrier all use the SAME algorithm.
     source = source.replace('get_arch()', 'phase6_arch()')
     source = replace_once(source, 'SMCoreEnum sm_core = get_sm_core();',
                           'SMCoreEnum sm_core = arch == _Sm80{} ? _A100{}() : get_sm_core();')
-    choose = 'true' if force_v2 else 'owned_taco.enabled'
-    helper = f'''class GemmRS::GemmRSImpl {{
+    require(not (force_v2 and legacy_fused), 'Sampler and legacy fused roles are distinct')
+    choose = 'true' if force_v2 else 'h100_taco' if legacy_fused else 'owned_taco.enabled'
+    # The legacy frontend still configures/resets TACO on every forward. Only
+    # the algorithm identity must survive reset, so attention stays on V3 and
+    # MLP buffer construction, dispatch and publication all use V2.
+    identity = '\n  const bool h100_taco = taco_config().enabled;' if legacy_fused else ''
+    helper = f'''class GemmRS::GemmRSImpl {{{identity}
   ArchEnum phase6_arch() const {{
     TORCH_CHECK(get_arch() == _Sm90{{}}, "H100 Phase6 requires physical SM90");
     if ({choose}) {{
@@ -87,6 +92,34 @@ def wrapper(source, force_v2=False):
     source = replace_once(source, 'class GemmRS::GemmRSImpl {', helper)
     return source.replace('requires single-node SM80 BF16 ring reduction',
                           'requires the single-node H100 Phase6 V2 BF16 ring path')
+
+
+def legacy_fused_python(source):
+    """Set the V2 instance identity at construction; preserve legacy forwards."""
+    old = '''        self.op = cpp_mod.GemmRS(group, 1, m, n, torch.bfloat16, torch.bfloat16,
+                                transpose_weight=False, fuse_reduction=False, ring_reduction=True)'''
+    new = '''        # H100 needs the MLP's V2 buffer layout before the first forward.
+        # Configure only while constructing it; subsequent attention is V3.
+        code = self.lib.taco_configure(self.pointers, self.rank, self.world, m, n)
+        if code:
+            raise RuntimeError(f'TACO construction rejected: CUDA error {code}')
+        try:
+            self.op = cpp_mod.GemmRS(group, 1, m, n, torch.bfloat16, torch.bfloat16,
+                                    transpose_weight=False, fuse_reduction=False, ring_reduction=True)
+        finally:
+            self.lib.taco_reset()'''
+    return replace_once(source, old, new)
+
+
+def install_fused_v2(dest):
+    """Install the pinned A800 baseline, never an ignored experiment directory."""
+    root = HERE/'fused_v2'
+    provenance = read(root/'provenance.json')
+    verify_files(root, provenance['files'])
+    for relative in provenance['files']:
+        shutil.copy2(root/relative, dest/relative)
+    edit(dest/'python/flux/gemm_rs_taco.py', legacy_fused_python)
+    return provenance['implementation']
 
 
 def edit(path, transform):
@@ -159,6 +192,7 @@ def prepare(out, config_path, plan_path=None):
     for name, (role, base) in variants.items():
         dest = out/name
         snapshot(dest)
+        implementation = install_fused_v2(dest) if role == 'fused' else None
         edit(dest/'src/gemm_rs/tile_scheduler/threadblock_swizzle_pcie.hpp',remove_unused_pcie_initializer)
         # CMake is already invoked explicitly by this builder. Do not let legacy
         # setup_requires download a second CMake into setuptools' .eggs cache.
@@ -168,6 +202,8 @@ def prepare(out, config_path, plan_path=None):
         edit(dest/'src/cuda/version.ld', lambda s: s.replace('global:', 'global:\n    h100_v2_occupancy;'))
         entry = measured['policies'][base][0] if measured else None
         info['variants'][name] = dict(role=role, base=base, sampling=role=='sampler', python=f'{name}/python')
+        if implementation:
+            info['variants'][name]['implementation'] = implementation
         # Only compile RS and its common IPC/helper bindings, not unrelated MoE/AG operators.
         p = dest/'src/CMakeLists.txt'
         edit(p, lambda s: '\n'.join(line for line in s.split('\n') if not re_other_operator(line)))
@@ -193,7 +229,8 @@ def prepare(out, config_path, plan_path=None):
         if role in ('candidate', 'fused'):
             extra.append('taco_runtime.cu')
             edit(dest/'src/cuda/version.ld', lambda s: s.replace('global:', 'global:\n    taco_*;'))
-            edit(dest/'src/gemm_rs/ths_op/gemm_reduce_scatter.cc', wrapper)
+            edit(dest/'src/gemm_rs/ths_op/gemm_reduce_scatter.cc',
+                 lambda s: wrapper(s, legacy_fused=role=='fused'))
             edit(dest/'python/flux/gemm_rs_taco.py', lambda s: s.replace('(8, 0)', '(9, 0)').replace('supports SM80 only','requires the H100 SM90 port').replace('tools/a800/phase4/build.py','tools/h100/phase6/build.py'))
         elif role == 'sampler':
             extra.append('sampler.cu')
@@ -218,6 +255,9 @@ def prepare(out, config_path, plan_path=None):
         info['variants'][name]['source_sha256'] = {str(p.relative_to(dest)):sha(p) for p in dest.rglob('*') if p.is_file() and not p.is_symlink()}
     # Record maintained sources and the submodule commits, without copying ignored builds.
     inputs = list(HERE.glob('*.py')) + list(HERE.glob('*.cc')) + list(HERE.glob('*.cu'))
+    if not measured:
+        frozen = HERE/'fused_v2'
+        inputs += [frozen/'provenance.json'] + [frozen/p for p in read(frozen/'provenance.json')['files']]
     inputs += [REPO/'tools/a800/arrival8'/f for f in ('instrument.py','sampler.h','sampler.cu')]
     info['inputs'] = {str(p):sha(p) for p in inputs}
     info['submodules'] = {n:subprocess.check_output(['git','-C',str(REPO/'3rdparty'/n),'rev-parse','HEAD'],text=True).strip() for n in ('cutlass','nccl')}

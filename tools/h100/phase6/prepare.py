@@ -69,6 +69,8 @@ def prepare(out,base_build,candidate_build,plan_path,megatron):
         else:require(name==policy(v['base']),'Candidate base mismatch')
         (out/'build'/name).symlink_to(parent/name,target_is_directory=True)
         variants[name]=dict(root=str(parent/name),role=v['role'],base=v['base'])
+        if name=='taco_fused':
+            variants[name]['implementation']=v.get('implementation','phase6-warp-v1')
         for relative,digest in data['files'].items():
             if relative.startswith(name+'/'):build_files[str(parent/relative)]=digest
     info=dict(protocol=PROTOCOL,run_id=uuid.uuid4().hex,config=c,policies=policies(c),megatron=str(megatron),

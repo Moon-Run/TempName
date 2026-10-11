@@ -13,7 +13,7 @@
 | `native` | 原生 Megatron | 原生 Megatron | 参考 baseline |
 | `original` | 原生 Hopper Flux GemmV3 | 原生 Hopper Flux GemmV3 | 参考 baseline |
 | `native_taco` | 原生 Megatron GEMM＋朴素张量 TACO | 原生 Megatron | 必须 baseline |
-| `taco_fused` | 原始顺序＋融合 TACO，所有远端贡献量化 | 原生 Hopper Flux GemmV3 | 必须 baseline |
+| `taco_fused` | A800 冻结融合 v2 的 H100 适配：原始顺序、全远端量化、CTA 解码 | 原生 Hopper Flux GemmV3 | 必须 baseline |
 | `remote_arrival_selective` | rank+1 基础顺序＋到达优先＋选择性量化 | 原生 Hopper Flux GemmV3 | 候选 |
 | `interleaved_arrival_selective` | L,R1,… 基础顺序＋到达优先＋选择性量化 | 原生 Hopper Flux GemmV3 | 候选 |
 
@@ -21,11 +21,13 @@
 
 量化 MLP 路径保留 Phase6 的 CUTLASS GemmV2 算法，**重新编译为 SM90 代码**，没有将 FP8 编解码直接移植到 Hopper WGMMA/TMA epilogue。其注册名称仍含 `sm80/a100`，代表 V2 算法键，不代表执行 A800 cubin；实际架构由编译命令和设备检查记录。原生 Flux 参考及 attention 使用 SM90 GemmV3。后续若开发 Hopper 原生融合量化，需另建版本和 baseline。
 
-H100 wrapper 按每个实例拥有的 TACO 配置，统一选择缓冲区布局、GEMM 注册项、padding、归约与发布 barrier。量化路径保留 V2 的全 rank 发布 barrier；不会套用 Hopper V3 的单节点免 barrier 分支。BF16 GEMM、本地贡献 BF16、FP8 E4M3/H128 远端编码、BF16 STE 反向和双工作区协议保持既有实现。
+**2026-10-11 起新构建的融合基线标识为 `a800-fused-v2-cta-v1`。** [fused_v2](fused_v2/README.md) 固定了 A800 原基线的 codec、runtime、epilogue 和 C++/Python 封装：恢复 CTA H128 解码、`__nv_cvt_float_to_fp8` 编码转换、每次 forward configure/reset、单工作区及解码后复用 barrier；模型 adapter 也保留旧基线的输出 clone。候选继续使用当前 warp 解码、优化编码和双工作区。已有 H100 会话使用的是 `phase6-warp-v1` 基线，其结果不改写，也不能与新基线的收益合并。对齐实现不保证两种硬件的绝对耗时相同。
+
+H100 wrapper 按构造时确定的实例身份，统一选择缓冲区布局、GEMM 注册项、padding、归约与发布 barrier。候选保存完整 TACO 配置；A800 对齐基线仅保存 V2/V3 身份，逐次配置仍由旧 Python 流程管理。量化路径保留 V2 的全 rank 发布 barrier；不会套用 Hopper V3 的单节点免 barrier 分支。BF16 GEMM、本地 BF16、FP8 E4M3/H128 远端编码及 BF16 STE 反向保持原协议。
 
 H100 源码快照还移除了 PCIe swizzle 头文件中未被使用的全局 `cudaMalloc` 初始化，并让采样 worker 先绑定本地 rank 的设备再导入 Flux，避免导入库时意外分配到默认设备。A800 共享源码保持原样。
 
-H100 baseline 从当前受版本控制的源码生成并冻结，**不读取 `outputs/a800`、不复制 A800 的 `.o/.so`**。到达表、mask 必须来自相同 H100 节点与设备顺序的新校准，不能把 A800 数据改个架构标签后复用。Hopper 编译原则见 [NVIDIA 兼容性指南](https://docs.nvidia.com/cuda/hopper-compatibility-guide/index.html)。
+H100 baseline 从受版本控制的源码生成并冻结，其中 `taco_fused` 使用 `tools/h100/phase6/fused_v2/` 的固定源码及哈希清单，**构建时不读取 `outputs/a800`、不复制 A800 的 `.o/.so`**。到达表、mask 必须来自相同 H100 节点与设备顺序的新校准，不能把 A800 数据改个架构标签后复用。Hopper 编译原则见 [NVIDIA 兼容性指南](https://docs.nvidia.com/cuda/hopper-compatibility-guide/index.html)。
 
 ## 环境与范围
 

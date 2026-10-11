@@ -10,6 +10,8 @@
 
 默认六组全部保留：参考组 `native`、`original`，必须baseline `native_taco`、`taco_fused`，候选 `remote_arrival_selective`、`interleaved_arrival_selective`。不能因为某个baseline慢或发生OOM而悄悄删除它。当前仅比较完整optimizer step，不把单算子或profile耗时当作主结果。
 
+**新融合基线版本：** 2026-10-11 按用户要求，新构建的 `taco_fused` 对齐 A800 冻结融合 v2，使用 CTA 解码和旧配置流程，标识 `a800-fused-v2-cta-v1`，来源及适配见 [fused_v2/README](../../../tools/h100/phase6/fused_v2/README.md)。它尚无 H100 GPU 性能结果；此前回传的所有会话对应 `phase6-warp-v1`。测试新基线必须新建构建与 compare，不续写旧会话；核对 manifest、submission、report 的实现标识，并先完成 smoke/profile（新基线应出现非模板 CTA `taco_decode_ring_kernel`）再计时。模型、候选、采样、数值门槛及统计协议不因本次基线对齐改变。
+
 开始前明确是“新实验”“同条件复测”“原条件续跑”还是“只补交已有数据”。截至提交 `e7a0c49`，旧0.64B完整实验、6.7B前次续跑和最新复测均有72窗口及最终报告，两候选均未达性能门槛；不要重复补跑已完成窗口。最新6.7B对比为 `logs/h100/phase6/gpt67-tp8-20261010-112249/compare-20261011-114343-repeat/`，前次为同父目录下 `compare-20261010-153517/`，前次状态注明 `resumed=true`。先核对实际状态与run_id，完整索引见开发端说明。
 
 ## 入口

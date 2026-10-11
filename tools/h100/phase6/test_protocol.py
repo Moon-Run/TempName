@@ -180,6 +180,8 @@ class ProtocolTests(unittest.TestCase):
                     role='hopper' if name=='original' else 'fused' if name=='taco_fused' else 'candidate'
                     order='original' if kind=='baselines' else c['bases'][ps[4:].index(name)]
                     m['variants'][name]=dict(role=role,base=order,sampling=False)
+                    if name=='taco_fused':
+                        m['variants'][name]['implementation']='a800-fused-v2-cta-v1'
                     for lib in ('libflux_cuda.so','libflux_cuda_ths_op.so'):
                         p=path/lib;p.write_bytes(b'CPU unit-test placeholder, not a loadable library')
                         m['files'][str(p.relative_to(folder))]=common.sha(p)
@@ -198,6 +200,7 @@ class ProtocolTests(unittest.TestCase):
                     run.main(root/'run','all',False,Path('/unused/python'),None)
                 info=common.read(root/'run/submission.json')
                 self.assertEqual(info['policies'],ps)
+                self.assertEqual(info['variants']['taco_fused']['implementation'],'a800-fused-v2-cta-v1')
                 common.verify_files(root/'run',info['files'])
                 self.assertFalse((root/'run/all-state.json').exists())
 
