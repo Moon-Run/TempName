@@ -1,8 +1,16 @@
 # H100 单节点 Phase6 TP8 实测
 
-模型范围：6.7B实验统一展示完整第1–4轮，旧0.64B结果另列。默认模型为[32层GPT 6.7B](../model-gpt-6.7b.md)，不同模型的性能、显存和到达计划不混用。
+模型范围：默认模型为[32层GPT 6.7B](../model-gpt-6.7b.md)。融合基线对齐后的新实验与历史 `phase6-warp-v1` 四轮结果分别记录，旧0.64B结果另列；不同模型和基线版本的收益不混用。
 
-## GPT 6.7B TP8 完整四轮结果
+## GPT 6.7B TP8 融合 v2 基线对齐实验（执行中）
+
+新会话：`gpt67-tp8-fusedv2-20261011-233427`（北京时间）。执行源码为 `d786da51e0aeafec1bb2b5d071c5c59e93e6de43`，初始工作区干净，CUTLASS/NCCL 子模块及工作区记录见本会话 `handoff/`。本轮 `taco_fused` 必须标识为 `a800-fused-v2-cta-v1`，使用 A800 冻结融合 v2 的非模板 CTA 解码及旧配置流程；历史结果中的融合列对应 `phase6-warp-v1`，不能作为本轮融合 v2 基线。
+
+使用默认 32 层、H4096/FFN16384、32 heads、词表32768、S2048/mb1/global4、BF16、TP8 配置，不调参。新 base 通过当前 `build.py prepare/compile` 完整构建，编译 CUDA 12.8，GPU 运行 CUDA 12.4。核验原会话候选、计划和校准的配置、源码/库/输入哈希、节点、八卡 UUID/顺序、peer access 及运行软件一致后，复用 `gpt67-tp8-20261010-112249/candidates-20261010-153517/` 和 `selection-plan-20261010-153517.json`，保持其内容不变。复用证据见 [reuse-verification.json](../../../logs/h100/phase6/gpt67-tp8-fusedv2-20261011-233427/handoff/reuse-verification.json)。
+
+本轮计划重新执行六组 smoke/profile、两候选 GPU mapping 和全部 72 个正式窗口（两轮各六个配对块，每窗口10步预热、20步完整 optimizer step）；预检必须在新融合基线的全部八 rank trace 中检出非模板 `taco_decode_ring_kernel`。构建、预检和计时尚在执行，最终统计将在本轮完成及核验后补充；全部新产物分别位于 `outputs/h100/phase6/gpt67-tp8-fusedv2-20261011-233427/` 和 `logs/h100/phase6/gpt67-tp8-fusedv2-20261011-233427/`。
+
+## GPT 6.7B TP8 历史完整四轮结果（phase6-warp-v1）
 
 更新：2026-10-11，依据已回传的两份完整报告。原实验的两轮记为**第1–2轮**，复测的两轮顺延为**第3–4轮**，在同一组表中展示。共144个正式窗口、1152份计时rank记录、2880个正式optimizer step。各轮沿用原报告的独立配对统计，原始文件中的轮次编号不修改。
 

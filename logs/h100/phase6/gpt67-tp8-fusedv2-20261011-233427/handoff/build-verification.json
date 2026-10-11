@@ -1,0 +1,274 @@
+{
+  "time_beijing": "2026-10-11T23:47:39.817843+08:00",
+  "base_status": "built",
+  "base_implementation": "a800-fused-v2-cta-v1",
+  "submission_implementation": "a800-fused-v2-cta-v1",
+  "run_id": "a7cac271fa2f407db093f20d5a584612",
+  "base_variants": [
+    "original",
+    "taco_fused",
+    "sampler_remote_first",
+    "sampler_interleaved"
+  ],
+  "commands": [
+    {
+      "args": [
+        "cmake",
+        "-S",
+        "/workspace/TempName/outputs/h100/phase6/gpt67-tp8-fusedv2-20261011-233427/base/original",
+        "-B",
+        "/workspace/TempName/outputs/h100/phase6/gpt67-tp8-fusedv2-20261011-233427/base/original/build",
+        "-DCUDAARCHS=90",
+        "-DGPU_SM_CORES=132",
+        "-DENABLE_NVSHMEM=OFF",
+        "-DWITH_PROTOBUF=OFF",
+        "-DBUILD_TEST=OFF",
+        "-DCMAKE_BUILD_TYPE=Release",
+        "-DPYTHON_EXECUTABLE=/opt/conda/envs/flux-h100/bin/python",
+        "-DPython_EXECUTABLE=/opt/conda/envs/flux-h100/bin/python",
+        "-DCMAKE_CXX_FLAGS=-I/workspace/TempName/outputs/h100/phase6/tp8-20261009-deployment/nccl-release/include",
+        "-DCMAKE_CUDA_FLAGS=-I/workspace/TempName/outputs/h100/phase6/tp8-20261009-deployment/nccl-release/include",
+        "-DCMAKE_INSTALL_PREFIX=/workspace/TempName/outputs/h100/phase6/gpt67-tp8-fusedv2-20261011-233427/base/original/python/flux"
+      ],
+      "cwd": "/workspace/TempName/outputs/h100/phase6/gpt67-tp8-fusedv2-20261011-233427/base"
+    },
+    {
+      "args": [
+        "cmake",
+        "--build",
+        "/workspace/TempName/outputs/h100/phase6/gpt67-tp8-fusedv2-20261011-233427/base/original/build",
+        "--parallel",
+        "2"
+      ],
+      "cwd": "/workspace/TempName/outputs/h100/phase6/gpt67-tp8-fusedv2-20261011-233427/base"
+    },
+    {
+      "args": [
+        "cmake",
+        "--install",
+        "/workspace/TempName/outputs/h100/phase6/gpt67-tp8-fusedv2-20261011-233427/base/original/build"
+      ],
+      "cwd": "/workspace/TempName/outputs/h100/phase6/gpt67-tp8-fusedv2-20261011-233427/base"
+    },
+    {
+      "args": [
+        "/opt/conda/envs/flux-h100/bin/python",
+        "setup.py",
+        "build_ext",
+        "--inplace"
+      ],
+      "cwd": "/workspace/TempName/outputs/h100/phase6/gpt67-tp8-fusedv2-20261011-233427/base/original"
+    },
+    {
+      "args": [
+        "cmake",
+        "-S",
+        "/workspace/TempName/outputs/h100/phase6/gpt67-tp8-fusedv2-20261011-233427/base/taco_fused",
+        "-B",
+        "/workspace/TempName/outputs/h100/phase6/gpt67-tp8-fusedv2-20261011-233427/base/taco_fused/build",
+        "-DCUDAARCHS=90",
+        "-DGPU_SM_CORES=132",
+        "-DENABLE_NVSHMEM=OFF",
+        "-DWITH_PROTOBUF=OFF",
+        "-DBUILD_TEST=OFF",
+        "-DCMAKE_BUILD_TYPE=Release",
+        "-DPYTHON_EXECUTABLE=/opt/conda/envs/flux-h100/bin/python",
+        "-DPython_EXECUTABLE=/opt/conda/envs/flux-h100/bin/python",
+        "-DCMAKE_CXX_FLAGS=-I/workspace/TempName/outputs/h100/phase6/tp8-20261009-deployment/nccl-release/include",
+        "-DCMAKE_CUDA_FLAGS=-I/workspace/TempName/outputs/h100/phase6/tp8-20261009-deployment/nccl-release/include",
+        "-DCMAKE_INSTALL_PREFIX=/workspace/TempName/outputs/h100/phase6/gpt67-tp8-fusedv2-20261011-233427/base/taco_fused/python/flux"
+      ],
+      "cwd": "/workspace/TempName/outputs/h100/phase6/gpt67-tp8-fusedv2-20261011-233427/base"
+    },
+    {
+      "args": [
+        "cmake",
+        "--build",
+        "/workspace/TempName/outputs/h100/phase6/gpt67-tp8-fusedv2-20261011-233427/base/taco_fused/build",
+        "--parallel",
+        "2"
+      ],
+      "cwd": "/workspace/TempName/outputs/h100/phase6/gpt67-tp8-fusedv2-20261011-233427/base"
+    },
+    {
+      "args": [
+        "cmake",
+        "--install",
+        "/workspace/TempName/outputs/h100/phase6/gpt67-tp8-fusedv2-20261011-233427/base/taco_fused/build"
+      ],
+      "cwd": "/workspace/TempName/outputs/h100/phase6/gpt67-tp8-fusedv2-20261011-233427/base"
+    },
+    {
+      "args": [
+        "/opt/conda/envs/flux-h100/bin/python",
+        "setup.py",
+        "build_ext",
+        "--inplace"
+      ],
+      "cwd": "/workspace/TempName/outputs/h100/phase6/gpt67-tp8-fusedv2-20261011-233427/base/taco_fused"
+    },
+    {
+      "args": [
+        "/usr/local/cuda-12.8/bin/nvcc",
+        "-std=c++17",
+        "-O2",
+        "--expt-relaxed-constexpr",
+        "--expt-extended-lambda",
+        "-gencode=arch=compute_90,code=sm_90",
+        "-I/workspace/TempName/outputs/h100/phase6/gpt67-tp8-fusedv2-20261011-233427/base/taco_fused",
+        "-I/workspace/TempName/outputs/h100/phase6/gpt67-tp8-fusedv2-20261011-233427/base/taco_fused/src",
+        "-I/workspace/TempName/outputs/h100/phase6/gpt67-tp8-fusedv2-20261011-233427/base/taco_fused/include",
+        "-I/workspace/TempName/outputs/h100/phase6/gpt67-tp8-fusedv2-20261011-233427/base/taco_fused/build",
+        "-I/workspace/TempName/outputs/h100/phase6/gpt67-tp8-fusedv2-20261011-233427/base/taco_fused/3rdparty/cutlass/include",
+        "-I/workspace/TempName/outputs/h100/phase6/gpt67-tp8-fusedv2-20261011-233427/base/taco_fused/3rdparty/cutlass/tools/util/include",
+        "/workspace/TempName/outputs/h100/phase6/gpt67-tp8-fusedv2-20261011-233427/base/taco_fused/check_mapping.cu",
+        "-ldl",
+        "-o",
+        "/workspace/TempName/outputs/h100/phase6/gpt67-tp8-fusedv2-20261011-233427/base/taco_fused/check_mapping"
+      ],
+      "cwd": "/workspace/TempName/outputs/h100/phase6/gpt67-tp8-fusedv2-20261011-233427/base"
+    },
+    {
+      "args": [
+        "cmake",
+        "-S",
+        "/workspace/TempName/outputs/h100/phase6/gpt67-tp8-fusedv2-20261011-233427/base/sampler_remote_first",
+        "-B",
+        "/workspace/TempName/outputs/h100/phase6/gpt67-tp8-fusedv2-20261011-233427/base/sampler_remote_first/build",
+        "-DCUDAARCHS=90",
+        "-DGPU_SM_CORES=132",
+        "-DENABLE_NVSHMEM=OFF",
+        "-DWITH_PROTOBUF=OFF",
+        "-DBUILD_TEST=OFF",
+        "-DCMAKE_BUILD_TYPE=Release",
+        "-DPYTHON_EXECUTABLE=/opt/conda/envs/flux-h100/bin/python",
+        "-DPython_EXECUTABLE=/opt/conda/envs/flux-h100/bin/python",
+        "-DCMAKE_CXX_FLAGS=-I/workspace/TempName/outputs/h100/phase6/tp8-20261009-deployment/nccl-release/include",
+        "-DCMAKE_CUDA_FLAGS=-I/workspace/TempName/outputs/h100/phase6/tp8-20261009-deployment/nccl-release/include",
+        "-DCMAKE_INSTALL_PREFIX=/workspace/TempName/outputs/h100/phase6/gpt67-tp8-fusedv2-20261011-233427/base/sampler_remote_first/python/flux"
+      ],
+      "cwd": "/workspace/TempName/outputs/h100/phase6/gpt67-tp8-fusedv2-20261011-233427/base"
+    },
+    {
+      "args": [
+        "cmake",
+        "--build",
+        "/workspace/TempName/outputs/h100/phase6/gpt67-tp8-fusedv2-20261011-233427/base/sampler_remote_first/build",
+        "--parallel",
+        "2"
+      ],
+      "cwd": "/workspace/TempName/outputs/h100/phase6/gpt67-tp8-fusedv2-20261011-233427/base"
+    },
+    {
+      "args": [
+        "cmake",
+        "--install",
+        "/workspace/TempName/outputs/h100/phase6/gpt67-tp8-fusedv2-20261011-233427/base/sampler_remote_first/build"
+      ],
+      "cwd": "/workspace/TempName/outputs/h100/phase6/gpt67-tp8-fusedv2-20261011-233427/base"
+    },
+    {
+      "args": [
+        "/opt/conda/envs/flux-h100/bin/python",
+        "setup.py",
+        "build_ext",
+        "--inplace"
+      ],
+      "cwd": "/workspace/TempName/outputs/h100/phase6/gpt67-tp8-fusedv2-20261011-233427/base/sampler_remote_first"
+    },
+    {
+      "args": [
+        "/usr/local/cuda-12.8/bin/nvcc",
+        "-std=c++17",
+        "-O2",
+        "--expt-relaxed-constexpr",
+        "--expt-extended-lambda",
+        "-gencode=arch=compute_90,code=sm_90",
+        "-I/workspace/TempName/outputs/h100/phase6/gpt67-tp8-fusedv2-20261011-233427/base/sampler_remote_first",
+        "-I/workspace/TempName/outputs/h100/phase6/gpt67-tp8-fusedv2-20261011-233427/base/sampler_remote_first/src",
+        "-I/workspace/TempName/outputs/h100/phase6/gpt67-tp8-fusedv2-20261011-233427/base/sampler_remote_first/include",
+        "-I/workspace/TempName/outputs/h100/phase6/gpt67-tp8-fusedv2-20261011-233427/base/sampler_remote_first/build",
+        "-I/workspace/TempName/outputs/h100/phase6/gpt67-tp8-fusedv2-20261011-233427/base/sampler_remote_first/3rdparty/cutlass/include",
+        "-I/workspace/TempName/outputs/h100/phase6/gpt67-tp8-fusedv2-20261011-233427/base/sampler_remote_first/3rdparty/cutlass/tools/util/include",
+        "/workspace/TempName/outputs/h100/phase6/gpt67-tp8-fusedv2-20261011-233427/base/sampler_remote_first/check_mapping.cu",
+        "-ldl",
+        "-o",
+        "/workspace/TempName/outputs/h100/phase6/gpt67-tp8-fusedv2-20261011-233427/base/sampler_remote_first/check_mapping"
+      ],
+      "cwd": "/workspace/TempName/outputs/h100/phase6/gpt67-tp8-fusedv2-20261011-233427/base"
+    },
+    {
+      "args": [
+        "cmake",
+        "-S",
+        "/workspace/TempName/outputs/h100/phase6/gpt67-tp8-fusedv2-20261011-233427/base/sampler_interleaved",
+        "-B",
+        "/workspace/TempName/outputs/h100/phase6/gpt67-tp8-fusedv2-20261011-233427/base/sampler_interleaved/build",
+        "-DCUDAARCHS=90",
+        "-DGPU_SM_CORES=132",
+        "-DENABLE_NVSHMEM=OFF",
+        "-DWITH_PROTOBUF=OFF",
+        "-DBUILD_TEST=OFF",
+        "-DCMAKE_BUILD_TYPE=Release",
+        "-DPYTHON_EXECUTABLE=/opt/conda/envs/flux-h100/bin/python",
+        "-DPython_EXECUTABLE=/opt/conda/envs/flux-h100/bin/python",
+        "-DCMAKE_CXX_FLAGS=-I/workspace/TempName/outputs/h100/phase6/tp8-20261009-deployment/nccl-release/include",
+        "-DCMAKE_CUDA_FLAGS=-I/workspace/TempName/outputs/h100/phase6/tp8-20261009-deployment/nccl-release/include",
+        "-DCMAKE_INSTALL_PREFIX=/workspace/TempName/outputs/h100/phase6/gpt67-tp8-fusedv2-20261011-233427/base/sampler_interleaved/python/flux"
+      ],
+      "cwd": "/workspace/TempName/outputs/h100/phase6/gpt67-tp8-fusedv2-20261011-233427/base"
+    },
+    {
+      "args": [
+        "cmake",
+        "--build",
+        "/workspace/TempName/outputs/h100/phase6/gpt67-tp8-fusedv2-20261011-233427/base/sampler_interleaved/build",
+        "--parallel",
+        "2"
+      ],
+      "cwd": "/workspace/TempName/outputs/h100/phase6/gpt67-tp8-fusedv2-20261011-233427/base"
+    },
+    {
+      "args": [
+        "cmake",
+        "--install",
+        "/workspace/TempName/outputs/h100/phase6/gpt67-tp8-fusedv2-20261011-233427/base/sampler_interleaved/build"
+      ],
+      "cwd": "/workspace/TempName/outputs/h100/phase6/gpt67-tp8-fusedv2-20261011-233427/base"
+    },
+    {
+      "args": [
+        "/opt/conda/envs/flux-h100/bin/python",
+        "setup.py",
+        "build_ext",
+        "--inplace"
+      ],
+      "cwd": "/workspace/TempName/outputs/h100/phase6/gpt67-tp8-fusedv2-20261011-233427/base/sampler_interleaved"
+    },
+    {
+      "args": [
+        "/usr/local/cuda-12.8/bin/nvcc",
+        "-std=c++17",
+        "-O2",
+        "--expt-relaxed-constexpr",
+        "--expt-extended-lambda",
+        "-gencode=arch=compute_90,code=sm_90",
+        "-I/workspace/TempName/outputs/h100/phase6/gpt67-tp8-fusedv2-20261011-233427/base/sampler_interleaved",
+        "-I/workspace/TempName/outputs/h100/phase6/gpt67-tp8-fusedv2-20261011-233427/base/sampler_interleaved/src",
+        "-I/workspace/TempName/outputs/h100/phase6/gpt67-tp8-fusedv2-20261011-233427/base/sampler_interleaved/include",
+        "-I/workspace/TempName/outputs/h100/phase6/gpt67-tp8-fusedv2-20261011-233427/base/sampler_interleaved/build",
+        "-I/workspace/TempName/outputs/h100/phase6/gpt67-tp8-fusedv2-20261011-233427/base/sampler_interleaved/3rdparty/cutlass/include",
+        "-I/workspace/TempName/outputs/h100/phase6/gpt67-tp8-fusedv2-20261011-233427/base/sampler_interleaved/3rdparty/cutlass/tools/util/include",
+        "/workspace/TempName/outputs/h100/phase6/gpt67-tp8-fusedv2-20261011-233427/base/sampler_interleaved/check_mapping.cu",
+        "-ldl",
+        "-o",
+        "/workspace/TempName/outputs/h100/phase6/gpt67-tp8-fusedv2-20261011-233427/base/sampler_interleaved/check_mapping"
+      ],
+      "cwd": "/workspace/TempName/outputs/h100/phase6/gpt67-tp8-fusedv2-20261011-233427/base"
+    }
+  ],
+  "nccl_files": {
+    "/workspace/TempName/outputs/h100/phase6/tp8-20261009-deployment/nccl-release/include/nccl.h": "af992d0e111074a978268e9f433b943409a1aba8e6dcd322107bef185eb0010d",
+    "/workspace/TempName/outputs/h100/phase6/tp8-20261009-deployment/nccl-release/lib/libnccl_static.a": "ddb42b57da73726deb1e76871e73207577dbad77323dff523130d17d2da7da82"
+  }
+}
