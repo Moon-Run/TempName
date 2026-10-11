@@ -4,7 +4,7 @@
 
 ## 2026-10-10 6.7B TP8 首测（部分完成，续跑中）
 
-北京时间 2026-10-10 15:35:17 开始，在 `gxn74` 单节点 8×H100 80GB HBM3 上执行新的 32 层 GPT 6.7B TP8 实验。配置为 H2048、FFN16384、32 heads、S2048、micro batch 1、global batch 4、BF16、TP8/DP1/PP1/CP1，实际模型参数约 6.729B。校准、选择计划、两组候选编译，以及六组 smoke/profile 预检均已完成。
+北京时间 2026-10-10 15:35:17 开始，在 `gxn74` 单节点 8×H100 80GB HBM3 上执行新的 32 层 GPT 6.7B TP8 实验。配置为 H4096、FFN16384、32 heads、S2048、micro batch 1、global batch 4、BF16、TP8/DP1/PP1/CP1，实际模型参数约 6.729B。校准、选择计划、两组候选编译，以及六组 smoke/profile 预检均已完成。
 
 正式计时共计划 72 个窗口（六组策略、两轮，每窗口 10 步预热＋20 步完整 optimizer step）。截至 2026-10-10 16:24:24，已完成并通过校验 43/72 个窗口，最近完成 `round2/window-006-taco_fused`；`round2/window-007-native_taco` 在 `native_taco` 解码阶段因 CUDA OOM 中断，尚未形成最终配对统计，因此本节不把部分数据作为性能结论。
 
