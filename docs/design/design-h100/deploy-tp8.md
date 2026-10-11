@@ -2,7 +2,8 @@
 
 更新：2026-10-10。以下命令在**新服务器**执行，使用当前受维护的 `tools/h100/phase6/` 入口，默认GPT 6.7B。无需Slurm；如果服务器受调度器管理，GPU步骤须在已分配的计算节点内执行。
 
-当前6.7B配置只完成代码/文档更新，本次不编译、不测试。旧0.64B在gxn74的GPU结果见[历史记录](base-phase6.md)，不能作为新模型验证。此前本机四卡短测因Slurm返回 `AssocMaxSubmitJobLimit` 未能提交，也没有GPU结果。新配置、参数量和旧表失效边界见[模型说明](../model-gpt-6.7b.md)，生成数据与文件目录见[instruction](instruction.md#生成数据与文件放置规范)。
+本文是新会话的部署流程，不表示已有实验需要重跑。H100端的测试与交付入口见 [instruction-h100.md](instruction-h100.md)，开发端的数据索引与最新接收状态见 [instruction.md](instruction.md)。截至提交 `e7a0c49`，旧0.64B、6.7B前次续跑及最新完整复测均已回传报告；阅读顺序与实际路径以开发端索引为准。模型定义见[模型说明](../model-gpt-6.7b.md)，产物布局见[文件规范](instruction-h100.md#生成数据与文件放置规范)。新机器/新配置仍须独立构建与校准。
+
 
 ## 1. 获取完整源码
 
@@ -37,7 +38,7 @@ git -C "$MEGATRON_DIR" rev-parse HEAD
 git -C "$MEGATRON_DIR" status --short
 ```
 
-Megatron 必须是上述精确提交，受版本控制的文件保持未修改。`outputs/`、`logs/` 和 Conda 环境不会随 clone 迁移；旧机器编译的 `.so`、诊断产物和 A800 到达计划都不作为新机器的运行输入。
+Megatron 必须是上述精确提交，受版本控制的文件保持未修改。Git已携带部分H100日志、trace、配置与冻结源码；编译库、构建缓存和Conda环境通常不会随clone迁移。拉到历史结果不等于新机器已有可运行环境，旧机器的 `.so`、诊断产物和A800到达计划都不作为新机器的运行输入。
 
 ## 2. 配置软件环境
 
@@ -231,6 +232,6 @@ python tools/h100/phase6/report.py "$H100_LOG/compare"
 
 查看 `$H100_LOG/compare/report.md`、`report.json`；各次独立进程的错误和日志位于 `compare/results/*/process.log`。失败时先查看日志，保留失败目录，并以新会话重做需要变更的阶段，不覆盖原记录。
 
-第一次部署包含依赖安装、多套库编译、校准、正确性检查及完整对比，**没有20分钟内完成的保证**。默认对比使用32层、H4096/FFN16384、32 heads、词表32768、S2048、micro batch1/global batch4，并执行两轮各36个独立计时窗口。新模型的显存和运行情况尚未测试。校准完成后不要移动源码/产物路径、修改冻结输入或更新Megatron；manifest会核验路径和哈希。
+第一次部署包含依赖安装、多套库编译、校准、正确性检查及完整对比，**没有20分钟内完成的保证**。默认对比使用32层、H4096/FFN16384、32 heads、词表32768、S2048、micro batch1/global batch4，并执行两轮各36个独立计时窗口。已有H100结果不保证新节点的显存与运行情况相同，仍需在本机预检。校准完成后不要移动源码/产物路径、修改冻结输入或更新Megatron；manifest会核验路径和哈希。
 
 量化 MLP 是 SM90 编译的 Phase6 GemmV2 移植版，attention 与原生 Flux 参考使用 Hopper GemmV3。通过 preflight 后取得的实际计时数据才用于判断该机器上的运行效果；本指南不预设提速结果。

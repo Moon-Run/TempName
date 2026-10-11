@@ -4,7 +4,7 @@
 
 新服务器首次部署请按 [单机八卡 H100 部署指南](../../../docs/design/design-h100/deploy-tp8.md) 配置环境、重新编译并运行。
 
-**2026-10-10默认模型已升级为GPT 6.7B，本次不编译、不测试。** 旧0.64B的H100实测见[历史记录](../../../docs/design/design-h100/base-phase6.md)，不作为新模型证据。下文GPU命令供之后执行；`calibrate.py run` 和 `run.py` 没有 `--execute` 时只打印命令。
+**默认模型为GPT 6.7B。** 执行端先读[测试与交付说明](../../../docs/design/design-h100/instruction-h100.md)，开发端先读[数据与源码索引](../../../docs/design/design-h100/instruction.md)。截至提交 `e7a0c49`，旧0.64B、6.7B前次续跑及最新完整复测均有报告，具体状态和证据见开发端索引。下文命令用于按任务执行新会话；`calibrate.py run` 和 `run.py` 没有 `--execute` 时只打印命令。
 
 ## 算法与 baseline
 
@@ -38,7 +38,7 @@ H100 baseline 从当前受版本控制的源码生成并冻结，**不读取 `ou
 
 默认模型为 **32层、H4096/FFN16384、32 heads、词表32768，约6.7B**，S2048、micro batch1/global batch4、TP8，8192 token/step。[config-tp4-s1024.json](config-tp4-s1024.json) 为6.7B TP4、S1024、micro1/global8，使用梯度累积维持8192 token/step。原12层配置另存为 [TP8旧配置](config-0.64b-tp8.json) 和 [TP4旧配置](config-0.64b-tp4-s1024.json)。参数量计算和新shape见[模型说明](../../../docs/design/model-gpt-6.7b.md)。新模型必须重新构建和校准，不能复用旧H2048表；两个构建阶段传入同一配置。不同TP的词表补齐/参数量可能不同，不做跨TP直接强扩展结论。
 
-所有产物按会话放到 `outputs/h100/phase6/<会话>/` 和 `logs/h100/phase6/<会话>/`；完整分类、合成token生成方式与Git规则见[文件放置说明](../../../docs/design/design-h100/instruction.md#生成数据与文件放置规范)。下面的短路径示例只用于说明阶段，实际新实验按部署指南使用 `gpt67-tp8-<时间>` 等全新会话名。
+所有产物按会话放到 `outputs/h100/phase6/<会话>/` 和 `logs/h100/phase6/<会话>/`；完整分类、合成token生成方式与Git规则见[文件放置说明](../../../docs/design/design-h100/instruction-h100.md#生成数据与文件放置规范)。下面的短路径示例只用于说明阶段，实际新实验按部署指南使用 `gpt67-tp8-<时间>` 等全新会话名。
 
 ## 1. 准备并编译 baseline 和 sampler（不使用 GPU）
 
@@ -137,4 +137,4 @@ CUDA_VISIBLE_DEVICES='' PYTHONNOUSERSITE=1 \
 
 这些检查不导入 Torch、不初始化 CUDA，覆盖 TP4/TP8、四种基础顺序、训练/留出分离、mask 预算、本地 BF16、不合法计划拒绝、两轮平衡顺序、worker 快照、架构/布局/barrier 分派及配对统计。编译检查与 GPU 正确性、吞吐测试应分别记录。
 
-2026-10-09旧0.64B配置：15项CPU检查通过，132 SM的四套库及Python binding完成编译/CPU导入，合成候选及mapping检查器仅完成编译。记录见[历史编译验证](../../../docs/design/design-h100/instruction.md#本次无-gpu-验证2026-10-09)。后来gxn74的旧模型GPU实测另见上方链接；6.7B更新未重跑这些检查。
+2026-10-09旧0.64B配置：15项CPU检查通过，132 SM的四套库及Python binding完成编译/CPU导入，合成候选及mapping检查器仅完成编译。记录见[历史编译验证](../../../docs/design/design-h100/instruction.md#本次无-gpu-验证2026-10-09)。上述CPU/编译记录仍是旧模型历史证据；后续gxn74的GPU实验与当前6.7B报告见开发端数据索引。
