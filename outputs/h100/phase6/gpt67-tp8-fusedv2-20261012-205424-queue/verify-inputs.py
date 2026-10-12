@@ -19,7 +19,8 @@ assert read(previous / 'report.json')['completed']
 assert read(previous / 'timing-state.json')['status'] == 'completed'
 assert read(previous / 'verification.json')['passed']
 drivers = [Path(os.environ['H100_BUILD']) / name for name in
-           ('record-inputs.py', 'execute.py', 'verify-results.py')]
+           ('record-inputs.py', 'verify-results.py')]
+drivers.append(repo / 'tools/h100/phase6/execute_queued.py')
 drivers += [Path(os.environ['H100_QUEUE_OUTPUT']) / name for name in
             ('queue.py', 'run-one.sh', 'verify-inputs.py')]
 write(Path(os.environ['H100_LOG']) / 'handoff/repeat-inputs.json', dict(
@@ -28,5 +29,6 @@ write(Path(os.environ['H100_LOG']) / 'handoff/repeat-inputs.json', dict(
     implementation='a800-fused-v2-cta-v1',
     drivers={str(p): sha(p) for p in drivers}, fresh_preflight=True,
     fresh_timing_windows=72, reuse_previous_timings=False,
+    gpu_monitoring='before_each_run_only',
 ))
 print('BASE AND FROZEN CONTROLLERS VERIFIED; starting independent repeat', flush=True)

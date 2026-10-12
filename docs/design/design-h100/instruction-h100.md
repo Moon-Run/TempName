@@ -1,6 +1,6 @@
 # H100执行端：测试与数据交付说明
 
-更新：2026-10-11。**本页供有H100的服务器上的执行者或新Codex对话阅读。** 当前执行端为 `gxn74`，容器内仓库通常为 `/workspace/TempName`；实际路径以本机部署为准。测试按用户已安排的任务范围和时间预算进行，阅读本页不等于自动启动实验。
+更新：2026-10-12。**本页供有H100的服务器上的执行者或新Codex对话阅读。** 当前执行端为 `gxn74`，容器内仓库通常为 `/workspace/TempName`；实际路径以本机部署为准。测试按用户已安排的任务范围和时间预算进行，阅读本页不等于自动启动实验。
 
 另一台开发服务器没有本任务需要的H100，负责接收数据、维护代码和分析；它的新对话入口是 [instruction.md](instruction.md)。本页维护测试流程、产物布局和交付清单；已接收会话的最新索引在[开发端数据索引](instruction.md#已接收数据与当前缺项)，实测结论在 [base-phase6.md](base-phase6.md)。
 
@@ -20,6 +20,7 @@
 | --- | --- |
 | A800/H100 6.7B模型定义、形状与准备入口 | [model-gpt-6.7b.md](../model-gpt-6.7b.md) |
 | 新服务器环境、源码迁移与八卡运行步骤 | [单机 TP8 部署指南](deploy-tp8.md) |
+| GPU空闲检查、自动队列与监控说明 | [watcher.md](watcher.md) |
 | 完整命令、baseline 定义与实现边界 | [H100 Phase6 README](../../../tools/h100/phase6/README.md) |
 | 模型、TP、SM 数、基础顺序和预算 | [config.json](../../../tools/h100/phase6/config.json) |
 | 6.7B TP4、S1024、micro1/global8 场景 | [config-tp4-s1024.json](../../../tools/h100/phase6/config-tp4-s1024.json) |
@@ -170,7 +171,7 @@ export H100_CONFIG="$REPO/tools/h100/phase6/config.json"
 环境记录和额外传输文件的位置、校验和：
 ```
 
-同目录放 `environment-<时间>.md`、`pip-freeze-<时间>.txt`、`nvidia-smi-<时间>.txt`、`topology-<时间>.txt` 等。环境记录写明Python/PyTorch/CUDA运行时、两套nvcc、驱动、NCCL运行库及编译库、编译器/CMake、Megatron精确SHA、Apex SHA及本地补丁、Python解释器与CUDA路径。GPU占用记录应含测试前和失败时的进程/显存情况；只记录事后空闲状态不能解释计时期间的干扰。
+同目录放 `environment-<时间>.md`、`pip-freeze-<时间>.txt`、`nvidia-smi-<时间>.txt`、`topology-<时间>.txt` 等。环境记录写明Python/PyTorch/CUDA运行时、两套nvcc、驱动、NCCL运行库及编译库、编译器/CMake、Megatron精确SHA、Apex SHA及本地补丁、Python解释器与CUDA路径。GPU监控模式和占用记录的交付要求见 [watcher.md](watcher.md#监控数据交付)。
 
 运行相关环境变量至少记录 `CUDA_VISIBLE_DEVICES`、`CUDA_DEVICE_MAX_CONNECTIONS`、设置过的 `NCCL_*`、`PYTORCH_CUDA_ALLOC_CONF`/`PYTORCH_ALLOC_CONF`、`OMP_NUM_THREADS`、`MKL_NUM_THREADS`。只收集与复现相关的项目，不直接上传完整环境变量、代理凭据或登录令牌。构建器manifest的 `gpu_validated=false`、准备阶段submission的同名字段不会随GPU测试自动更新；不得为了“表示完成”修改它们，应看preflight、实际rank记录和最终report。
 

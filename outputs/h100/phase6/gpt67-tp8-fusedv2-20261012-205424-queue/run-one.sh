@@ -15,5 +15,5 @@ test ! -e "$H100_LOG/compare/submission.json"
 cd "$REPO"
 python -u "$H100_BUILD/record-inputs.py"
 python -u "$H100_QUEUE_OUTPUT/verify-inputs.py"
-python -u "$H100_BUILD/execute.py"
+python -u "$REPO/tools/h100/phase6/execute_queued.py" --execute
 python -u "$H100_BUILD/verify-results.py"
