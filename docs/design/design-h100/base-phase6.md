@@ -2,13 +2,77 @@
 
 模型范围：默认模型为[32层GPT 6.7B](../model-gpt-6.7b.md)。融合基线对齐后的新实验与历史 `phase6-warp-v1` 四轮结果分别记录，旧0.64B结果另列；不同模型和基线版本的收益不混用。
 
-## GPT 6.7B TP8 融合 v2 基线对齐实验（执行中）
+## GPT 6.7B TP8 融合 v2 基线对齐实验
 
-新会话：`gpt67-tp8-fusedv2-20261011-233427`（北京时间）。执行源码为 `d786da51e0aeafec1bb2b5d071c5c59e93e6de43`，初始工作区干净，CUTLASS/NCCL 子模块及工作区记录见本会话 `handoff/`。本轮 `taco_fused` 必须标识为 `a800-fused-v2-cta-v1`，使用 A800 冻结融合 v2 的非模板 CTA 解码及旧配置流程；历史结果中的融合列对应 `phase6-warp-v1`，不能作为本轮融合 v2 基线。
+更新：2026-10-12。数据提交 `7483993` 的首次对齐实验记为第1–2轮；最新提交 `24a553c` 中会话 `gpt67-tp8-fusedv2-20261012-005925-repeat` 的两轮顺延为第3–4轮，在本节统一展示。两次各完成72窗口、576份计时rank记录，合计144窗口、1152份计时rank记录；原始报告各自仍编号为round1/round2。
 
-使用默认 32 层、H4096/FFN16384、32 heads、词表32768、S2048/mb1/global4、BF16、TP8 配置，不调参。新 base 通过当前 `build.py prepare/compile` 完整构建，编译 CUDA 12.8，GPU 运行 CUDA 12.4。核验原会话候选、计划和校准的配置、源码/库/输入哈希、节点、八卡 UUID/顺序、peer access 及运行软件一致后，复用 `gpt67-tp8-20261010-112249/candidates-20261010-153517/` 和 `selection-plan-20261010-153517.json`，保持其内容不变。复用证据见 [reuse-verification.json](../../../logs/h100/phase6/gpt67-tp8-fusedv2-20261011-233427/handoff/reuse-verification.json)。
+首次base构建的源码提交为 `d786da51e0aeafec1bb2b5d071c5c59e93e6de43`。两次实验 `taco_fused` 的实际标识为 **`a800-fused-v2-cta-v1`**，使用 A800 冻结融合 v2 的非模板 CTA 解码及旧配置流程；全部八 rank 的预检记录均确认执行了 `taco_decode_ring_kernel(FluxTacoConfig, ...)`。历史结果中的融合列对应 `phase6-warp-v1`，与本节分开解读。
 
-本轮计划重新执行六组 smoke/profile、两候选 GPU mapping 和全部 72 个正式窗口（两轮各六个配对块，每窗口10步预热、20步完整 optimizer step）；预检必须在新融合基线的全部八 rank trace 中检出非模板 `taco_decode_ring_kernel`。构建、预检和计时尚在执行，最终统计将在本轮完成及核验后补充；全部新产物分别位于 `outputs/h100/phase6/gpt67-tp8-fusedv2-20261011-233427/` 和 `logs/h100/phase6/gpt67-tp8-fusedv2-20261011-233427/`。
+在 `gxn74` 单节点8×H100上使用32层、H4096/FFN16384、32 heads、配置词表32768（实际 padded vocab 为33792）、S2048/mb1/global4、BF16、TP8/DP1配置，不调参。每 step 累积4个微批、8192 token，MLP全局 shape 为 `[2048,4096,16384]`、本地 K=2048；window64、量化预算上限1/64。新 base 完整构建，编译 CUDA 12.8、GPU运行 CUDA 12.4；候选库和选择计划复用 `gpt67-tp8-20261010-112249` 会话的已核验产物，内容不变。六种策略均在本会话重新计时，复用关系见 [reuse-verification.json](../../../logs/h100/phase6/gpt67-tp8-fusedv2-20261011-233427/handoff/reuse-verification.json)。
+
+第3–4轮复用第1–2轮的base、候选及选择计划；两次submission的模型配置、计划SHA、各变体路径、构建文件哈希清单、源码manifest、校准设备及控制脚本哈希均一致。复测新建compare并重做六组smoke/profile与完整计时，没有复用前次计时窗口，见[复测输入与复用关系](../../../logs/h100/phase6/gpt67-tp8-fusedv2-20261012-005925-repeat/handoff/repeat-inputs.json)。
+
+### 完整 step 对照
+
+每窗口10步预热＋20步完整 optimizer step，窗口耗时取八rank最大elapsed除以20；计时包含前向、反向、通信/同步、optimizer更新与清梯度，独立profile不参与统计。
+
+**远端组合第4轮按用户要求剔除两个明显慢窗口，保留4个配对块；第3轮及交替组合第4轮仍使用全部6块。** 每行候选与四个对照均取同一组保留配对块内的中位数。筛选统计不作为全样本总体收益，原实验验收仍以各自全样本report为准。单位为ms/step。
+
+远端组合第4轮对应复测目录的 `round2`。剔除 `window-026-remote_arrival_selective`（block 4，1521.523 ms/step）和 `window-031-remote_arrival_selective`（block 5，989.273 ms/step），四个对照同步排除block 4/5，仅保留block 0–3（block编号从0起）。保留的远端窗口为535.482、532.863、550.437、542.329 ms/step。原始窗口文件和report不删除、不改写；其他候选/轮次的统计不受影响。
+
+| 候选 | 轮次 | 配对块数 | 候选 ms/step | 新融合 v2 ms/step | Megatron＋量化 ms/step | 原生 Megatron ms/step | 原生 Flux ms/step |
+| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| 远端组合 | 1 | 6 | 541.272 | 553.170 | 829.511 | 583.145 | 548.262 |
+| 远端组合 | 2 | 5 | 540.468 | 548.839 | 828.641 | 579.180 | 545.241 |
+| 远端组合 | 3 | 6 | 538.959 | 553.811 | 827.683 | 580.558 | 545.284 |
+| 远端组合 | 4 | 4 | 538.906 | 658.759 | 828.409 | 578.528 | 549.664 |
+| 交替组合 | 1 | 5 | 542.748 | 551.076 | 829.547 | 582.275 | 547.656 |
+| 交替组合 | 2 | 6 | 540.493 | 549.213 | 825.354 | 577.261 | 544.148 |
+| 交替组合 | 3 | 6 | 542.186 | 553.811 | 827.683 | 580.558 | 545.284 |
+| 交替组合 | 4 | 6 | 541.868 | 553.222 | 828.409 | 579.234 | 554.080 |
+
+候选相对两个必须 baseline 及两个原生参考的对照如下。下降百分比采用对应统计口径下配对块的几何平均 `100×(1−exp(mean(log(T候选/T基线))))`；95%区间按对应配对块bootstrap 10000次，随机种子20261009。第1–2轮及远端第4轮的区间只描述保留样本，未计入事后筛选的不确定性；第3轮及交替第4轮使用全部六块，与最新report一致。参考组“耗时增加”为相应配对下降的相反数，负值表示候选更快；不能用上表中位数相除替代配对收益。
+
+| 候选 | 轮次 | ms/step | 对 Megatron＋量化下降% [95% CI] | 对新融合 v2 下降% [95% CI] | 比原生 Megatron 耗时增加% | 比原生 Flux 耗时增加% |
+| --- | --- | ---: | --- | --- | ---: | ---: |
+| 远端组合 | 1 | 541.272 | +34.543 [+34.292, +34.787] | +2.938 [+0.832, +5.925] | -7.066 | -1.480 |
+| 远端组合 | 2 | 540.468 | +34.855 [+34.425, +35.283] | +1.771 [+1.035, +2.316] | -6.716 | -0.955 |
+| 远端组合 | 3 | 538.959 | +34.928 [+34.246, +35.596] | +5.750 [+1.939, +9.856] | -7.259 | -12.138 |
+| 远端组合 | 4 | 538.906 | +34.730 [+33.820, +35.555] | +18.052 [+2.872, +30.860] | -7.656 | -1.682 |
+| 交替组合 | 1 | 542.748 | +34.305 [+33.924, +34.656] | +2.728 [+0.486, +6.197] | -6.328 | -0.488 |
+| 交替组合 | 2 | 540.493 | +34.394 [+33.661, +35.058] | +2.458 [+0.370, +5.421] | -6.154 | -0.381 |
+| 交替组合 | 3 | 542.186 | +34.667 [+34.313, +35.111] | +5.373 [+1.555, +9.133] | -6.888 | -11.787 |
+| 交替组合 | 4 | 541.868 | +34.394 [+33.365, +35.281] | +12.301 [+0.439, +23.280] | -14.556 | -2.582 |
+
+远端第4轮筛选后为 **538.906 ms/step**，相对新融合v2的配对下降为 **18.052% [2.872,30.860]**。这一数值只对应保留的4块：新融合v2在保留块中仍包含761.488、820.066 ms/step两个慢窗口，中位数为658.759 ms/step，因此筛选后的收益明显受候选侧剔除和baseline慢窗口影响，不能视为稳定的全样本加速比，也不改写原report中的 `remote_arrival_selective=false`。
+
+第1–2轮既有筛选统计中，远端对新融合v2下降2.938%/1.771%，交替下降2.728%/2.458%，点估计均低于4%；这些数字不改写首次实验的全样本验收结果（两候选均未通过）。
+
+**原始第3–4轮的全样本报告中，交替组合通过本次两轮验收，远端组合未通过。** 交替对新融合v2下降5.373%/12.301%，对Megatron＋量化下降34.667%/34.394%，均满足点估计至少4%且95%区间下界大于0；远端对新融合v2为+5.750%/−14.421%，第4轮区间很宽并跨零，因而不通过。这里的`interleaved_arrival_selective=true`仅对应本次复测，不能表述为四轮全部达标。
+
+第4轮存在明显慢窗口：远端两个窗口约1521.523、989.273ms/step，新融合v2两个窗口约761.488、820.066ms/step；第3轮原生Flux也有约1106.581ms/step的窗口。这些记录均保留在原始全样本报告中；本页仅对远端第4轮按上面的窗口清单做筛选。慢窗口解释了中位数差距与配对收益可能不一致、部分置信区间较宽。通过当前协议门槛不等于证明运行环境无干扰或后续复现必然达到同等收益。
+
+两次均未在同一配对实验中同时测量旧 `phase6-warp-v1` 基线，因此不能将跨会话绝对耗时之差直接归因于基线改动。固定合成 token 的数值与短程训练检查不构成真实语料收敛验证。
+
+### 核验与证据
+
+| 本节轮次 | 来源会话 | 原报告轮次 | run_id | 全样本验收 |
+| --- | --- | --- | --- | --- |
+| 1–2 | `gpt67-tp8-fusedv2-20261011-233427` | round1/round2 | `a7cac271fa2f407db093f20d5a584612` | 远端false，交替false；上表沿用已有筛选统计 |
+| 3–4 | `gpt67-tp8-fusedv2-20261012-005925-repeat` | round1/round2 | `fd640c7d6fcc49d2ae203e979cb378e5` | 远端false，交替true；本页远端第4轮另做筛选，其余为全样本 |
+
+两次执行端状态均为`completed`，各自重新完成六组smoke/profile（96份rank记录）与72个计时窗口。新增第3–4轮在开发端CPU核对了576份计时rank及96份预检rank的身份、模型/设备、完成状态、零skip/fallback、10/20步协议、预检指纹和记录中的运行库路径/哈希；submission、冻结scripts、构建manifest副本及预检文件哈希匹配。全部八rank的预检内核列表均包含非模板CTA解码，筛选前的全样本中位数、配对收益、95%区间及验收布尔值复算与最新report一致；本次再用保留的4块重算远端第4轮表格。
+
+第1–2轮、第3轮及交替第4轮数值保持不变；远端第4轮仅按本节明确列出的两个窗口及对应配对块进行剔除。原始日志、report和运行文件均未修改；本机未重新运行GPU或核验执行端原路径动态库实体。
+
+- [计时来源窗口](../../../logs/h100/phase6/gpt67-tp8-fusedv2-20261011-233427/compare/results/) · [来源报告](../../../logs/h100/phase6/gpt67-tp8-fusedv2-20261011-233427/compare/report.json)
+- [冻结输入与运行库来源](../../../logs/h100/phase6/gpt67-tp8-fusedv2-20261011-233427/compare/submission.json) · [预检](../../../logs/h100/phase6/gpt67-tp8-fusedv2-20261011-233427/compare/preflight.json) · [CTA 内核核验](../../../logs/h100/phase6/gpt67-tp8-fusedv2-20261011-233427/handoff/cta-trace-verification.json)
+- [计时状态](../../../logs/h100/phase6/gpt67-tp8-fusedv2-20261011-233427/compare/timing-state.json) · [会话完成状态](../../../logs/h100/phase6/gpt67-tp8-fusedv2-20261011-233427/execution.json) · [构建核验](../../../logs/h100/phase6/gpt67-tp8-fusedv2-20261011-233427/handoff/build-verification.json)
+- [环境记录](../../../logs/h100/phase6/gpt67-tp8-fusedv2-20261011-233427/handoff/environment.md) · [GPU 占用采样](../../../logs/h100/phase6/gpt67-tp8-fusedv2-20261011-233427/handoff/gpu-occupancy.jsonl)
+- 第3–4轮：[计时来源窗口](../../../logs/h100/phase6/gpt67-tp8-fusedv2-20261012-005925-repeat/compare/results/) · [来源报告JSON](../../../logs/h100/phase6/gpt67-tp8-fusedv2-20261012-005925-repeat/compare/report.json) · [Markdown](../../../logs/h100/phase6/gpt67-tp8-fusedv2-20261012-005925-repeat/compare/report.md)
+- 第3–4轮：[冻结输入](../../../logs/h100/phase6/gpt67-tp8-fusedv2-20261012-005925-repeat/compare/submission.json) · [预检](../../../logs/h100/phase6/gpt67-tp8-fusedv2-20261012-005925-repeat/compare/preflight.json) · [CTA核验](../../../logs/h100/phase6/gpt67-tp8-fusedv2-20261012-005925-repeat/handoff/cta-trace-verification.json) · [复用记录](../../../logs/h100/phase6/gpt67-tp8-fusedv2-20261012-005925-repeat/handoff/repeat-inputs.json)
+- 第3–4轮：[计时状态](../../../logs/h100/phase6/gpt67-tp8-fusedv2-20261012-005925-repeat/compare/timing-state.json) · [执行状态](../../../logs/h100/phase6/gpt67-tp8-fusedv2-20261012-005925-repeat/execution.json) · [交接摘要](../../../logs/h100/phase6/gpt67-tp8-fusedv2-20261012-005925-repeat/handoff/summary.md) · [GPU占用采样](../../../logs/h100/phase6/gpt67-tp8-fusedv2-20261012-005925-repeat/handoff/gpu-occupancy.jsonl)
+
 
 ## GPT 6.7B TP8 历史完整四轮结果（phase6-warp-v1）
 
