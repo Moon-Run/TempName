@@ -1,5 +1,7 @@
 # H100 单节点 Phase6
 
+**native＋G0–G6 消融实验使用独立入口：[README-ablation.md](README-ablation.md)。** 它固定 GPT 6.7B/TP8，分别测量 remote_first 与 interleaved，显式支持 BF16、定向、随机同数量及全远端模式。下文仍是原六策略协议，不将其 72 窗口或 4% 验收套用到单项消融。
+
 本入口把 A800 Phase6 的完整 step 对比协议移植到单节点 H100，默认 TP8，支持 TP4，DP/PP/CP 均为 1。无需 Slurm，使用独立 `torchrun --standalone` 进程。H100构建只生成独立快照，A800冻结库、到达表和历史结果均不改写。
 
 新服务器首次部署请按 [单机八卡 H100 部署指南](../../../docs/design/design-h100/deploy-tp8.md) 配置环境、重新编译并运行。

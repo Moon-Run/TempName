@@ -4,6 +4,8 @@
 
 H100端“怎么测试、测试完交什么”统一维护在 [instruction-h100.md](instruction-h100.md)，部署命令在 [deploy-tp8.md](deploy-tp8.md)。本页负责告诉开发端在哪里找代码、数据、结论，以及哪些事情尚未验证。最新用户任务决定本轮范围，不因历史实验记录或待验证列表自动启动新测试。
 
+**2026-10-13 消融入口：** native＋G0–G6 已有独立实现，分组见 [消融实验.md](消融实验.md)，命令与验证边界见 [README-ablation.md](../../../tools/h100/phase6/README-ablation.md)。两种基础顺序分别测量，G5默认三个预登记seed；默认400个完整step窗口，不套用下文原六策略的72窗口及单项4%验收。本轮只进行CPU/dry-run/无GPU编译，GPU测试尚待执行端安排。
+
 **当前融合基线已对齐并有实测：** `build.py prepare` 的 `taco_fused` 使用 [固定 A800 源码](../../../tools/h100/phase6/fused_v2/README.md)，标识 `a800-fused-v2-cta-v1`：CTA 解码、旧融合编码转换、逐次 configure/reset、单工作区及两次 barrier；保留 H100 V2 MLP/V3 attention 的实例路由。`gpt67-tp8-fusedv2-*` 是该实现的实测会话；更早的 `gpt67-tp8-20261010-112249/compare-*` 属于 `phase6-warp-v1`。不要沿用旧文档“新基线尚无GPU结果”的判断，也不要混用两种基线结果。
 
 ## 优化起点已冻结（新对话先读）

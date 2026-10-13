@@ -4,6 +4,8 @@
 
 另一台开发服务器没有本任务需要的H100，负责接收数据、维护代码和分析；它的新对话入口是 [instruction.md](instruction.md)。本页维护测试流程、产物布局和交付清单；已接收会话的最新索引在[开发端数据索引](instruction.md#已接收数据与当前缺项)，实测结论在 [base-phase6.md](base-phase6.md)。
 
+**native＋G0–G6消融任务使用 [README-ablation.md](../../../tools/h100/phase6/README-ablation.md) 的独立构建、预检和调度命令。** 它固定6.7B/TP8，分别报告remote_first/interleaved，默认含G5三个seed共400个正式完整step窗口。下文旧六策略72窗口及4%必须baseline门槛不适用于单项消融。新入口默认dry-run，GPU阶段要求 `--execute`；本次开发交付没有授权启动GPU、等待队列或监控。
+
 ## 优化前冻结约定（2026-10-13）
 
 **当前候选已冻结为 `h100-phase6-candidate-v1-20261013`，后续优化从这个版本出发。** 独立源码及固定输入清单位于 [frozen-candidate-v1-20261013](../../../outputs/h100/phase6/frozen-candidate-v1-20261013/README.md)，身份登记见 [manifest.json](../../../outputs/h100/phase6/frozen-candidate-v1-20261013/manifest.json)。本次仅冻结与 CPU 哈希核对，未新建编译或 GPU 测试；先保留原实现和原构建，优化测试等待后续任务安排。
