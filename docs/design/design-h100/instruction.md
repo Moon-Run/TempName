@@ -1,15 +1,83 @@
 # 开发与分析端：H100项目接续说明
 
-更新：2026-10-11。**本页供 `/data/run01/scyb672` 这台服务器新开的Codex对话阅读。** 仓库根目录为 `/data/run01/scyb672/hjr/TempName`。本机负责源码维护、接收H100证据、CPU分析和文档/论文整理；本任务的H100测试在另一台服务器 `gxn74` 上执行。
+更新：2026-10-13。**本页供 `/data/run01/scyb672` 这台服务器新开的Codex对话阅读。** 仓库根目录为 `/data/run01/scyb672/hjr/TempName`。本机负责源码维护、接收H100证据、CPU分析和文档/论文整理；本任务的H100测试在另一台服务器 `gxn74` 上执行。
 
 H100端“怎么测试、测试完交什么”统一维护在 [instruction-h100.md](instruction-h100.md)，部署命令在 [deploy-tp8.md](deploy-tp8.md)。本页负责告诉开发端在哪里找代码、数据、结论，以及哪些事情尚未验证。最新用户任务决定本轮范围，不因历史实验记录或待验证列表自动启动新测试。
 
-**2026-10-11 基线实现对齐更新：** 用户要求新 H100 融合 v2 对齐 A800 冻结基线。新 `build.py prepare` 的 `taco_fused` 使用 [固定 A800 源码](../../../tools/h100/phase6/fused_v2/README.md)，标识 `a800-fused-v2-cta-v1`：CTA 解码、旧融合编码转换、逐次 configure/reset、单工作区及两次 barrier；保留 H100 V2 MLP/V3 attention 的实例路由。候选与采样算法不变。历史所有 H100 结果仍对应此前 `phase6-warp-v1` 基线，不能当作新实现的性能证据。新旧版本须使用不同构建和 compare 目录；本轮未启动 H100 GPU 测试，性能仍待执行端验证。
+**当前融合基线已对齐并有实测：** `build.py prepare` 的 `taco_fused` 使用 [固定 A800 源码](../../../tools/h100/phase6/fused_v2/README.md)，标识 `a800-fused-v2-cta-v1`：CTA 解码、旧融合编码转换、逐次 configure/reset、单工作区及两次 barrier；保留 H100 V2 MLP/V3 attention 的实例路由。`gpt67-tp8-fusedv2-*` 是该实现的实测会话；更早的 `gpt67-tp8-20261010-112249/compare-*` 属于 `phase6-warp-v1`。不要沿用旧文档“新基线尚无GPU结果”的判断，也不要混用两种基线结果。
+
+## 优化起点已冻结（新对话先读）
+
+2026-10-13按用户要求，在继续优化候选之前冻结为 **`h100-phase6-candidate-v1-20261013`**。本次仅保存源码、输入身份及核验哈希，未优化算法、重新编译或启动GPU测试。
+
+**冻结对象明确为a–h实际复用的同一套候选构建**，包含远端组合与交替组合两个变体；权威身份是冻结manifest的 `candidate` 字段，构建提交为 `ff38f5b1ff1c80cb831f58c64b95f42b0379879a`。`source/` 中的 `944b9df` 副本用于保留维护源码与工具，不能拿这个提交号替代旧实测构建身份。后续仅优化这两种候选；`native`、`original`、`native_taco`、`taco_fused` 四个对照的实现、既有构建及统计协议保持固定，尤其不改 `tools/h100/phase6/fused_v2/`。
+
+| 要找什么 | 固定入口 |
+| --- | --- |
+| 冻结说明与恢复方法 | [frozen-candidate-v1-20261013/README.md](../../../outputs/h100/phase6/frozen-candidate-v1-20261013/README.md) |
+| 来源、配置、SHA256、依赖、会话映射与缺项 | [冻结 manifest](../../../outputs/h100/phase6/frozen-candidate-v1-20261013/manifest.json) |
+| 当前维护源码的独立副本 | 冻结目录 `source/`，652个文件；源码提交 `944b9df06a564cabd738dc608c3d4945e98bb103`，与该提交逐文件一致 |
+| 已实测候选 v1 | `outputs/h100/phase6/gpt67-tp8-20261010-112249/candidates-20261010-153517/`；构建源码提交 `ff38f5b1ff1c80cb831f58c64b95f42b0379879a` |
+| 固定融合 v2 / 原生 Flux 对照 | `outputs/h100/phase6/gpt67-tp8-fusedv2-20261011-233427/base/`；构建源码提交 `d786da51e0aeafec1bb2b5d071c5c59e93e6de43`，融合标识 `a800-fused-v2-cta-v1` |
+| 原选择计划 | `outputs/h100/phase6/gpt67-tp8-20261010-112249/selection-plan-20261010-153517.json`；SHA256 `2d8eee0ffaf2c86fdd1719950c7a5ed5eb0c93d5803b7deaf1e65caad752d167` |
+
+两套已测候选分别是 `remote_arrival_selective`、`interleaved_arrival_selective`，共702个源码文件与原manifest哈希一致；最新g/h会话的worker来源和控制脚本也与当前维护入口一致。**当前源码提交、旧构建提交、数据上传提交是不同身份**：后续重建需要重新预检/测量，不能把本次归档写成新GPU验证。旧base回传快照缺少28个来源条目，冻结manifest已列出，不代表本机拥有完整运行库。
+
+本次源码副本包括CUDA/Python实现、构建/校准/计划/运行/统计/队列工具及它们依赖的A800共享工具。GPT 6.7B、TP8/132 SM、S2048/mb1/global4、窗口64、预算1/64、10/20步协议一起固定。CUTLASS/NCCL及Megatron精确提交见manifest；环境仍由执行端环境记录和[env.md](../env.md)约束。
+
+后续开发约定：
+
+1. 优化继续改 `src/`、`include/`、`python/`、`tools/h100/phase6/` 等维护入口，保留优化补丁/提交。不改冻结 `source/`、校验清单、旧候选源码/库、旧计划及原始报告；需要查看旧实现时读冻结副本，需要恢复构建时按冻结README新建独立工作树。
+2. 本轮后续优化仅限候选，保留 `tools/h100/phase6/fused_v2/` 的固定基线定义和四个对照组。候选 v1是新增的优化前对照身份，不是把 `taco_fused` 改名；维护脚本和共享A800代码的改动须检查是否意外影响对照或A800路径。
+3. 每个新优化使用新构建、计划（需要重新校准时）、compare及run_id；交接注明 `parent_freeze=h100-phase6-candidate-v1-20261013`，列出新旧候选的实际构建路径/哈希与改动。修改维护代码不会更新旧构建，已有队列也不会自动切换到新候选。
+4. 新旧性能比较需同条件新测量，历史a–h提供旧实现证据，不能代替同期对照。当前工具每次只接收一套候选构建；同时加入旧、新候选需要另行明确比较协议，不在本次冻结中修改实验接口或启动测试。
+
+从仓库根目录可随时执行只读核对；优化维护入口之后，这两个检查仍应通过：
+
+```bash
+H100_FREEZE="$PWD/outputs/h100/phase6/frozen-candidate-v1-20261013"
+(cd "$H100_FREEZE" && sha256sum --quiet -c SHA256SUMS.txt)
+sha256sum --quiet -c "$H100_FREEZE/REFERENCES.sha256.txt"
+```
+
+冻结目录及清单需要随Git提交后才能在另一台服务器拉取；原运行动态库和编译缓存留在H100端。不要将源码快照完整性检查表述为原二进制核验。执行端具体保留/新建目录规则见[优化前冻结约定](instruction-h100.md#优化前冻结约定2026-10-13)。
+
+### 新对话优化指令模板（开发端）
+
+下面模板用于本开发服务器的代码优化；H100执行端的GPU任务另行安排。
+
+```text
+在 /data/run01/scyb672/hjr/TempName 中优化单节点8卡H100、GPT 6.7B、TP8的候选实现。
+
+先阅读 docs/design/design-h100/instruction.md、base-phase6.md、thinking.md，
+以及 outputs/h100/phase6/frozen-candidate-v1-20261013/README.md 和 manifest.json。
+确认工作区已有改动并保留，核对冻结清单。
+
+优化起点是 h100-phase6-candidate-v1-20261013 的 candidate 字段：
+a–h轮共同使用的 candidates-20261010-153517 构建，包含
+remote_arrival_selective 和 interleaved_arrival_selective。
+a–d和e–h是同一实现的两批测试，round1/round2都是完整训练step。
+
+只优化“基础顺序＋到达优先＋选择性量化”候选，可调整其实现；
+native、original、native_taco、taco_fused及固定fused_v2源码保持不变。
+保留模型/TP/batch/精度、数值正确性要求、四个对照和现有计时/验收协议。
+若改动共享文件，隔离候选分支，确保不改变基线与A800路径。
+先分析a–h原始报告和相关源码，区分已证实的瓶颈与待验证假设，再实施优化；
+目标是提高完整optimizer step性能，沿用现有4%验收门槛，不预先宣称达标。
+
+在维护入口修改，新候选使用新构建/会话目录；冻结源码、旧库、旧计划、
+历史日志和报告保持原样。涉及tile映射、到达顺序语义等变化时说明H100重校准要求。
+记录parent_freeze、新旧源码差异、构建/计划来源及潜在影响。
+
+本轮允许CPU检查和不使用GPU的编译，不启动GPU、Slurm或自动等待队列。
+完成后更新相关实现文档，给出H100端所需的构建、校准、预检、对比与回传步骤，
+并明确哪些检查已通过、哪些性能结论仍需H100实测。
+```
 
 ## 新对话先读什么
 
 1. 先看工作区状态与最近提交，保留用户未提交改动；确认是否新拉取了数据，不能把下方历史快照当作远端实时进度。
-2. 读本页[数据索引](#已接收数据与当前缺项)，然后读 [base-phase6.md](base-phase6.md) 的对应模型结果，6.7B统一展示第1–4轮：原实验为第1–2轮、复测为第3–4轮；旧0.64B另列。
+2. 读本页[数据索引](#已接收数据与当前缺项)，然后读 [base-phase6.md](base-phase6.md) 的对应模型及基线版本结果。当前融合v2对齐第1–4轮、a–d、e–h分别展示，后两批均使用新监控体系及同一候选；历史`phase6-warp-v1`四轮和旧0.64B另列。
 3. 性能分析见 [thinking.md](thinking.md)，已补充基线实现差异、原始 trace 与计划诊断；其统计对象是历史 `phase6-warp-v1` 会话。**旧小模型在H100上也没有相对融合v2的稳定优势，不能主要归因于6.7B变大或其OOM。**
 4. 涉及方法或实现时，按下方源码地图看维护入口及对应实验快照；涉及新测试/补交数据时，将要求与执行端文档对齐。
 5. 读用户当前指定的文件再工作；论文目录的实际内容以文件为准，不把此前讨论中的计划当作已完成论文。
@@ -68,31 +136,41 @@ rg --files docs/design/design-h100 tools/h100/phase6
 
 ## 已接收数据与当前缺项
 
-**本次以提交 `e7a0c49` 的工作区为准，最新6.7B对比是 `compare-20261011-114343-repeat`。** 数据接收状态不代表远端当前进程状态；下一次pull后应重新核对报告与run_id。
+**冻结时的代码/数据提交为 `944b9df06a564cabd738dc608c3d4945e98bb103`，最新为2026-10-13两套复测，对应e/f与g/h。** 下列路径统一加前缀 `logs/h100/phase6/`；每套都有完整72窗口、576份计时rank记录及最终报告。数据接收状态不是远端实时运行状态，下一次pull后重新核对新增文件与run_id。
 
-| 模型 / 对比 | 结果目录（仓库根目录起算） | 已接收状态 |
+| 文档轮次（依次对应report的round1/round2） | 结果目录 | run_id |
 | --- | --- | --- |
-| 6.7B，第3–4轮（复测） | `logs/h100/phase6/gpt67-tp8-20261010-112249/compare-20261011-114343-repeat/` | 72窗口、576份计时rank记录，独立预检和最终报告完整；两候选均`accepted=false`，timing为`completed`，未设置resumed |
-| 6.7B，第1–2轮（原实验） | `logs/h100/phase6/gpt67-tp8-20261010-112249/compare-20261010-153517/` | 72窗口、576份计时rank记录，最终报告完整；两候选均`accepted=false`，timing为`completed, resumed=true` |
-| 旧0.64B | `logs/h100/phase6/tp8-20261009-deployment/compare/` | 完整72窗口；两候选均`accepted=false`，另有独立核验与窗口统计 |
+| 1/2 | `gpt67-tp8-fusedv2-20261011-233427/compare/` | `a7cac271fa2f407db093f20d5a584612` |
+| 3/4 | `gpt67-tp8-fusedv2-20261012-005925-repeat/compare/` | `fd640c7d6fcc49d2ae203e979cb378e5` |
+| a/b（新监控） | `gpt67-tp8-fusedv2-20261012-211935-repeat1/compare/` | `9d3cd8a3d15f40d78ba0f2a00ec8b87c` |
+| c/d（新监控） | `gpt67-tp8-fusedv2-20261012-211935-repeat2/compare/` | `3aa54b8428aa45878c93d745c019918c` |
+| e/f（新监控） | `gpt67-tp8-fusedv2-20261013-001822-repeat1/compare/` | `51f29917a2304634a6c9b6eec82fc90e` |
+| g/h（新监控） | `gpt67-tp8-fusedv2-20261013-001822-repeat2/compare/` | `e5c5e72add794ee494e403096c71ec78` |
 
-优先读[最新report.json](../../../logs/h100/phase6/gpt67-tp8-20261010-112249/compare-20261011-114343-repeat/report.json)、[最新report.md](../../../logs/h100/phase6/gpt67-tp8-20261010-112249/compare-20261011-114343-repeat/report.md)、[最新timing状态](../../../logs/h100/phase6/gpt67-tp8-20261010-112249/compare-20261011-114343-repeat/timing-state.json)和[最新submission](../../../logs/h100/phase6/gpt67-tp8-20261010-112249/compare-20261011-114343-repeat/submission.json)。最新复测run_id为 `b113bd6141374034aa3e050cbf3aab95`，前次为 `e1cc608329cc4bb2ae8e2506f8352ab5`。在base-phase6中统一为四轮：前次报告round1/round2对应第1/2轮，复测报告round1/round2对应第3/4轮。各轮保留原配对统计，查数据时按此映射选择run_id和原目录，不修改原报告编号。
+以上均使用 `a800-fused-v2-cta-v1`，复用[冻结登记](../../../outputs/h100/phase6/frozen-candidate-v1-20261013/manifest.json)中的同一套base、候选、计划与校准设备身份。原1–4轮、a–d、e–h分别展示，不能把全部轮次重新编号或混合筛选；原始report内的round编号保持不变。round1/round2均为完整前向＋反向＋优化器更新，区别是策略/配对块调度顺序反转，详见base-phase6的轮次说明。a–h使用全样本；第1–2轮及远端第4轮文档表格有明确标注的事后筛选，原始report与验收仍按全样本，不用筛选结果替代原报告。
 
-两次6.7B对比复用相同构建、计划和校准设备信息，对应路径如下；使用最新compare的submission核对关联，而不是按名称猜测：
+最新证据入口：e/f的[report](../../../logs/h100/phase6/gpt67-tp8-fusedv2-20261013-001822-repeat1/compare/report.json)、[submission](../../../logs/h100/phase6/gpt67-tp8-fusedv2-20261013-001822-repeat1/compare/submission.json)，g/h的[report](../../../logs/h100/phase6/gpt67-tp8-fusedv2-20261013-001822-repeat2/compare/report.json)、[submission](../../../logs/h100/phase6/gpt67-tp8-fusedv2-20261013-001822-repeat2/compare/submission.json)。新监控方式和队列证据见 [watcher.md](watcher.md) 与各会话 `execution.json`、`handoff/repeat-inputs.json`；a–h四套的两候选均未通过完整两轮性能门槛。详细统计及此前CPU复核范围见 [base-phase6.md](base-phase6.md)。
 
-| 内容 | 仓库相对路径 |
+| 固定构建/校准 | 仓库相对路径 |
 | --- | --- |
-| baseline构建 | `outputs/h100/phase6/gpt67-tp8-20261010-112249/base/` |
+| 当前融合v2基线及原生Flux构建 | `outputs/h100/phase6/gpt67-tp8-fusedv2-20261011-233427/base/` |
 | 成功校准 | `logs/h100/phase6/gpt67-tp8-20261010-112249/calibration-20261010-153517/` |
-| 选择计划 | `outputs/h100/phase6/gpt67-tp8-20261010-112249/selection-plan-20261010-153517.json` |
-| 候选构建 | `outputs/h100/phase6/gpt67-tp8-20261010-112249/candidates-20261010-153517/` |
-| 前次OOM备份 | `logs/h100/phase6/gpt67-tp8-20261010-112249/compare-20261010-153517/results/round2/window-007-native_taco.failed-20261011-112116/` |
+| 固定选择计划 | `outputs/h100/phase6/gpt67-tp8-20261010-112249/selection-plan-20261010-153517.json` |
+| 固定两套候选 | `outputs/h100/phase6/gpt67-tp8-20261010-112249/candidates-20261010-153517/` |
 
-早先无后缀`calibration/`是失败目录，不作为有效校准。不要重命名产物或修改冻结来源路径。构建manifest的源码提交是 `ff38f5b1ff1c80cb831f58c64b95f42b0379879a`，与上传数据的commit不同；模型为32层/H4096/F16384，全局MLP shape `[2048,4096,16384]`、TP8本地K=2048。
+早先无后缀`calibration/`是失败目录，不作为有效校准；`gpt67-tp8-20261010-112249/base/`是旧基线/采样构建，不能当作当前融合v2对照。模型为32层/H4096/F16384，全局MLP shape `[2048,4096,16384]`、TP8本地K=2048。
 
-2026-10-11本次对两套6.7B对比共1152份计时rank记录进行了CPU核对，包含完成状态、身份、步数及preflight指纹；各自冻结scripts/preflight文件哈希、中位数、配对收益和95%区间均与报告一致。没有在本机重新执行GPU或原路径动态库核验，环境独占性也不能从这些检查推断。
+历史 `phase6-warp-v1` 结果仍在以下目录，供分析旧基线，不作为新融合v2或新优化的实测证据：
 
-**新对话注意：`base-phase6.md`、`thinking.md`的旧副本若出现“43/72、未完成”，那是过时快照，阅读时以对应会话最新回传report和阶段状态为准。** base-phase6 已合并原实验与复测为完整第1–4轮结果；thinking.md 已补充完整证据范围及新旧基线版本区别。交接/环境记录如果缺失，按[执行端交付清单](instruction-h100.md#交接说明与环境记录放在哪里)补交。
+| 模型 / 历史轮次 | 完整结果目录（加前缀 `logs/h100/phase6/`） |
+| --- | --- |
+| 6.7B历史第1–2轮，含续跑 | `gpt67-tp8-20261010-112249/compare-20261010-153517/` |
+| 6.7B历史第3–4轮 | `gpt67-tp8-20261010-112249/compare-20261011-114343-repeat/` |
+| 旧0.64B | `tp8-20261009-deployment/compare/` |
+
+**缺项与核验边界：** 本机有回传文本/trace及候选源码；原动态库、构建环境主要仍在H100端。此次冻结还登记了旧base四个变体共28个缺失的来源条目，见manifest；缺失文件未纳入 `REFERENCES.sha256.txt`，不能因该清单通过就声称旧base完整可运行。来源路径中的 `/workspace/TempName/...` 保持原样，不改manifest绕过核验。环境/交接缺项按[执行端交付清单](instruction-h100.md#交接说明与环境记录放在哪里)补交。
+
+新对话若在旧副本看到“43/72、未完成”或“新CTA基线尚无H100结果”，以对应会话新回传的report和阶段状态为准。`thinking.md`的早期分析主要基于旧 `phase6-warp-v1`，不得自动套用到新的融合v2数据或未测试的优化版本。
 
 ## 本机收到新数据后怎么检查
 
@@ -109,7 +187,7 @@ profile只用来解释机制：解压已有JSON即可，不需要GPU。内核dur
 ## 当前结论与工作边界
 
 - 默认新模型是6.7B，但历史约0.64B实验仍是重要独立证据。**旧小模型H100 TP8也未建立相对融合v2的稳定收益**；A800同模型TP8约2%，其TP4最佳约4%有不同batch/shape与专项优化，不能混为单纯GPU型号差异。
-- 6.7B已通过续跑补齐72窗口，远端报告两候选均未通过性能门槛；最新复测也已完整回传且两候选未达门槛；本机已分别复算两套数据，运行条件仍需审查。OOM和窗口波动不能解释旧小模型同样无稳定收益。性能未达标、测量未完成、正确性失败是不同状态。
+- 新融合v2对齐会话均已完整回传；最新新监控体系a–h的四套报告中，两候选均未通过完整两轮门槛。单轮较高收益不能当作整套达标，历史不同基线的结果分开解释；各会话的具体验收以原report和base-phase6对应小节为准。性能未达标、测量未完成、正确性失败是不同状态。
 - 当前分析线索是H100全量化decode成本下降、少量化的可回收时间减少、到达计划留出命中率较低，以及局部节省未稳定进入整步关键路径。这些是此前分析线索，需对照新复测继续核查，不能宣称已证明单一硬件根因。
 - 本机按当前任务做源码/文档维护、静态检查与CPU分析。不要执行拉回的 `env.sh`、watchdog、`resume_timing.py`或带 `--execute` 的GPU入口来验证数据，也不要因为文档列出待验证方向而启动远端测试。若用户安排H100实验，交给执行端按其说明运行并回传。
 - 不覆盖历史会话、不修改已有观测/时间/完成状态、不移动实验运行目录来修复路径报错；用户新增数据和工作区修改先核对再处理。
@@ -142,4 +220,4 @@ profile只用来解释机制：解压已有JSON即可，不需要GPU。内核dur
 
 修复了无 GPU 编译发现的两处问题：H100 快照避免 `setup_requires` 再次联网下载 CMake；删除没有调用方的全局 CUDA 分配，使导入发生在绑定 rank 设备之前时也不会隐式分配设备内存。检查器改为查询实际编译 kernel 的 occupancy，不再沿用 A800 的固定数值。
 
-上述编译记录当时不包含GPU验证；后来旧0.64B以及6.7B的阶段实测见[独立记录](base-phase6.md)。截至本次已接收快照，6.7B已完成真实校准、候选构建、smoke与profile，完整两轮的远端报告已回传但两候选均未达门槛，也没有收敛验证。合成表只用于历史编译诊断，不作为真实校准计划或性能证据。
+上述编译记录当时不包含GPU验证；后来旧0.64B以及6.7B的阶段实测见[独立记录](base-phase6.md)，当前会话及对应基线版本见本页数据索引。正式6.7B会话已有真实校准、候选构建、smoke/profile和完整报告，逐套验收以各自report为准；这些短测没有验证收敛。合成表只用于历史编译诊断，不作为真实校准计划或性能证据。

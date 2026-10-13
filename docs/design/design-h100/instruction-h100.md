@@ -1,8 +1,44 @@
 # H100执行端：测试与数据交付说明
 
-更新：2026-10-12。**本页供有H100的服务器上的执行者或新Codex对话阅读。** 当前执行端为 `gxn74`，容器内仓库通常为 `/workspace/TempName`；实际路径以本机部署为准。测试按用户已安排的任务范围和时间预算进行，阅读本页不等于自动启动实验。
+更新：2026-10-13。**本页供有H100的服务器上的执行者或新Codex对话阅读。** 当前执行端为 `gxn74`，容器内仓库通常为 `/workspace/TempName`；实际路径以本机部署为准。测试按用户已安排的任务范围和时间预算进行，阅读本页不等于自动启动实验。
 
 另一台开发服务器没有本任务需要的H100，负责接收数据、维护代码和分析；它的新对话入口是 [instruction.md](instruction.md)。本页维护测试流程、产物布局和交付清单；已接收会话的最新索引在[开发端数据索引](instruction.md#已接收数据与当前缺项)，实测结论在 [base-phase6.md](base-phase6.md)。
+
+## 优化前冻结约定（2026-10-13）
+
+**当前候选已冻结为 `h100-phase6-candidate-v1-20261013`，后续优化从这个版本出发。** 独立源码及固定输入清单位于 [frozen-candidate-v1-20261013](../../../outputs/h100/phase6/frozen-candidate-v1-20261013/README.md)，身份登记见 [manifest.json](../../../outputs/h100/phase6/frozen-candidate-v1-20261013/manifest.json)。本次仅冻结与 CPU 哈希核对，未新建编译或 GPU 测试；先保留原实现和原构建，优化测试等待后续任务安排。
+
+**冻结的是a–h轮实际复用的同一套候选（远端组合、交替组合两个变体）**，以manifest的 `candidate` 字段及原构建哈希为准。a–d与e–h在结果文档中分成两张表，它们是两批测试，不是两个候选版本。后续仅优化候选；`native`、`original`、`native_taco`、`taco_fused` 四个对照继续使用原实现及原构建，尤其不改固定 `fused_v2` 源码。登记中的 `944b9df` 是维护源码快照提交，实际已测候选构建提交是 `ff38f5b`，交接时分别记录。
+
+| 必须区分的身份 | 固定值 / 位置（仓库根目录起算） |
+| --- | --- |
+| 当前维护源码 | `944b9df06a564cabd738dc608c3d4945e98bb103`；652 个文件的独立副本在冻结目录 `source/` |
+| 已实测候选 v1 | `outputs/h100/phase6/gpt67-tp8-20261010-112249/candidates-20261010-153517/`，两个变体为 `remote_arrival_selective`、`interleaved_arrival_selective`；构建提交 `ff38f5b1ff1c80cb831f58c64b95f42b0379879a` |
+| 原校准及计划 | `logs/h100/phase6/gpt67-tp8-20261010-112249/calibration-20261010-153517/`；`outputs/h100/phase6/gpt67-tp8-20261010-112249/selection-plan-20261010-153517.json` |
+| 固定融合 v2 / 原生 Flux 对照 | `outputs/h100/phase6/gpt67-tp8-fusedv2-20261011-233427/base/`；融合标识 `a800-fused-v2-cta-v1`；构建提交 `d786da51e0aeafec1bb2b5d071c5c59e93e6de43` |
+| 旧实现实测结果 | [base-phase6.md](base-phase6.md) 的融合 v2 对齐第1–4轮及新监控体系a–h；全部复用上述候选构建，源码冻结不产生新测量结果 |
+
+这里的“候选 v1”是优化前对照，**不能替代必须 baseline `native_taco` / `taco_fused`**。当前默认配置一起冻结：GPT 6.7B、TP8、132 SM、S2048、mb1/global4、窗口64、预算1/64、10步预热＋20步计时。完整配置、计划/manifest SHA256和依赖提交均在冻结登记中。
+
+拉取包含冻结目录的提交后，从仓库根目录先做只读校验（不使用 GPU）：
+
+```bash
+H100_FREEZE="$PWD/outputs/h100/phase6/frozen-candidate-v1-20261013"
+(cd "$H100_FREEZE" && sha256sum --quiet -c SHA256SUMS.txt)
+sha256sum --quiet -c "$H100_FREEZE/REFERENCES.sha256.txt"
+```
+
+`REFERENCES` 只核对已回传且本机存在的旧证据，不代替原环境动态库检查。开发端发现旧 base 四个变体共缺28个来源条目，清单见冻结 manifest：请保留 H100 原构建，并补传 `version.ld`、`.clang-format`、`cuda_extra.ll` 等缺少的文本来源；`.bc` 等输入若需单独传输，记录位置和哈希。不得补造内容或修改旧 manifest 消除缺项。
+
+后续执行遵守以下约定：
+
+1. 保留原 base/candidates、计划、日志和原运行 `.so`；不在旧目录重新编译，不用新库覆盖旧库。冻结目录及其中校验清单按只读证据管理。需要重建 v1 时按冻结 README 在独立工作树恢复固定提交，并创建新的构建和测试目录。
+2. 新优化使用单独的源码提交、`outputs/h100/phase6/<新会话>/candidates/` 和 `logs/h100/phase6/<新会话>/compare/`。交接中写明 `parent_freeze=h100-phase6-candidate-v1-20261013`、优化内容、新代码/补丁、计划和库哈希，以及复用的基线构建。仅修改维护源码不会使旧队列或旧 candidate build 自动变成新版，启动前核对实际 submission 的变体路径及哈希。
+3. 本轮后续优化保持四个既有对照定义及融合基线固定源码不变；同节点原条件下可先核验再复用冻结计划，改变 shape、设备、SM数、tile映射、窗口、预算或到达顺序语义时重新校准并保留新计划。任何新构建先做完整 smoke/profile，再做完整两轮计时。
+4. 需要比较新旧候选收益时安排同条件的新测量；a–h 是旧实现历史证据，不能直接当作新实验的同期对照。当前 `prepare.py` 每次接收一套候选构建，没有直接同时装入旧、新两套候选的开关；要做同场多候选实验需先明确扩展协议，不能混写两个 compare 的原始报告。
+5. 沿用 [watcher.md](watcher.md) 的新监控方式：忙时600秒检查、空闲后10秒确认且连续3次满足才启动；运行中不周期查询GPU占用，每套完成后再检查。冻结并不授权启动等待器或新实验。
+
+冻结目录的源码、manifest、计划副本、README和SHA256清单需要随 Git 交付；原动态库和编译缓存仍不提交。`.gitignore` 为这次冻结中原已跟踪的链接脚本、子模块声明等输入保留了精确例外；不要因位于 `outputs/` 而遗漏整个冻结目录。
 
 ## 先确定本次任务
 
@@ -10,9 +46,9 @@
 
 默认六组全部保留：参考组 `native`、`original`，必须baseline `native_taco`、`taco_fused`，候选 `remote_arrival_selective`、`interleaved_arrival_selective`。不能因为某个baseline慢或发生OOM而悄悄删除它。当前仅比较完整optimizer step，不把单算子或profile耗时当作主结果。
 
-**新融合基线版本：** 2026-10-11 按用户要求，新构建的 `taco_fused` 对齐 A800 冻结融合 v2，使用 CTA 解码和旧配置流程，标识 `a800-fused-v2-cta-v1`，来源及适配见 [fused_v2/README](../../../tools/h100/phase6/fused_v2/README.md)。它尚无 H100 GPU 性能结果；此前回传的所有会话对应 `phase6-warp-v1`。测试新基线必须新建构建与 compare，不续写旧会话；核对 manifest、submission、report 的实现标识，并先完成 smoke/profile（新基线应出现非模板 CTA `taco_decode_ring_kernel`）再计时。模型、候选、采样、数值门槛及统计协议不因本次基线对齐改变。
+**融合基线版本：** `taco_fused` 已对齐 A800 冻结融合 v2，使用 CTA 解码和旧配置流程，标识 `a800-fused-v2-cta-v1`，来源及适配见 [fused_v2/README](../../../tools/h100/phase6/fused_v2/README.md)。已回传的 `gpt67-tp8-fusedv2-*` 会话有该实现的完整 H100 实测；更早的 `gpt67-tp8-20261010-112249/compare-*` 对应 `phase6-warp-v1`，两者分开。每次测试新建 compare，核对 manifest、submission、report 的实现标识，并先完成 smoke/profile（CTA基线应出现非模板 `taco_decode_ring_kernel`）再计时。
 
-开始前明确是“新实验”“同条件复测”“原条件续跑”还是“只补交已有数据”。截至提交 `e7a0c49`，旧0.64B完整实验、6.7B前次续跑和最新复测均有72窗口及最终报告，两候选均未达性能门槛；不要重复补跑已完成窗口。最新6.7B对比为 `logs/h100/phase6/gpt67-tp8-20261010-112249/compare-20261011-114343-repeat/`，前次为同父目录下 `compare-20261010-153517/`，前次状态注明 `resumed=true`。先核对实际状态与run_id，完整索引见开发端说明。
+开始前明确是“新实验”“同条件复测”“原条件续跑”还是“只补交已有数据”。截至数据提交 `944b9df`，最新为 `logs/h100/phase6/gpt67-tp8-fusedv2-20261013-001822-repeat1/compare/` 和同前缀 `repeat2/compare/`，分别对应e/f、g/h，每套均有完整72窗口及最终报告；两套的两候选均未通过完整两轮性能门槛。a–d及原第1–4轮也已完整回传，不重复补跑已完成窗口。先核对实际状态与run_id，完整索引见开发端说明。
 
 ## 入口
 
@@ -56,6 +92,8 @@
 具体参数和依赖路径见[部署指南第4–7节](deploy-tp8.md#4-构建-baseline-与采样库)。该流程适用于新会话；同条件复测可以在校准/配置/构建/设备身份核验一致的前提下复用原产物，但必须新建compare、冻结新run_id并重做完整预检和两轮计时，逐项记录复用关系。配置或设备等变化时重新构建/校准。旧失败会话的续跑须遵守本页末尾恢复约定，不能直接重新执行全部命令。
 
 完整结果取每窗口所有rank的最大elapsed除以正式step数，配对收益为 `100*(1-exp(mean(log(T候选/T基线))))`，置信区间按配对块bootstrap计算。默认要求每候选在两轮分别对两个必须baseline达到4%且95%区间下界大于0；门槛如需变化在新实验前固定。`accepted=false`仍是有效结果，执行失败和性能未达标分开记录。
+
+**两轮都测完整训练step。** round1按循环移位安排六策略的六个配对块，round2同时反转配对块和块内策略的执行顺序；反转的是实验调度顺序，每轮每个窗口仍包含前向、反向、优化器更新和清梯度。a/b、c/d、e/f、g/h各自对应一次测试的round1/round2，不能将奇数轮称作前向测量、偶数轮称作反向测量。
 
 ## 生成数据与文件放置规范
 
@@ -159,6 +197,7 @@ export H100_CONFIG="$REPO/tools/h100/phase6/config.json"
 会话 / 本次回传时间（含时区）：
 状态：partial / failed / complete；最后完成阶段：
 测量源码commit / submodule SHA / 未提交补丁路径：
+优化来源冻结ID / 新旧候选版本 / 相对冻结版的改动 / 实际复用的基线与计划：
 节点、容器内仓库路径、GPU UUID及rank顺序：
 实际base / calibration / plan / candidates / compare相对路径：
 模型 / TP / sequence / micro batch / global batch / 两个seed：
