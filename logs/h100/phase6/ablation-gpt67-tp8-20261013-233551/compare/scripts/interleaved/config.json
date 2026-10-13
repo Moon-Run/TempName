@@ -1,0 +1,159 @@
+{
+  "megatron_commit": "3ea68ad6042cc1204386ae9364358f7c4de1bc37",
+  "policies": [
+    "native",
+    "G0",
+    "G1",
+    "G2",
+    "G3",
+    "G4",
+    "G5-s17",
+    "G5-s29",
+    "G5-s43",
+    "G6"
+  ],
+  "orders": [],
+  "cases": [
+    {
+      "name": "h100-phase6",
+      "hidden": 4096,
+      "ffn": 16384,
+      "heads": 32,
+      "sequence": 2048,
+      "tp": 8
+    }
+  ],
+  "common": {
+    "layers": 32,
+    "micro_batch": 1,
+    "global_batch": 4,
+    "seed": 1234,
+    "token_seed": 4321,
+    "vocab": 32768
+  },
+  "warmup_steps": 10,
+  "timed_steps": 20,
+  "smoke_warmup_steps": 2,
+  "smoke_steps": 3,
+  "profile_steps": 1,
+  "repetitions": 2,
+  "ring_reduction": true,
+  "scope": "GPT 6.7B TP8 full optimizer step ablation; frozen V2 MLP, V3 attention; BF16 STE.",
+  "graph_forward": false,
+  "double_buffered": true,
+  "ablation_definitions": {
+    "native": {
+      "group": "native",
+      "base": "interleaved",
+      "order": "native",
+      "arrival": false,
+      "quantization_mode": "native_bf16",
+      "seed": null,
+      "implementation": "native_megatron",
+      "parent_freeze": "h100-phase6-candidate-v1-20261013"
+    },
+    "G0": {
+      "group": "G0",
+      "base": "interleaved",
+      "order": "original",
+      "arrival": false,
+      "quantization_mode": "bf16",
+      "seed": null,
+      "implementation": "frozen-candidate-v1-sm90-gemmv2",
+      "parent_freeze": "h100-phase6-candidate-v1-20261013"
+    },
+    "G1": {
+      "group": "G1",
+      "base": "interleaved",
+      "order": "interleaved",
+      "arrival": false,
+      "quantization_mode": "bf16",
+      "seed": null,
+      "implementation": "frozen-candidate-v1-sm90-gemmv2",
+      "parent_freeze": "h100-phase6-candidate-v1-20261013"
+    },
+    "G2": {
+      "group": "G2",
+      "base": "interleaved",
+      "order": "interleaved",
+      "arrival": true,
+      "quantization_mode": "bf16",
+      "seed": null,
+      "implementation": "frozen-candidate-v1-sm90-gemmv2",
+      "parent_freeze": "h100-phase6-candidate-v1-20261013"
+    },
+    "G3": {
+      "group": "G3",
+      "base": "interleaved",
+      "order": "interleaved",
+      "arrival": false,
+      "quantization_mode": "targeted",
+      "seed": null,
+      "implementation": "frozen-candidate-v1-sm90-gemmv2",
+      "parent_freeze": "h100-phase6-candidate-v1-20261013"
+    },
+    "G4": {
+      "group": "G4",
+      "base": "interleaved",
+      "order": "interleaved",
+      "arrival": true,
+      "quantization_mode": "targeted",
+      "seed": null,
+      "implementation": "frozen-candidate-v1-sm90-gemmv2",
+      "parent_freeze": "h100-phase6-candidate-v1-20261013"
+    },
+    "G5-s17": {
+      "group": "G5",
+      "base": "interleaved",
+      "order": "interleaved",
+      "arrival": true,
+      "quantization_mode": "random_matched",
+      "seed": 17,
+      "implementation": "frozen-candidate-v1-sm90-gemmv2",
+      "parent_freeze": "h100-phase6-candidate-v1-20261013"
+    },
+    "G5-s29": {
+      "group": "G5",
+      "base": "interleaved",
+      "order": "interleaved",
+      "arrival": true,
+      "quantization_mode": "random_matched",
+      "seed": 29,
+      "implementation": "frozen-candidate-v1-sm90-gemmv2",
+      "parent_freeze": "h100-phase6-candidate-v1-20261013"
+    },
+    "G5-s43": {
+      "group": "G5",
+      "base": "interleaved",
+      "order": "interleaved",
+      "arrival": true,
+      "quantization_mode": "random_matched",
+      "seed": 43,
+      "implementation": "frozen-candidate-v1-sm90-gemmv2",
+      "parent_freeze": "h100-phase6-candidate-v1-20261013"
+    },
+    "G6": {
+      "group": "G6",
+      "base": "interleaved",
+      "order": "interleaved",
+      "arrival": true,
+      "quantization_mode": "all_remote",
+      "seed": null,
+      "implementation": "frozen-candidate-v1-sm90-gemmv2",
+      "parent_freeze": "h100-phase6-candidate-v1-20261013"
+    }
+  },
+  "derived_plan_sha256": {
+    "native": null,
+    "G0": "30457ce5296786c18e5edb8713e8fcfd689dfb744b2518a2c9d7b884c6ef1b37",
+    "G1": "8fcf6c7b4e4ec304054e7a46bc4e6d4ef551d52d605dd762d83a5454023c2d68",
+    "G2": "7f8ad765493d5db13f972051de764d4fe50d348b16e4a243f35e8a29fadc276d",
+    "G3": "92b6609100a5ad04aa55d07a898b1ba22584870758314e9c7436bcad317146e8",
+    "G4": "0eea8408b1af86aeb7c4a41e4fa03554060daea5d34a0fd88fdb187116b2d530",
+    "G5-s17": "cc66d513c84da3cf4c50edaaf0685e93ba302b2a653f69831027c801490301f0",
+    "G5-s29": "57e95d88cb207d83681e309b6b6c0daa95c238ad5220ebe593f3b2a55ccdb732",
+    "G5-s43": "5afbae0e2ff9969defdfcd01fdfc851be666c41946a7a781465ca9a0bcb4ce00",
+    "G6": "8587b9b899a0bce3bf4bbb9af38a08b5ea82342a93640f0ddd47e204bf11ae08"
+  },
+  "parent_plan_sha256": "2d8eee0ffaf2c86fdd1719950c7a5ed5eb0c93d5803b7deaf1e65caad752d167"
+}
