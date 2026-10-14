@@ -1,0 +1,13 @@
+diff --git a/setup.py b/setup.py
+index 4aa6616..a1e8667 100644
+--- a/setup.py
++++ b/setup.py
+@@ -956,7 +956,7 @@ setup(
+     ),
+     install_requires=["packaging>20.6"],
+     description="PyTorch Extensions written by NVIDIA",
+-    ext_modules=ext_modules,
++    ext_modules=[ext for ext in ext_modules if ext.name in {"apex_C", "amp_C", "fused_layer_norm_cuda"}],
+     cmdclass={"build_ext": BuildExtensionSeparateDir} if ext_modules else {},
+     extras_require=extras,
+ )
