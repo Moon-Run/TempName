@@ -1,0 +1,9 @@
+source /workspace/TempName/outputs/h100/phase6/gpt67-tp8-fusedv2-20261011-233427/env.sh
+export H100_SCOPE_SESSION=TTention-MLP-gpt67-tp8-20261014-231236
+export H100_SCOPE_OUT="$REPO/outputs/h100/phase6/$H100_SCOPE_SESSION"
+export H100_SCOPE_LOG="$REPO/logs/h100/phase6/$H100_SCOPE_SESSION"
+export H100_MEGATRON="$MEGATRON_DIR"
+export H100_CUDA_BUILD="$CUDA128"
+export H100_CUDA_RUN="$CUDA124"
+export H100_FREEZE="$REPO/outputs/h100/phase6/frozen-candidate-v1-20261013"
+export PYTHONDONTWRITEBYTECODE=1

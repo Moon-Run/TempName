@@ -1,0 +1,22 @@
+START smoke-native_taco_attn_mlp
+START smoke-native_taco_attn
+START smoke-interleaved_full_attn
+START smoke-interleaved_full_attn_mlp
+START profile-native_taco_attn_mlp
+START profile-native_taco_attn
+START profile-interleaved_full_attn
+START profile-interleaved_full_attn_mlp
+Traceback (most recent call last):
+  File "/workspace/TempName/tools/h100/phase6/mlp_attention.py", line 66, in <module>
+    main()
+  File "/workspace/TempName/tools/h100/phase6/mlp_attention.py", line 60, in main
+    scope_run.run(a.root, a.stage, a.execute, a.python, a.cuda_home)
+  File "/workspace/TempName/tools/h100/phase6/scope_run.py", line 69, in run
+    gate = preflight(root) if stage == 'all' else read(root/'preflight.json')
+  File "/workspace/TempName/tools/h100/phase6/scope_report.py", line 194, in preflight
+    profiles[f'{policy}/rank{rank}'] = profile_roles(json.load(f)['traceEvents'], policy)
+  File "/workspace/TempName/tools/h100/phase6/scope_report.py", line 142, in profile_roles
+    require(len(scopes) == 32*4, f'Missing profile scopes: {name}')
+  File "/workspace/TempName/tools/h100/phase6/common.py", line 18, in require
+    raise ValueError(message)
+ValueError: Missing profile scopes: scope.attn.tensor
