@@ -23,6 +23,16 @@ GROUPS = {
 }
 
 
+def experiment(protocol):
+    """Select an explicit protocol without changing the legacy defaults."""
+    import sys
+    if protocol == PROTOCOL:
+        return sys.modules[__name__]
+    import ablation2_plan
+    require(protocol == ablation2_plan.PROTOCOL, 'Unknown ablation protocol')
+    return ablation2_plan
+
+
 def definitions(base, seeds=(17, 29, 43)):
     require(base in BASES, 'Only remote_first and interleaved are in scope')
     require(len(seeds) >= 3 and len(set(seeds)) == len(seeds) and
@@ -90,7 +100,7 @@ def mask_sha(mask):
 
 
 def derive(parent, definition):
-    require(definition['group'] != 'native', 'Native has no tile plan')
+    require(definition['group'] not in ('native', 'native_taco'), 'Native has no tile plan')
     c = parent['config']
     source = parent['policies'][definition['base']][0]
     e = {k: copy.deepcopy(source[k]) for k in

@@ -6,7 +6,7 @@ import subprocess
 import uuid
 
 import candidate
-from ablation_plan import PROTOCOL, definitions, schedule
+from ablation_plan import PROTOCOL, definitions, schedule, experiment
 from common import HERE, REPO, MEGATRON_COMMIT, read, replace_once, require, sha, verify_files, write
 from prepare import model_worker
 
@@ -23,7 +23,11 @@ def taco_source():
     text = replace_once(text, 'from routing import base_policy, codec_placement, selection_entry',
                         'from routing import base_policy, codec_placement, selection_entry, definition')
     # Every G group follows precisely the old selective double-buffered route.
-    text = text.replace("policy.endswith('_selective')", "policy != 'native'")
+    text = text.replace("policy.endswith('_selective')", "policy not in ('native', 'native_taco')")
+    text = replace_once(text, '        from flux.gemm_rs_taco import GemmRSTaco\n',
+                        "        if policy in ('native', 'native_taco'):\n"
+                        "            raise ValueError('Native baseline cannot construct a Flux candidate')\n"
+                        "        from flux.gemm_rs_taco import GemmRSTaco\n")
     text = replace_once(text, 'placement=codec_placement(policy),',
                         "placement=codec_placement(policy),\n"
                         "                               quantization_mode=definition(policy)['quantization_mode'],")
@@ -48,6 +52,8 @@ def worker_source():
 def prepare(out, builds, megatron, blocks=10, schedule_seed=20261013, source_only=False):
     builds = Path(builds).resolve()
     data = candidate.verify(builds, built=not source_only)
+    protocol_spec = experiment(data['protocol'])
+    definitions, schedule = protocol_spec.definitions, protocol_spec.schedule
     c = data['config']
     megatron = Path(megatron).resolve()
     if not source_only:
@@ -61,7 +67,13 @@ def prepare(out, builds, megatron, blocks=10, schedule_seed=20261013, source_onl
     (out/'results').mkdir()
     (out/'provenance').mkdir()
     shutil.copy2(builds/'ablation-manifest.json', out/'provenance/ablation-manifest.json')
-    info = dict(protocol=PROTOCOL, run_id=uuid.uuid4().hex, config=c, bases=data['bases'],
+    if protocol_spec.PROTOCOL != PROTOCOL:
+        shutil.copy2(builds/'plans/parent.json', out/'provenance/parent-plan.json')
+        (out/'provenance/controllers').mkdir()
+        for path in HERE.glob('*.py'):
+            if not path.name.startswith('test_'):
+                shutil.copy2(path, out/'provenance/controllers'/path.name)
+    info = dict(protocol=protocol_spec.PROTOCOL, run_id=uuid.uuid4().hex, config=c, bases=data['bases'],
                 seeds=data['seeds'], blocks_per_round=blocks, schedule_seed=schedule_seed,
                 schedule=schedules, timing_windows=len(schedules),
                 source_only=source_only, executable=not source_only, gpu_validated=False,
@@ -76,7 +88,16 @@ def prepare(out, builds, megatron, blocks=10, schedule_seed=20261013, source_onl
         defs = definitions(base, data['seeds'])
         for name in ('adapter.py', 'megatron_taco.py', 'taco_support.py'):
             shutil.copy2(REPO/'tools/a800/phase5/e2e'/name, scripts/name)
-        (scripts/'worker.py').write_text(worker_source())
+        if protocol_spec.PROTOCOL != PROTOCOL:
+            # Exactly the already validated H100 baseline adaptation from prepare.py.
+            baseline = scripts/'megatron_taco.py'
+            baseline.write_text(replace_once(baseline.read_text(), 'self.world==4', 'self.world in (4,8)'))
+            for name in ('adapter.py', 'megatron_taco.py', 'taco_support.py', 'worker.py'):
+                shutil.copy2(REPO/'tools/a800/phase5/e2e'/name, out/'provenance'/('baseline-'+name))
+        worker = worker_source()
+        if source_only and protocol_spec.PROTOCOL != PROTOCOL:
+            worker = "raise RuntimeError('Source-only rehearsal worker is permanently non-executable')\n"+worker
+        (scripts/'worker.py').write_text(worker)
         (scripts/'taco_support.py').write_text(taco_source())
         shutil.copy2(HERE/'ablation_routing.py', scripts/'routing.py')
         shutil.copy2(HERE/'runtime.py', scripts/'runtime.py')
@@ -88,12 +109,15 @@ def prepare(out, builds, megatron, blocks=10, schedule_seed=20261013, source_onl
                    graph_forward=False, double_buffered=True, ring_reduction=True,
                    ablation_definitions=defs, derived_plan_sha256={}, parent_plan_sha256=info['parent_plan_sha256'],
                    scope='GPT 6.7B TP8 full optimizer step ablation; frozen V2 MLP, V3 attention; BF16 STE.')
-        selected = dict(protocol=PROTOCOL, entries={})
+        if protocol_spec.PROTOCOL != PROTOCOL:
+            cfg['scope'] = ('GPT 6.7B TP8 full optimizer step: native Megatron tensor TACO baseline; '
+                            'interleaved G1-G4 share frozen V2 MLP, V3 attention and BF16 STE.')
+        selected = dict(protocol=protocol_spec.PROTOCOL, entries={})
         for key, definition in defs.items():
             identity = base+'-'+key
             v = dict(definition, policy=key)
             cfg['derived_plan_sha256'][key] = None
-            if key != 'native':
+            if key not in ('native', 'native_taco'):
                 spec = data['variants'][identity]
                 root = builds/spec['build']
                 manifest_path = root/'manifest.json'
@@ -123,6 +147,10 @@ def prepare(out, builds, megatron, blocks=10, schedule_seed=20261013, source_onl
         write(scripts/'selection-plan.json', selected)
         write(scripts/'config.json', cfg)
     write(out/'schedule.json', schedules)
+    if protocol_spec.PROTOCOL != PROTOCOL:
+        write(out/'provenance/preparation.json', dict(protocol=protocol_spec.PROTOCOL, source_only=source_only,
+              executable=not source_only, builds=str(builds), builds_sha256=sha(builds/'ablation-manifest.json'),
+              run_id=info['run_id']))
     info['files'] = {str(p.relative_to(out)): sha(p) for folder in ('scripts', 'provenance')
                      for p in (out/folder).rglob('*') if p.is_file()}
     info['files']['schedule.json'] = sha(out/'schedule.json')

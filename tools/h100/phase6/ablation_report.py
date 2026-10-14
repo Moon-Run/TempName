@@ -8,7 +8,7 @@ from pathlib import Path
 import random
 import statistics
 
-from ablation_plan import PROTOCOL, definitions, mask_sha, schedule
+from ablation_plan import PROTOCOL, definitions, mask_sha, schedule, experiment
 from ablation_routing import module_routes
 from common import read, require, sha, verify_files, write
 from report import fingerprints, paired
@@ -17,7 +17,8 @@ from report import fingerprints, paired
 def verify_inputs(root, offline=False):
     root = Path(root)
     info = read(root/'submission.json')
-    require(info['protocol'] == PROTOCOL, 'Wrong ablation protocol')
+    spec = experiment(info['protocol'])
+    definitions, schedule = spec.definitions, spec.schedule
     verify_files(root, info['files'])
     expected = [row for base in info['bases'] for row in schedule(
         base, definitions(base, info['seeds']), info['blocks_per_round'], info['schedule_seed'])]
@@ -26,6 +27,9 @@ def verify_inputs(root, offline=False):
     if not offline:
         verify_files('/', info['source_manifests'])
         verify_files('/', info['build_files'])
+    if info['protocol'] != PROTOCOL:
+        from ablation2_report import verify_protocol
+        verify_protocol(root, info, offline)
     return info
 
 
@@ -33,7 +37,7 @@ def window(root, directory, base, key, mode, block=-1, index=-1):
     info = read(root/'submission.json')
     c = info['config']; world = c['tp']
     v = info['variants'][base+'-'+key]
-    definition = definitions(base, info['seeds'])[key]
+    definition = experiment(info['protocol']).definitions(base, info['seeds'])[key]
     records = [read(directory/f'rank{r}.json') for r in range(world)]
     model = {k: c[k] for k in ('layers', 'hidden', 'ffn', 'heads', 'sequence', 'tp',
                               'micro_batch', 'global_batch', 'seed', 'token_seed', 'vocab')}
@@ -55,6 +59,8 @@ def window(root, directory, base, key, mode, block=-1, index=-1):
                 r['gpu_uuid'] == info['calibration_hardware']['devices'][rank]['uuid'],
                 'Recalibrate on this exact H100 allocation/device ordering')
         require(r['model'] == model and r['block'] == block and r['window'] == index, 'Model/pairing mismatch')
+        if info['protocol'] != PROTOCOL:
+            require(r['padded_vocab_size'] == 33792, 'Wrong actual padded vocabulary')
         require(r['timing_protocol'] == 'full-step-one-clear-v2' and not r['sampling'] and
                 r['profiling'] == (mode == 'profile'), 'Wrong timing/execution path')
         require(all(math.isfinite(x) for x in r['losses']+r['grad_norms']+[r['initial_loss']]), 'Non-finite trajectory')
@@ -72,9 +78,14 @@ def window(root, directory, base, key, mode, block=-1, index=-1):
         require(set(r['target_modules']) == names and set(r['warmup_calls']) == names and
                 all(n == warmup*c['global_batch']//c['micro_batch'] for n in r['warmup_calls'].values()),
                 'Missing target module execution')
-        require(r['replaced_modules'] == (0 if key == 'native' else 2*c['layers']), 'Wrong adapter path')
+        require(r['replaced_modules'] == (0 if key == 'native' else c['layers'] if key == 'native_taco'
+                                          else 2*c['layers']), 'Wrong adapter path')
         if key == 'native':
             require(r['flux_library_loaded'] is False and not r['selection_checks'], 'Native loaded a candidate path')
+            continue
+        if key == 'native_taco':
+            from ablation2_report import native_window
+            native_window(r, names, c, mode)
             continue
         for lib, expected in v['libraries'].items():
             require(r[lib] == expected, 'Wrong loaded library path/hash')
@@ -102,8 +113,13 @@ def window(root, directory, base, key, mode, block=-1, index=-1):
 def preflight(root, offline=False):
     root = Path(root)
     info = verify_inputs(root, offline)
+    definitions = experiment(info['protocol']).definitions
     require(info['executable'] and not info['source_only'], 'CPU rehearsal cannot certify GPU execution')
     reference = None; kernels = {}; evidence = []
+    if info['protocol'] != PROTOCOL:
+        start = read(root/'start-gpu-check.json')
+        require(start['passed'] and start['run_id'] == info['run_id'], 'Missing successful suite startup check')
+        evidence.append(root/'start-gpu-check.json')
     for base in info['bases']:
         selected = read(root/'scripts'/base/'selection-plan.json')['entries']
         for key in definitions(base, info['seeds']):
@@ -121,15 +137,18 @@ def preflight(root, offline=False):
                     events = json.load(f)['traceEvents']
                 names = sorted({e['name'] for e in events if e.get('cat') == 'kernel'})
                 require(names, 'Empty GPU profile')
-                if key == 'native':
+                if key in ('native', 'native_taco'):
                     require(not any('flux_bf16' in n or 'taco_decode' in n for n in names), 'Native executed candidate kernel')
+                    if key == 'native_taco':
+                        from ablation2_report import native_profile
+                        native_profile(events)
                 else:
                     require(any('flux_bf16' in n and 'sm80' in n.lower() for n in names), 'Candidate V2 MLP kernel missing')
                     require(any('flux_bf16' in n and 'sm90' in n.lower() for n in names), 'V3 attention kernel missing')
                     # This kernel also performs pure BF16 reduction when all mask bits are zero.
                     require(any('taco_decode_ring_kernel' in n for n in names), 'Frozen TP8 mixed-wire reduction missing')
                 kernels[f'{base}/{key}/rank{rank}'] = names
-            if key == 'native':
+            if key in ('native', 'native_taco'):
                 continue
             path = root/'results'/base/f'mapping-{key}.csv'
             with path.open() as f:
@@ -143,7 +162,7 @@ def preflight(root, offline=False):
                         all(r['destination'] == r['m']//2 and r['sm_occupancy'] > 0 for r in rr),
                         'Executed physical mapping differs from plan')
             evidence.append(path)
-    result = dict(protocol=PROTOCOL, completed=True, submission_sha256=sha(root/'submission.json'),
+    result = dict(protocol=info['protocol'], completed=True, submission_sha256=sha(root/'submission.json'),
                   fingerprints=reference, kernel_names=kernels,
                   files={str(p.relative_to(root)): sha(p) for p in evidence})
     write(root/'preflight.json', result)
@@ -192,6 +211,9 @@ def measurement_identity(info, gate):
 
 def report(root, offline=False):
     root = Path(root)
+    if read(root/'submission.json')['protocol'] != PROTOCOL:
+        from ablation2_report import report as five_group_report
+        return five_group_report(root, offline)
     info = verify_inputs(root, offline)
     gate = read(root/'preflight.json')
     require(info['executable'] and gate['completed'] and gate['submission_sha256'] == sha(root/'submission.json'),

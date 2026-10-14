@@ -26,7 +26,7 @@ def check(builds, out, cuda_home, cxx='g++'):
             subprocess.run(cmd, env=env, stdout=log, stderr=subprocess.STDOUT, check=True)
     try:
         for identity, v in info['variants'].items():
-            if v['group'] == 'native':
+            if v['group'] in ('native', 'native_taco'):
                 continue
             src = Path(builds).resolve()/v['build']/identity
             entry = read(Path(builds)/v['plan'])['entry']

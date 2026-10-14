@@ -10,7 +10,7 @@ import subprocess
 import sys
 
 import build
-from ablation_plan import BASES, FREEZE, FREEZE_ID, PROTOCOL, definitions, derive, parent_plan
+from ablation_plan import BASES, FREEZE, FREEZE_ID, PROTOCOL, definitions, derive, parent_plan, experiment
 from common import HERE, REPO, policy, read, replace_once, require, sha, verify_files, write
 
 
@@ -61,7 +61,8 @@ def sources():
     return freeze, old, data
 
 
-def prepare(out, plan_path=None, seeds=(17, 29, 43), bases=BASES):
+def prepare(out, plan_path=None, seeds=(17, 29, 43), bases=BASES, protocol=PROTOCOL):
+    definitions = experiment(protocol).definitions
     require(bases and len(set(bases)) == len(bases) and set(bases) <= set(BASES), 'Invalid bases')
     for base in bases:
         definitions(base, seeds)
@@ -77,7 +78,7 @@ def prepare(out, plan_path=None, seeds=(17, 29, 43), bases=BASES):
     (out/'builds').mkdir()
     shutil.copy2(plan_path, out/'plans/parent.json')
     write(out/'config.json', c)
-    record = dict(protocol=PROTOCOL, parent_freeze=FREEZE_ID, config=c, bases=list(bases), seeds=list(seeds),
+    record = dict(protocol=protocol, parent_freeze=FREEZE_ID, config=c, bases=list(bases), seeds=list(seeds),
                   parent_plan=dict(path=str(plan_path), sha256=sha(plan_path), evidence=evidence),
                   candidate_source=dict(root=str(old), source_commit=measured['source_commit'],
                                         manifest_sha256=sha(old/'manifest.json')),
@@ -87,14 +88,16 @@ def prepare(out, plan_path=None, seeds=(17, 29, 43), bases=BASES):
     # independently frozen by ablation_prepare, not dependencies of nvcc.
     inputs = {str(HERE/name): sha(HERE/name) for name in
               ('candidate.py', 'ablation_plan.py', 'build.py', 'common.py')}
+    if protocol != PROTOCOL:
+        inputs[str(HERE/'ablation2_plan.py')] = sha(HERE/'ablation2_plan.py')
     for base in bases:
         for key, definition in definitions(base, seeds).items():
             identity = base+'-'+key
             record['variants'][identity] = dict(definition, policy=key)
-            if key == 'native':
+            if key in ('native', 'native_taco'):
                 continue
             entry = derive(parent, definition)
-            derived = dict(protocol=PROTOCOL, parent_freeze=FREEZE_ID, parent_plan_sha256=sha(plan_path),
+            derived = dict(protocol=protocol, parent_freeze=FREEZE_ID, parent_plan_sha256=sha(plan_path),
                            definition=definition, entry=entry,
                            rule='physical mask independent of arrival; G5 matches source/destination actual counts')
             plan_file = out/'plans'/f'{identity}.json'
@@ -126,7 +129,7 @@ def prepare(out, plan_path=None, seeds=(17, 29, 43), bases=BASES):
                            source_sha256=result_hashes, source_changes=changes,
                            parent_source=str(source), parent_source_sha256=hashes,
                            derived_plan_sha256=sha(plan_file))
-            info = dict(protocol=PROTOCOL, arch='sm90', kind='ablation', status='prepared',
+            info = dict(protocol=protocol, arch='sm90', kind='ablation', status='prepared',
                         config=c, gpu_validated=False, variants={identity: variant}, inputs=inputs,
                         parent_freeze=FREEZE_ID, source_commit=record['maintenance_commit'],
                         parent_source_commit=measured['source_commit'], submodules=freeze['submodules'],
@@ -146,14 +149,23 @@ def prepare(out, plan_path=None, seeds=(17, 29, 43), bases=BASES):
 def verify(out, built=False):
     out = Path(out).resolve()
     info = read(out/'ablation-manifest.json')
-    require(info['protocol'] == PROTOCOL and info['parent_freeze'] == FREEZE_ID, 'Wrong ablation session')
+    spec = experiment(info['protocol'])
+    require(info['parent_freeze'] == FREEZE_ID, 'Wrong ablation session')
+    if info['protocol'] != PROTOCOL:
+        require(info['bases'] == ['interleaved'] and info['seeds'] == [], 'Wrong five-group scope')
+        expected = {f'interleaved-{k}': d for k, d in spec.definitions().items()}
+        require(set(info['variants']) == set(expected), 'Missing/extra five-group variant')
+        parent = read(out/'plans/parent.json')
     verify_files(out, info['files'])
+    common_compute = None
     for key, v in info['variants'].items():
-        if v['group'] == 'native':
+        if info['protocol'] != PROTOCOL:
+            require(all(v.get(k) == value for k, value in expected[key].items()), 'Variant definition changed')
+        if v['group'] in ('native', 'native_taco'):
             continue
         root = out/v['build']
         m = read(root/'manifest.json')
-        require(m['protocol'] == PROTOCOL and m['config'] == info['config'] and
+        require(m['protocol'] == v.get('build_protocol', info['protocol']) and m['config'] == info['config'] and
                 m['parent_plan_sha256'] == info['parent_plan']['sha256'], 'Build/plan mismatch')
         if built:
             require(m['status'] == 'built' and not m.get('diagnostic_only'), 'Unbuilt/diagnostic build')
@@ -161,6 +173,19 @@ def verify(out, built=False):
                 sha(out/v['plan']) == sha(root/'derived-plan.json'), 'Derived plan changed')
         verify_files(root, m['files'])
         verify_files(root/key, m['variants'][key]['source_sha256'])
+        if info['protocol'] != PROTOCOL:
+            mv = m['variants'][key]
+            compute = {name: digest for name, digest in mv['source_sha256'].items()
+                       if name not in ('phase6_host.hpp', 'src/gemm_rs/tile_scheduler/threadblock_swizzle.hpp')}
+            if common_compute is None:
+                common_compute = compute
+            require(compute == common_compute, 'All four candidates must share the same compute implementation')
+            require(mv['role'] == 'candidate' and mv['sampling'] is False and
+                    all(mv.get(k) == value for k, value in expected[key].items()), 'Wrong candidate route')
+            require(read(out/v['plan'])['entry'] == derive(parent, expected[key]), 'Physical plan changed')
+            require(m['parent_source_commit'] == info['candidate_source']['source_commit'], 'Compute source changed')
+            if 'reuse_manifest_sha256' in v:
+                require(sha(root/'manifest.json') == v['reuse_manifest_sha256'], 'Reused build manifest changed')
     return info
 
 

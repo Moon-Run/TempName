@@ -10,6 +10,8 @@ def definition(policy):
 def codec_placement(policy):
     # Even BF16 uses the frozen mixed-wire receiver with an explicit zero mask.
     # Its enabled instance selects GemmV2; unquantized attention remains V3.
+    if policy == 'native_taco':
+        return 'tensor'
     return 'bf16' if policy == 'native' else 'fused'
 
 
@@ -18,6 +20,8 @@ def base_policy(policy):
 
 
 def selection_entry(plan, policy, m, n, k):
+    if policy in ('native', 'native_taco'):
+        raise ValueError('Native paths have no candidate tile plan')
     entry = plan['entries'][policy]
     if entry['shape'] != [m, n, k]:
         raise ValueError('Ablation plan/model shape mismatch')
@@ -38,7 +42,8 @@ def module_routes(observed, policy, layers, model):
         if tuple(shape[f] for f in ('M', 'N', 'K_global', 'K_local')) != expected:
             raise ValueError(f'Unexpected target shape: {name}')
         counts[kind] += 1
-        routes[name] = 'native' if policy == 'native' else policy if kind == 'mlp' else 'original'
+        routes[name] = ('native' if policy == 'native' or policy == 'native_taco' and kind == 'attention'
+                        else policy if kind == 'mlp' else 'original')
     if counts != dict(attention=layers, mlp=layers):
         raise ValueError('Missing MLP/attention modules')
     return routes

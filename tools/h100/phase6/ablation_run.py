@@ -5,7 +5,7 @@ from pathlib import Path
 import subprocess
 import sys
 
-from ablation_plan import definitions
+from ablation_plan import definitions, experiment, PROTOCOL
 from ablation_prepare import megatron_check
 from ablation_report import preflight, report, verify_inputs, window
 from calibrate import environment
@@ -14,6 +14,7 @@ from run import arguments
 
 
 def jobs(info, stage):
+    definitions = experiment(info['protocol']).definitions
     if stage in ('preflight', 'all'):
         for base in info['bases']:
             for mode in ('smoke', 'profile'):
@@ -52,9 +53,12 @@ def run(root, stage='all', execute=False, python=Path(sys.executable), cuda_home
         require(not state.exists(), 'Stage already started; preserve it and prepare a new independent run')
         write(state, dict(status='running', stage=stage))
         try:
+            if info['protocol'] != PROTOCOL and stage in ('preflight', 'all'):
+                from ablation2_guard import check_start
+                check_start(root, info)
             if stage in ('preflight', 'all'):
                 for identity, v in info['variants'].items():
-                    if v['group'] == 'native':
+                    if v['group'] in ('native', 'native_taco'):
                         continue
                     library = Path(v['root']); base = v['base']
                     directory = root/'results'/base
@@ -73,7 +77,7 @@ def run(root, stage='all', execute=False, python=Path(sys.executable), cuda_home
                     verify_files(root, gate['files']); gated = True
                 verify_inputs(root)
                 v = info['variants'][base+'-'+key]
-                library = Path(v['root']) if key != 'native' else root/'no-flux-library'
+                library = Path(v['root']) if key not in ('native', 'native_taco') else root/'no-flux-library'
                 scripts = root/'scripts'/base
                 env = environment(python, library, info['config'], info['run_id'], scripts, cuda_home)
                 directory = root/'results'/job['directory']
@@ -81,9 +85,10 @@ def run(root, stage='all', execute=False, python=Path(sys.executable), cuda_home
                 env.update(H100_ABLATION_EXECUTE='1', E2E_POLICY=key, E2E_MODE=mode, E2E_CASE='h100-phase6',
                            E2E_BUILD=str(root/'build'/base), E2E_PROCESS_OUT=str(directory),
                            E2E_BLOCK=str(job['block']), E2E_WINDOW=str(job['index']),
-                           PYTHONPATH=f'{scripts}:{info["megatron"]}'+(f':{library}/python' if key != 'native' else ''))
+                           PYTHONPATH=f'{scripts}:{info["megatron"]}'+(f':{library}/python' if key not in ('native', 'native_taco') else ''))
                 cmd = command(root, info, base, python)
-                write(directory/'command.json', dict(job, command=cmd, definition=definitions(base, info['seeds'])[key]))
+                write(directory/'command.json', dict(job, command=cmd,
+                      definition=experiment(info['protocol']).definitions(base, info['seeds'])[key]))
                 print('START', job['directory'], flush=True)
                 with (directory/'process.log').open('x') as log:
                     subprocess.run(cmd, cwd=info['megatron'], env=env, stdout=log, stderr=subprocess.STDOUT, check=True)
