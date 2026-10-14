@@ -1,0 +1,99 @@
+{
+  "megatron_commit": "3ea68ad6042cc1204386ae9364358f7c4de1bc37",
+  "policies": [
+    "native_taco",
+    "G1",
+    "G2",
+    "G3",
+    "G4"
+  ],
+  "orders": [],
+  "cases": [
+    {
+      "name": "h100-phase6",
+      "hidden": 4096,
+      "ffn": 16384,
+      "heads": 32,
+      "sequence": 2048,
+      "tp": 8
+    }
+  ],
+  "common": {
+    "layers": 32,
+    "micro_batch": 1,
+    "global_batch": 4,
+    "seed": 1234,
+    "token_seed": 4321,
+    "vocab": 32768
+  },
+  "warmup_steps": 10,
+  "timed_steps": 20,
+  "smoke_warmup_steps": 2,
+  "smoke_steps": 3,
+  "profile_steps": 1,
+  "repetitions": 2,
+  "ring_reduction": true,
+  "scope": "GPT 6.7B TP8 full optimizer step: native Megatron tensor TACO baseline; interleaved G1-G4 share frozen V2 MLP, V3 attention and BF16 STE.",
+  "graph_forward": false,
+  "double_buffered": true,
+  "ablation_definitions": {
+    "native_taco": {
+      "group": "native_taco",
+      "base": "interleaved",
+      "order": "native",
+      "arrival": false,
+      "quantization_mode": "native_tensor_taco",
+      "seed": null,
+      "implementation": "native_megatron_tensor_taco",
+      "parent_freeze": "h100-phase6-candidate-v1-20261013"
+    },
+    "G1": {
+      "group": "G1",
+      "base": "interleaved",
+      "order": "interleaved",
+      "arrival": false,
+      "quantization_mode": "bf16",
+      "seed": null,
+      "implementation": "frozen-candidate-v1-sm90-gemmv2",
+      "parent_freeze": "h100-phase6-candidate-v1-20261013"
+    },
+    "G2": {
+      "group": "G2",
+      "base": "interleaved",
+      "order": "interleaved",
+      "arrival": true,
+      "quantization_mode": "bf16",
+      "seed": null,
+      "implementation": "frozen-candidate-v1-sm90-gemmv2",
+      "parent_freeze": "h100-phase6-candidate-v1-20261013"
+    },
+    "G3": {
+      "group": "G3",
+      "base": "interleaved",
+      "order": "interleaved",
+      "arrival": false,
+      "quantization_mode": "targeted",
+      "seed": null,
+      "implementation": "frozen-candidate-v1-sm90-gemmv2",
+      "parent_freeze": "h100-phase6-candidate-v1-20261013"
+    },
+    "G4": {
+      "group": "G4",
+      "base": "interleaved",
+      "order": "interleaved",
+      "arrival": true,
+      "quantization_mode": "targeted",
+      "seed": null,
+      "implementation": "frozen-candidate-v1-sm90-gemmv2",
+      "parent_freeze": "h100-phase6-candidate-v1-20261013"
+    }
+  },
+  "derived_plan_sha256": {
+    "native_taco": null,
+    "G1": "8fcf6c7b4e4ec304054e7a46bc4e6d4ef551d52d605dd762d83a5454023c2d68",
+    "G2": "7f8ad765493d5db13f972051de764d4fe50d348b16e4a243f35e8a29fadc276d",
+    "G3": "92b6609100a5ad04aa55d07a898b1ba22584870758314e9c7436bcad317146e8",
+    "G4": "0eea8408b1af86aeb7c4a41e4fa03554060daea5d34a0fd88fdb187116b2d530"
+  },
+  "parent_plan_sha256": "2d8eee0ffaf2c86fdd1719950c7a5ed5eb0c93d5803b7deaf1e65caad752d167"
+}
