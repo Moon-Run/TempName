@@ -134,6 +134,22 @@ class ProtocolTests(unittest.TestCase):
         with self.assertRaises(ValueError): report.profile_roles(broken, 'interleaved_full_attn')
         with self.assertRaises(ValueError): report.profile_roles(events, 'interleaved_full_attn_mlp')
 
+    def test_profile_gpu_annotation_mirrors_do_not_count_as_cpu_calls(self):
+        for policy in sp.POLICIES:
+            with self.subTest(policy=policy):
+                events = profile_fixture(policy)
+                expected = report.profile_roles(events, policy)
+                cpu_scopes = [e for e in events if e.get('cat') == 'user_annotation']
+                mirrors = [dict(e, cat='gpu_user_annotation', pid=2, tid=7, ts=e['ts'] + 10000)
+                           for e in cpu_scopes]
+                self.assertEqual(report.profile_roles(events + mirrors, policy), expected)
+                self.assertEqual({v['calls'] for v in expected.values()}, {128})
+                missing_cpu = [e for e in events if e is not cpu_scopes[0]]
+                with self.assertRaisesRegex(ValueError, 'Missing profile scopes'):
+                    report.profile_roles(missing_cpu + mirrors, policy)
+                with self.assertRaisesRegex(ValueError, 'Missing profile scopes'):
+                    report.profile_roles(events + [cpu_scopes[0]] + mirrors, policy)
+
 
 class AdapterTests(unittest.TestCase):
     def test_real_adapter_before_after_stop_audit_for_all_scopes(self):

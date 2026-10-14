@@ -1,0 +1,42 @@
+diff --git a/tools/h100/phase6/scope_report.py b/tools/h100/phase6/scope_report.py
+index 10dfdf7..40a0724 100644
+--- a/tools/h100/phase6/scope_report.py
++++ b/tools/h100/phase6/scope_report.py
+@@ -138,7 +138,9 @@ def profile_roles(events, policy):
+     for role in SHAPES:
+         route = ('tensor' if is_native(policy) else 'candidate') if role in definition(policy)['roles'] else 'native_bf16'
+         name = f'scope.{role}.{route}'
+-        scopes = [e for e in events if e.get('name') == name and e.get('ph') == 'X']
++        # CUDA launch correlations belong to CPU spans; GPU annotations mirror them.
++        scopes = [e for e in events if e.get('name') == name and e.get('ph') == 'X'
++                  and e.get('cat') == 'user_annotation']
+         require(len(scopes) == 32*4, f'Missing profile scopes: {name}')
+         by_thread = {}
+         for s in scopes:
+diff --git a/tools/h100/phase6/test_scope.py b/tools/h100/phase6/test_scope.py
+index 3fcd2fc..3797986 100644
+--- a/tools/h100/phase6/test_scope.py
++++ b/tools/h100/phase6/test_scope.py
+@@ -134,6 +134,22 @@ class ProtocolTests(unittest.TestCase):
+         with self.assertRaises(ValueError): report.profile_roles(broken, 'interleaved_full_attn')
+         with self.assertRaises(ValueError): report.profile_roles(events, 'interleaved_full_attn_mlp')
+ 
++    def test_profile_gpu_annotation_mirrors_do_not_count_as_cpu_calls(self):
++        for policy in sp.POLICIES:
++            with self.subTest(policy=policy):
++                events = profile_fixture(policy)
++                expected = report.profile_roles(events, policy)
++                cpu_scopes = [e for e in events if e.get('cat') == 'user_annotation']
++                mirrors = [dict(e, cat='gpu_user_annotation', pid=2, tid=7, ts=e['ts'] + 10000)
++                           for e in cpu_scopes]
++                self.assertEqual(report.profile_roles(events + mirrors, policy), expected)
++                self.assertEqual({v['calls'] for v in expected.values()}, {128})
++                missing_cpu = [e for e in events if e is not cpu_scopes[0]]
++                with self.assertRaisesRegex(ValueError, 'Missing profile scopes'):
++                    report.profile_roles(missing_cpu + mirrors, policy)
++                with self.assertRaisesRegex(ValueError, 'Missing profile scopes'):
++                    report.profile_roles(events + [cpu_scopes[0]] + mirrors, policy)
++
+ 
+ class AdapterTests(unittest.TestCase):
+     def test_real_adapter_before_after_stop_audit_for_all_scopes(self):

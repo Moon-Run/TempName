@@ -1,0 +1,11 @@
+# H100 Attention/MLP corrected profile experiment
+
+Session: `TTention-MLP-gpt67-tp8-20261015-003756`. Status: **partial**. New strict comparison prepared; waiting only for the explicit startup gate. Beijing: 2026-10-15T00:42:44.107059+08:00.
+
+Code: `60941ca3cb0be3588d4b552de34a7b7df5a9d517` plus the recorded scope_report.py/test_scope.py patch. The profile checker counts CPU user_annotation spans only, excluding mirrored gpu_user_annotation spans. It still requires exactly 128 calls per role and the original launch correlation/kernel checks. All 72 CPU tests passed before launch, including missing and duplicate CPU-call rejection.
+
+Failed evidence preserved at `/workspace/TempName/logs/h100/phase6/TTention-MLP-gpt67-tp8-20261014-231236`. Reused candidate build: `/workspace/TempName/outputs/h100/phase6/TTention-MLP-gpt67-tp8-20261014-231236/candidates`; reused NEW real two-role calibration from that session: `/workspace/TempName/logs/h100/phase6/TTention-MLP-gpt67-tp8-20261014-231236/calibration`. Actual source snapshots, plans, binaries and calibration hashes were verified before reuse. No calibration/build artifacts or historical submission are edited.
+
+GPT 6.7B TP8, 32 layers, H4096/FFN16384, 32 heads, S2048, micro1/global4. Four scope policies, four paired blocks per round, two rounds, 32 fresh windows; 10 warmup + 20 complete optimizer steps. Attention-only MLP is native BF16. Both candidates share the same dual-shape library and Attention plan. All mappings, smoke/profile and timing are newly run in this compare.
+
+Evidence actual: `{'timing_rank': 0, 'preflight_rank': 0, 'profile_traces': 0, 'candidate_mappings': 0, 'calibration_rank': 8, 'calibration_mappings': 2}`; expected: `{'timing_rank': 256, 'preflight_rank': 64, 'profile_traces': 32, 'candidate_mappings': 3, 'calibration_rank': 8, 'calibration_mappings': 2}`. Full original calibration/source is in the referenced parent session; new plans and provenance copies are included here. The report uses all samples as primary and keeps slow-window sensitivity separate. No Slurm, wait queue, periodic GPU query, skipped group, lowered budget or automatic repeat. Libraries/objects/caches stay local and ignored. Data-return commit SHA: not created.

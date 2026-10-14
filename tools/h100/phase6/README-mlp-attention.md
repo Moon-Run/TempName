@@ -142,3 +142,9 @@ CPU演练和编译检查产物仅本机保留，由 `.gitignore` 忽略；交付
 实际CPU演练完成两种shape校准dry-run、三项候选映射命令及四组32正式＋8预检窗口dry-run。采样和候选各完成两种shape的CPU表/mask检查、SM90 mapping对象、sampler/codec runtime对象编译；进一步完成两个完整 `libflux_cuda.so`、`libflux_cuda_ths_op.so`、Python binding及mapping程序的编译/链接，导出符号核验通过。构建使用CUDA Toolkit12.8.61、G++11.4.0、Python3.10环境，并设置 `CUDA_VISIBLE_DEVICES=''`；没有加载新Flux扩展或运行mapping/CUDA kernel。
 
 本地会话为 `outputs/h100/phase6/mlp-attention-gpt67-tp8-cpu-20261014-dev/` 及同名 `logs/`，检查记录在 `logs/.../handoff/`，全部由Git忽略。旧冻结SHA256SUMS与REFERENCES核验通过。候选库包含明确标记的CPU Attention合成计划，保持diagnostic-only；它不能用于真实实验，后续必须先真实H100校准，再新建正式候选和compare。本次没有GPU正确性或性能结论，没有启动Slurm、占用监控、等待器或队列。
+
+## H100 profile 计数修正（2026-10-15）
+
+真实 PyTorch trace 会同时保存同名的 CPU `user_annotation` 和 `gpu_user_annotation`。角色调用计数与 CUDA launch correlation 只使用 CPU 注解；仍严格要求每个角色 32 层 × 4 微批＝128 次，不把 GPU 镜像重复计入，也不接受缺失或重复的 CPU 调用。新增四组镜像注解、缺失 CPU span 及重复 CPU span 回归后，72 项 CPU 测试通过；V2/解码、原生无 Flux、数值和工作区校验保持不变。
+
+原失败会话 `TTention-MLP-gpt67-tp8-20261014-231236` 的状态、submission 和 trace 保留。修正后新建 `TTention-MLP-gpt67-tp8-20261015-003756`，先核验原真实双 shape 校准、计划与完整共享库，再冻结新的控制器哈希并重新执行全部预检和计时；不修改原清单绕过旧哈希。

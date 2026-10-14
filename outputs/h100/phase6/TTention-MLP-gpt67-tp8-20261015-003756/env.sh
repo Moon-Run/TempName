@@ -1,0 +1,6 @@
+source /workspace/TempName/outputs/h100/phase6/TTention-MLP-gpt67-tp8-20261014-231236/env.sh
+export H100_SCOPE_PARENT_OUT="$H100_SCOPE_OUT"
+export H100_SCOPE_PARENT_LOG="$H100_SCOPE_LOG"
+export H100_SCOPE_SESSION=TTention-MLP-gpt67-tp8-20261015-003756
+export H100_SCOPE_OUT="$REPO/outputs/h100/phase6/$H100_SCOPE_SESSION"
+export H100_SCOPE_LOG="$REPO/logs/h100/phase6/$H100_SCOPE_SESSION"

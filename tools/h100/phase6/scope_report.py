@@ -138,7 +138,9 @@ def profile_roles(events, policy):
     for role in SHAPES:
         route = ('tensor' if is_native(policy) else 'candidate') if role in definition(policy)['roles'] else 'native_bf16'
         name = f'scope.{role}.{route}'
-        scopes = [e for e in events if e.get('name') == name and e.get('ph') == 'X']
+        # CUDA launch correlations belong to CPU spans; GPU annotations mirror them.
+        scopes = [e for e in events if e.get('name') == name and e.get('ph') == 'X'
+                  and e.get('cat') == 'user_annotation']
         require(len(scopes) == 32*4, f'Missing profile scopes: {name}')
         by_thread = {}
         for s in scopes:
