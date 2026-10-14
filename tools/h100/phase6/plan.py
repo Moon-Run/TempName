@@ -9,8 +9,8 @@ arrival=load('h100_arrival','tools/a800/arrival/plan.py')
 selection=load('h100_selection','tools/a800/phase5/plan.py')
 
 
-def validate_mapping(rows,c,base):
-    m,n,_=shape(c);world=c['tp'];tm,tn=m//128,n//128;tiles=tm*tn
+def validate_mapping(rows,c,base,expected_shape=None):
+    m,n,_=expected_shape if expected_shape is not None else shape(c);world=c['tp'];tm,tn=m//128,n//128;tiles=tm*tn
     require(len(rows)==tiles*world,'Missing mapping rows')
     require({r['rank'] for r in rows}==set(range(world)),'Missing mapping ranks')
     for rank in range(world):
@@ -30,10 +30,10 @@ def validate_mapping(rows,c,base):
             require((r['m'],r['n'])==expected and r['destination']==r['m']//(tm//world),'Base order disagrees with calibration mapping')
 
 
-def fit(reports,rows,c,base):
+def fit(reports,rows,c,base,expected_shape=None):
     """Pure CPU fit; held-out observations are used only for diagnostics."""
-    validate_mapping(rows,c,base)
-    m,n,k=shape(c);world=c['tp'];tiles=m//128*(n//128);per=tiles//world
+    validate_mapping(rows,c,base,expected_shape)
+    m,n,k=expected_shape if expected_shape is not None else shape(c);world=c['tp'];tiles=m//128*(n//128);per=tiles//world
     scores=[[0.]*tiles for _ in range(world)];heldout={};overhead=[];invalid=[];valid=0
     require(len(reports)==world,'Missing calibration rank')
     for rank,r in enumerate(reports):
@@ -64,7 +64,7 @@ def fit(reports,rows,c,base):
                training_valid_tiles=valid,invalid_observations=invalid,heldout_selected_observations=len(hits),
                heldout_near_critical_fraction=statistics.mean(hits) if hits else None,
                sampled_median_overhead_percent=statistics.median(overhead) if overhead else None)
-    validate_entry(entry,c)
+    validate_entry(entry,c,expected_shape)
     return entry
 
 

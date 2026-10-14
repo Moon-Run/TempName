@@ -1,5 +1,7 @@
 # H100执行端：测试与数据交付说明
 
+Attention/MLP四组作用范围任务使用 [README-mlp-attention.md](../../../tools/h100/phase6/README-mlp-attention.md)：先完成独立Attention BF16校准，再使用共享双shape候选库运行32个正式窗口。旧MLP-only计划或库不能直接冒充Attention验证，旧五组入口保持原义。
+
 2026-10-14：简化的 `native_taco＋G1–G4`、仅interleaved、默认50窗口任务使用 [五组使用说明](../../../tools/h100/phase6/README-ablation2.md)。该入口独立标记 `h100-gpt67-tp8-ablation2-v1`，本次开发只做CPU验证、dry-run及无GPU编译；GPU实验须在H100端另行执行。下文旧六/八组数量和4%门槛不适用于五组协议。
 
 更新：2026-10-13。**本页供有H100的服务器上的执行者或新Codex对话阅读。** 当前执行端为 `gxn74`，容器内仓库通常为 `/workspace/TempName`；实际路径以本机部署为准。测试按用户已安排的任务范围和时间预算进行，阅读本页不等于自动启动实验。

@@ -101,8 +101,8 @@ def manifest(path, kind=None):
     return data
 
 
-def validate_entry(entry, c):
-    m, n, k = shape(c)
+def validate_entry(entry, c, expected_shape=None):
+    m, n, k = expected_shape if expected_shape is not None else shape(c)
     world, tiles = c['tp'], m//128*(n//128)
     require(entry['shape'] == [m, n, k] and entry['K_local'] == k//world, 'Plan shape mismatch')
     require(entry['tiles'] == tiles, 'Plan tile count mismatch')

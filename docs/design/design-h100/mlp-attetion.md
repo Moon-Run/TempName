@@ -1,6 +1,6 @@
 # H100 单节点 TP8：Attention与MLP作用范围对比
 
-更新：2026-10-14。**状态：四组范围对比的待实现方案，尚未完成本方案的代码适配或GPU验证。** 已有 [交替五组入口](../../../tools/h100/phase6/README-ablation2.md) 的CPU/编译检查只覆盖其MLP范围，不能作为本方案的Attention验证。本文独立于 [消融实验2.md](消融实验2.md)，不改写旧分组、旧会话或旧结果。
+更新：2026-10-14。**状态：四组范围对比代码已实现，71项CPU回归、校准及32窗口dry-run通过；采样库与共同候选库完成无GPU编译和链接（含Python binding及mapping程序）。尚未执行真实Attention校准或本方案GPU验证。** 独立入口、验证摘要与实际校准/测试命令见 [README-mlp-attention.md](../../../tools/h100/phase6/README-mlp-attention.md)。已有 [交替五组入口](../../../tools/h100/phase6/README-ablation2.md) 的CPU/编译检查只覆盖其MLP范围，不能作为本方案的Attention验证。本文独立于 [消融实验2.md](消融实验2.md)，不改写旧分组、旧会话或旧结果。
 
 ## 1. 测什么：只保留用户指定的四组
 
@@ -59,7 +59,7 @@
 
 ## 4. 必须修改和核验的执行路径
 
-以独立scope协议或入口实现，不改写旧五组实验的分组与默认行为。建议新协议ID为 `h100-gpt67-tp8-mlp-attention-v1`，在manifest、worker记录和report中统一记录策略及作用范围。
+独立入口 `mlp_attention.py` 不改写旧五组实验的分组与默认行为；采用协议ID `h100-gpt67-tp8-mlp-attention-v1`，在manifest、worker记录和report中统一记录协议、策略及作用范围。
 
 - **原生基线路由**：按明确模块集合调用原始 `RowParallelLinear.forward` 的模块级通信替换，不修改进程全局通信函数，不替换原生GEMM/bias/线性反向。`native_taco_attn` 只有32个Attention模块启用tensor TACO；`native_taco_attn_mlp` 有32个Attention＋32个MLP模块启用。两组都不得导入Flux候选库。
 - **候选路由**：`interleaved_full_attn` 的Attention采用完整候选，MLP直接保留原生Megatron BF16 forward；`interleaved_full_attn_mlp` 两类均采用完整候选。不能把未选中模块误判为fallback，未选中路径必须预先登记；真正的未预期回退仍为失败。
