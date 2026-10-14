@@ -1,0 +1,552 @@
+diff --git a/logs/h100/phase6/ablation-gpt67-tp8-20261013-233551/campaign.log b/logs/h100/phase6/ablation-gpt67-tp8-20261013-233551/campaign.log
+index bd8bbdd..2b5d427 100644
+--- a/logs/h100/phase6/ablation-gpt67-tp8-20261013-233551/campaign.log
++++ b/logs/h100/phase6/ablation-gpt67-tp8-20261013-233551/campaign.log
+@@ -15,3 +15,9 @@
+ 2026-10-14T00:34:44.795658+08:00 dry-run START dry-run.log
+ 2026-10-14T00:34:45.225497+08:00 dry-run COMPLETE dry-run.log
+ 2026-10-14T00:35:06.506881+08:00 preflight START preflight.log
++2026-10-14T01:00:48.243842+08:00 preflight COMPLETE preflight.log
++2026-10-14T01:00:48.258593+08:00 timing START timing.log
++2026-10-14T06:02:31.207759+08:00 timing COMPLETE timing.log
++2026-10-14T06:02:31.208278+08:00 report START report.log
++2026-10-14T06:03:00.556001+08:00 report COMPLETE report.log
++2026-10-14T06:03:00.596761+08:00 COMPLETE /workspace/TempName/logs/h100/phase6/ablation-gpt67-tp8-20261013-233551/compare
+diff --git a/logs/h100/phase6/ablation-gpt67-tp8-20261013-233551/compare/preflight-state.json b/logs/h100/phase6/ablation-gpt67-tp8-20261013-233551/compare/preflight-state.json
+index 8d4bf4c..0380696 100644
+--- a/logs/h100/phase6/ablation-gpt67-tp8-20261013-233551/compare/preflight-state.json
++++ b/logs/h100/phase6/ablation-gpt67-tp8-20261013-233551/compare/preflight-state.json
+@@ -1,4 +1,4 @@
+ {
+-  "status": "running",
++  "status": "completed",
+   "stage": "preflight"
+ }
+diff --git a/logs/h100/phase6/ablation-gpt67-tp8-20261013-233551/compare/results/remote_first/smoke-G0/process.log b/logs/h100/phase6/ablation-gpt67-tp8-20261013-233551/compare/results/remote_first/smoke-G0/process.log
+index 1a22901..73c0c77 100644
+--- a/logs/h100/phase6/ablation-gpt67-tp8-20261013-233551/compare/results/remote_first/smoke-G0/process.log
++++ b/logs/h100/phase6/ablation-gpt67-tp8-20261013-233551/compare/results/remote_first/smoke-G0/process.log
+@@ -489,3 +489,432 @@ make: Leaving directory '/workspace/Megatron-LM/megatron/core/datasets'
+ WARNING: constraints for invoking optimized fused softmax kernel are not met. We default back to unfused kernel invocations.
+ > compiling and loading fused kernels ...
+ [rank0]:[W1013 16:36:32.186892348 ProcessGroupNCCL.cpp:4561] [PG ID 0 PG GUID 0 Rank 0]  using GPU 0 to perform barrier as devices used by this process are currently unknown. This can potentially cause a hang if this rank to GPU mapping is incorrect. Specify device_ids in barrier() to force use of a particular device, or call init_process_group() with a device_id.
++>>> done with compiling and loading fused kernels. Compilation time: 3.377 seconds
++building GPT model ...
++/workspace/Megatron-LM/megatron/core/models/gpt/gpt_layer_specs.py:205: UserWarning: The fp8 argument in "get_gpt_layer_local_spec" has been deprecated and will be removed soon. Please update your code accordingly.
++  warnings.warn(
++/workspace/Megatron-LM/megatron/core/models/gpt/gpt_layer_specs.py:205: UserWarning: The fp8 argument in "get_gpt_layer_local_spec" has been deprecated and will be removed soon. Please update your code accordingly.
++  warnings.warn(
++/workspace/Megatron-LM/megatron/core/models/gpt/gpt_layer_specs.py:205: UserWarning: The fp8 argument in "get_gpt_layer_local_spec" has been deprecated and will be removed soon. Please update your code accordingly.
++  warnings.warn(
++/workspace/Megatron-LM/megatron/core/models/gpt/gpt_layer_specs.py:205: UserWarning: The fp8 argument in "get_gpt_layer_local_spec" has been deprecated and will be removed soon. Please update your code accordingly.
++  warnings.warn(
++/workspace/Megatron-LM/megatron/core/models/gpt/gpt_layer_specs.py:205: UserWarning: The fp8 argument in "get_gpt_layer_local_spec" has been deprecated and will be removed soon. Please update your code accordingly.
++  warnings.warn(
++/workspace/Megatron-LM/megatron/core/models/gpt/gpt_layer_specs.py:205: UserWarning: The fp8 argument in "get_gpt_layer_local_spec" has been deprecated and will be removed soon. Please update your code accordingly.
++  warnings.warn(
++/workspace/Megatron-LM/megatron/core/models/gpt/gpt_layer_specs.py:205: UserWarning: The fp8 argument in "get_gpt_layer_local_spec" has been deprecated and will be removed soon. Please update your code accordingly.
++  warnings.warn(
++/workspace/Megatron-LM/megatron/core/models/gpt/gpt_layer_specs.py:205: UserWarning: The fp8 argument in "get_gpt_layer_local_spec" has been deprecated and will be removed soon. Please update your code accordingly.
++  warnings.warn(
++ > number of parameters on (tensor, pipeline) model parallel rank (6, 0): 849207296
++ > number of parameters on (tensor, pipeline) model parallel rank (2, 0): 849207296
++ > number of parameters on (tensor, pipeline) model parallel rank (3, 0): 849207296
++ > number of parameters on (tensor, pipeline) model parallel rank (7, 0): 849207296
++ > number of parameters on (tensor, pipeline) model parallel rank (1, 0): 849207296
++ > number of parameters on (tensor, pipeline) model parallel rank (0, 0): 849207296
++ > number of parameters on (tensor, pipeline) model parallel rank (5, 0): 849207296
++ > number of parameters on (tensor, pipeline) model parallel rank (4, 0): 849207296
++INFO:megatron.core.distributed.distributed_data_parallel:Setting up DistributedDataParallel with config DistributedDataParallelConfig(grad_reduce_in_fp32=True, overlap_grad_reduce=False, overlap_param_gather=False, align_param_gather=False, use_distributed_optimizer=False, num_distributed_optimizer_instances=1, check_for_nan_in_grad=False, check_for_large_grads=False, bucket_size=None, pad_buckets_for_high_nccl_busbw=False, average_in_collective=False, fp8_param_gather=False, use_custom_fsdp=False, data_parallel_sharding_strategy='no_shard', gradient_reduce_div_fusion=True, suggested_communication_unit_size=None, preserve_fp32_weights=True, keep_fp8_transpose_cache_when_using_custom_fsdp=False)
++INFO:megatron.core.distributed.param_and_grad_buffer:Number of buckets for gradient all-reduce / reduce-scatter: 1
++Params for bucket 1 (849207296 elements, 849207296 padded size):
++	module.decoder.layers.11.input_layernorm.weight
++	module.decoder.layers.27.mlp.linear_fc2.weight
++	module.decoder.layers.19.mlp.linear_fc1.bias
++	module.decoder.layers.14.self_attention.linear_proj.weight
++	module.decoder.layers.5.input_layernorm.bias
++	module.decoder.layers.24.pre_mlp_layernorm.weight
++	module.decoder.layers.1.pre_mlp_layernorm.weight
++	module.decoder.layers.29.pre_mlp_layernorm.weight
++	module.decoder.layers.21.self_attention.linear_qkv.bias
++	module.decoder.layers.16.pre_mlp_layernorm.bias
++	module.decoder.layers.12.self_attention.linear_qkv.bias
++	module.decoder.layers.7.mlp.linear_fc2.bias
++	module.decoder.layers.18.self_attention.linear_proj.weight
++	module.decoder.layers.9.self_attention.linear_proj.weight
++	module.decoder.layers.3.self_attention.linear_proj.weight
++	module.decoder.layers.23.input_layernorm.weight
++	module.decoder.layers.11.input_layernorm.bias
++	module.decoder.layers.27.mlp.linear_fc2.bias
++	module.decoder.layers.15.input_layernorm.weight
++	module.decoder.layers.14.self_attention.linear_proj.bias
++	module.decoder.layers.5.input_layernorm.weight
++	module.decoder.layers.24.pre_mlp_layernorm.bias
++	module.decoder.layers.1.pre_mlp_layernorm.bias
++	module.decoder.layers.7.mlp.linear_fc2.weight
++	module.decoder.layers.29.pre_mlp_layernorm.bias
++	module.decoder.layers.16.mlp.linear_fc1.weight
++	module.decoder.layers.26.self_attention.linear_qkv.weight
++	module.decoder.layers.3.self_attention.linear_proj.bias
++	module.decoder.layers.23.input_layernorm.bias
++	module.decoder.layers.28.self_attention.linear_qkv.weight
++	module.decoder.layers.19.mlp.linear_fc2.weight
++	module.decoder.layers.15.input_layernorm.bias
++	module.decoder.layers.24.mlp.linear_fc1.weight
++	module.decoder.layers.9.self_attention.linear_proj.bias
++	module.decoder.layers.1.mlp.linear_fc1.weight
++	module.decoder.layers.29.mlp.linear_fc1.weight
++	module.decoder.layers.21.pre_mlp_layernorm.weight
++	module.decoder.layers.20.input_layernorm.weight
++	module.decoder.layers.16.mlp.linear_fc1.bias
++	module.decoder.layers.12.pre_mlp_layernorm.weight
++	module.decoder.layers.31.self_attention.linear_qkv.weight
++	module.decoder.layers.26.self_attention.linear_qkv.bias
++	module.decoder.layers.23.self_attention.linear_proj.weight
++	module.decoder.layers.10.input_layernorm.weight
++	module.decoder.layers.28.input_layernorm.weight
++	module.decoder.layers.19.mlp.linear_fc2.bias
++	module.decoder.layers.15.self_attention.linear_proj.weight
++	module.decoder.layers.13.self_attention.linear_qkv.weight
++	module.decoder.layers.6.pre_mlp_layernorm.bias
++	module.decoder.layers.24.mlp.linear_fc2.bias
++	module.decoder.layers.1.mlp.linear_fc1.bias
++	module.decoder.layers.29.mlp.linear_fc1.bias
++	module.decoder.layers.21.pre_mlp_layernorm.bias
++	module.decoder.layers.12.pre_mlp_layernorm.bias
++	module.decoder.layers.7.mlp.linear_fc1.bias
++	module.decoder.layers.31.self_attention.linear_qkv.bias
++	module.decoder.layers.18.self_attention.linear_qkv.weight
++	module.decoder.layers.8.mlp.linear_fc2.weight
++	module.decoder.layers.3.self_attention.linear_qkv.weight
++	module.decoder.layers.23.self_attention.linear_proj.bias
++	module.decoder.layers.10.input_layernorm.bias
++	module.decoder.layers.28.input_layernorm.bias
++	module.decoder.layers.15.self_attention.linear_proj.bias
++	module.decoder.layers.13.self_attention.linear_qkv.bias
++	module.decoder.layers.5.self_attention.linear_proj.bias
++	module.decoder.layers.21.mlp.linear_fc1.weight
++	module.decoder.layers.16.mlp.linear_fc2.weight
++	module.decoder.layers.12.mlp.linear_fc1.weight
++	module.decoder.layers.26.pre_mlp_layernorm.weight
++	module.decoder.layers.18.self_attention.linear_qkv.bias
++	module.decoder.layers.8.mlp.linear_fc2.bias
++	module.decoder.layers.3.self_attention.linear_qkv.bias
++	module.decoder.layers.28.self_attention.linear_proj.weight
++	module.decoder.layers.20.input_layernorm.bias
++	module.decoder.layers.4.mlp.linear_fc2.weight
++	module.decoder.layers.24.mlp.linear_fc2.weight
++	module.decoder.layers.1.mlp.linear_fc2.weight
++	module.decoder.layers.7.mlp.linear_fc1.weight
++	module.decoder.layers.12.mlp.linear_fc1.bias
++	module.decoder.layers.31.mlp.linear_fc2.bias
++	module.decoder.layers.29.mlp.linear_fc2.weight
++	module.decoder.layers.21.mlp.linear_fc1.bias
++	module.decoder.layers.16.mlp.linear_fc2.bias
++	module.decoder.layers.6.mlp.linear_fc1.bias
++	module.decoder.final_layernorm.weight
++	module.decoder.layers.26.pre_mlp_layernorm.bias
++	module.decoder.layers.6.self_attention.linear_qkv.bias
++	module.decoder.layers.23.self_attention.linear_qkv.weight
++	module.decoder.layers.28.self_attention.linear_proj.bias
++	module.decoder.layers.20.self_attention.linear_proj.weight
++	module.decoder.layers.15.self_attention.linear_qkv.weight
++	module.decoder.layers.13.pre_mlp_layernorm.weight
++	module.decoder.layers.25.self_attention.linear_proj.bias
++	module.decoder.layers.9.self_attention.linear_qkv.weight
++	module.decoder.layers.1.mlp.linear_fc2.bias
++	module.decoder.layers.29.mlp.linear_fc2.bias
++	module.decoder.layers.7.pre_mlp_layernorm.bias
++	module.decoder.final_layernorm.bias
++	module.decoder.layers.26.mlp.linear_fc1.weight
++	module.decoder.layers.18.pre_mlp_layernorm.weight
++	module.decoder.layers.6.self_attention.linear_proj.weight
++	module.decoder.layers.3.pre_mlp_layernorm.weight
++	module.decoder.layers.23.self_attention.linear_qkv.bias
++	module.decoder.layers.20.self_attention.linear_proj.bias
++	module.decoder.layers.15.self_attention.linear_qkv.bias
++	module.decoder.layers.4.mlp.linear_fc2.bias
++	module.decoder.layers.9.self_attention.linear_qkv.bias
++	module.decoder.layers.21.mlp.linear_fc2.weight
++	module.decoder.layers.17.input_layernorm.weight
++	module.decoder.layers.12.mlp.linear_fc2.weight
++	module.decoder.layers.7.pre_mlp_layernorm.weight
++	module.output_layer.weight
++	module.decoder.layers.31.mlp.linear_fc2.weight
++	module.decoder.layers.26.mlp.linear_fc1.bias
++	module.decoder.layers.18.pre_mlp_layernorm.bias
++	module.decoder.layers.6.input_layernorm.bias
++	module.decoder.layers.3.pre_mlp_layernorm.bias
++	module.decoder.layers.0.self_attention.linear_proj.weight
++	module.decoder.layers.10.self_attention.linear_proj.weight
++	module.decoder.layers.28.self_attention.linear_qkv.bias
++	module.decoder.layers.8.pre_mlp_layernorm.bias
++	module.decoder.layers.4.mlp.linear_fc1.weight
++	module.decoder.layers.25.input_layernorm.weight
++	module.decoder.layers.2.input_layernorm.weight
++	module.decoder.layers.30.input_layernorm.weight
++	module.decoder.layers.21.mlp.linear_fc2.bias
++	module.decoder.layers.17.input_layernorm.bias
++	module.decoder.layers.12.mlp.linear_fc2.bias
++	module.decoder.layers.18.mlp.linear_fc1.weight
++	module.decoder.layers.6.input_layernorm.weight
++	module.decoder.layers.3.mlp.linear_fc1.weight
++	module.decoder.layers.23.pre_mlp_layernorm.weight
++	module.decoder.layers.10.self_attention.linear_proj.bias
++	module.decoder.layers.20.self_attention.linear_qkv.weight
++	module.decoder.layers.15.pre_mlp_layernorm.weight
++	module.decoder.layers.11.self_attention.linear_qkv.weight
++	module.decoder.layers.8.pre_mlp_layernorm.weight
++	module.decoder.layers.4.pre_mlp_layernorm.bias
++	module.decoder.layers.25.input_layernorm.bias
++	module.decoder.layers.2.input_layernorm.bias
++	module.decoder.layers.31.input_layernorm.weight
++	module.decoder.layers.30.input_layernorm.bias
++	module.decoder.layers.17.self_attention.linear_proj.weight
++	module.decoder.layers.26.mlp.linear_fc2.weight
++	module.decoder.layers.18.mlp.linear_fc1.bias
++	module.decoder.layers.3.mlp.linear_fc1.bias
++	module.decoder.layers.23.pre_mlp_layernorm.bias
++	module.decoder.layers.11.self_attention.linear_qkv.bias
++	module.decoder.layers.28.pre_mlp_layernorm.weight
++	module.decoder.layers.20.self_attention.linear_qkv.bias
++	module.decoder.layers.15.pre_mlp_layernorm.bias
++	module.decoder.layers.25.self_attention.linear_proj.weight
++	module.decoder.layers.9.pre_mlp_layernorm.weight
++	module.decoder.layers.2.self_attention.linear_proj.weight
++	module.decoder.layers.30.self_attention.linear_proj.weight
++	module.decoder.layers.22.input_layernorm.weight
++	module.decoder.layers.17.self_attention.linear_proj.bias
++	module.decoder.layers.13.input_layernorm.weight
++	module.decoder.layers.7.self_attention.linear_qkv.bias
++	module.decoder.layers.26.mlp.linear_fc2.bias
++	module.decoder.layers.0.mlp.linear_fc1.bias
++	module.decoder.layers.23.mlp.linear_fc1.weight
++	module.decoder.layers.10.self_attention.linear_qkv.weight
++	module.decoder.layers.0.pre_mlp_layernorm.bias
++	module.decoder.layers.28.pre_mlp_layernorm.bias
++	module.decoder.layers.15.mlp.linear_fc1.weight
++	module.decoder.layers.4.pre_mlp_layernorm.weight
++	module.decoder.layers.25.self_attention.linear_qkv.bias
++	module.decoder.layers.9.pre_mlp_layernorm.bias
++	module.decoder.layers.2.self_attention.linear_proj.bias
++	module.decoder.layers.30.self_attention.linear_proj.bias
++	module.decoder.layers.22.input_layernorm.bias
++	module.decoder.layers.13.input_layernorm.bias
++	module.decoder.layers.0.pre_mlp_layernorm.weight
++	module.decoder.layers.18.mlp.linear_fc2.weight
++	module.decoder.layers.6.self_attention.linear_proj.bias
++	module.decoder.layers.3.mlp.linear_fc2.weight
++	module.decoder.layers.10.self_attention.linear_qkv.bias
++	module.decoder.layers.23.mlp.linear_fc1.bias
++	module.decoder.layers.14.self_attention.linear_qkv.bias
++	module.decoder.layers.0.mlp.linear_fc1.weight
++	module.decoder.layers.28.mlp.linear_fc1.weight
++	module.decoder.layers.20.pre_mlp_layernorm.weight
++	module.decoder.layers.15.mlp.linear_fc1.bias
++	module.decoder.layers.11.pre_mlp_layernorm.weight
++	module.decoder.layers.9.mlp.linear_fc1.weight
++	module.decoder.layers.30.pre_mlp_layernorm.weight
++	module.decoder.layers.22.self_attention.linear_proj.weight
++	module.decoder.layers.17.self_attention.linear_qkv.weight
++	module.decoder.layers.13.self_attention.linear_proj.weight
++	module.decoder.layers.27.input_layernorm.weight
++	module.decoder.layers.18.mlp.linear_fc2.bias
++	module.decoder.layers.5.mlp.linear_fc2.weight
++	module.decoder.layers.3.mlp.linear_fc2.bias
++	module.decoder.layers.28.mlp.linear_fc1.bias
++	module.decoder.layers.20.pre_mlp_layernorm.bias
++	module.decoder.layers.11.pre_mlp_layernorm.bias
++	module.decoder.layers.8.self_attention.linear_qkv.bias
++	module.decoder.layers.4.mlp.linear_fc1.bias
++	module.decoder.layers.25.self_attention.linear_qkv.weight
++	module.decoder.layers.2.self_attention.linear_qkv.weight
++	module.decoder.layers.30.self_attention.linear_qkv.weight
++	module.decoder.layers.22.self_attention.linear_proj.bias
++	module.decoder.layers.17.self_attention.linear_qkv.bias
++	module.decoder.layers.13.self_attention.linear_proj.bias
++	module.decoder.layers.7.self_attention.linear_qkv.weight
++	module.decoder.layers.27.input_layernorm.bias
++	module.decoder.layers.14.self_attention.linear_qkv.weight
++	module.decoder.layers.23.mlp.linear_fc2.weight
++	module.decoder.layers.20.mlp.linear_fc1.weight
++	module.decoder.layers.11.mlp.linear_fc1.weight
++	module.decoder.layers.15.mlp.linear_fc2.weight
++	module.decoder.layers.4.self_attention.linear_qkv.weight
++	module.decoder.layers.25.mlp.linear_fc1.bias
++	module.decoder.layers.9.mlp.linear_fc1.bias
++	module.decoder.layers.2.self_attention.linear_qkv.bias
++	module.decoder.layers.30.self_attention.linear_qkv.bias
++	module.decoder.layers.27.self_attention.linear_proj.weight
++	module.decoder.layers.19.input_layernorm.weight
++	module.decoder.layers.13.mlp.linear_fc1.weight
++	module.decoder.layers.5.mlp.linear_fc2.bias
++	module.decoder.layers.4.input_layernorm.weight
++	module.decoder.layers.23.mlp.linear_fc2.bias
++	module.decoder.layers.0.mlp.linear_fc2.weight
++	module.decoder.layers.28.mlp.linear_fc2.weight
++	module.decoder.layers.20.mlp.linear_fc1.bias
++	module.decoder.layers.15.mlp.linear_fc2.bias
++	module.decoder.layers.11.mlp.linear_fc1.bias
++	module.decoder.layers.8.self_attention.linear_qkv.weight
++	module.decoder.layers.0.self_attention.linear_proj.bias
++	module.decoder.layers.22.self_attention.linear_qkv.weight
++	module.decoder.layers.17.pre_mlp_layernorm.weight
++	module.decoder.layers.7.self_attention.linear_proj.bias
++	module.decoder.layers.27.self_attention.linear_proj.bias
++	module.decoder.layers.19.input_layernorm.bias
++	module.decoder.layers.13.pre_mlp_layernorm.bias
++	module.decoder.layers.5.mlp.linear_fc1.weight
++	module.decoder.layers.4.input_layernorm.bias
++	module.decoder.layers.24.self_attention.linear_qkv.bias
++	module.decoder.layers.10.pre_mlp_layernorm.weight
++	module.decoder.layers.0.mlp.linear_fc2.bias
++	module.decoder.layers.28.mlp.linear_fc2.bias
++	module.decoder.layers.25.pre_mlp_layernorm.weight
++	module.decoder.layers.2.pre_mlp_layernorm.weight
++	module.decoder.layers.11.self_attention.linear_proj.weight
++	module.decoder.layers.31.pre_mlp_layernorm.bias
++	module.decoder.layers.30.pre_mlp_layernorm.bias
++	module.decoder.layers.22.self_attention.linear_qkv.bias
++	module.decoder.layers.17.pre_mlp_layernorm.bias
++	module.decoder.layers.7.self_attention.linear_proj.weight
++	module.decoder.layers.19.self_attention.linear_proj.weight
++	module.decoder.layers.13.mlp.linear_fc1.bias
++	module.decoder.layers.5.pre_mlp_layernorm.bias
++	module.decoder.layers.24.input_layernorm.weight
++	module.decoder.layers.10.pre_mlp_layernorm.bias
++	module.decoder.layers.20.mlp.linear_fc2.weight
++	module.decoder.layers.16.input_layernorm.weight
++	module.decoder.layers.11.mlp.linear_fc2.weight
++	module.decoder.layers.25.pre_mlp_layernorm.bias
++	module.decoder.layers.2.pre_mlp_layernorm.bias
++	module.decoder.layers.30.mlp.linear_fc1.weight
++	module.decoder.layers.17.mlp.linear_fc1.weight
++	module.decoder.layers.11.self_attention.linear_proj.bias
++	module.decoder.layers.7.input_layernorm.bias
++	module.decoder.layers.27.self_attention.linear_qkv.weight
++	module.decoder.layers.19.self_attention.linear_proj.bias
++	module.decoder.layers.24.input_layernorm.bias
++	module.decoder.layers.1.input_layernorm.weight
++	module.decoder.layers.29.input_layernorm.weight
++	module.decoder.layers.20.mlp.linear_fc2.bias
++	module.decoder.layers.16.input_layernorm.bias
++	module.decoder.layers.11.mlp.linear_fc2.bias
++	module.decoder.layers.4.self_attention.linear_qkv.bias
++	module.decoder.layers.25.mlp.linear_fc1.weight
++	module.decoder.layers.2.mlp.linear_fc1.weight
++	module.embedding.position_embeddings.weight
++	module.decoder.layers.30.mlp.linear_fc1.bias
++	module.decoder.layers.22.pre_mlp_layernorm.weight
++	module.decoder.layers.17.mlp.linear_fc1.bias
++	module.decoder.layers.27.self_attention.linear_qkv.bias
++	module.decoder.layers.14.pre_mlp_layernorm.weight
++	module.decoder.layers.5.pre_mlp_layernorm.weight
++	module.decoder.layers.9.mlp.linear_fc2.weight
++	module.decoder.layers.24.self_attention.linear_proj.weight
++	module.decoder.layers.1.input_layernorm.bias
++	module.decoder.layers.29.input_layernorm.bias
++	module.decoder.layers.16.self_attention.linear_proj.weight
++	module.decoder.layers.8.self_attention.linear_proj.bias
++	module.decoder.layers.25.mlp.linear_fc2.bias
++	module.decoder.layers.2.mlp.linear_fc1.bias
++	module.decoder.layers.22.pre_mlp_layernorm.bias
++	module.decoder.layers.10.mlp.linear_fc1.weight
++	module.decoder.layers.7.input_layernorm.weight
++	module.decoder.layers.0.self_attention.linear_qkv.bias
++	module.decoder.layers.0.input_layernorm.weight
++	module.decoder.layers.19.self_attention.linear_qkv.weight
++	module.decoder.layers.14.pre_mlp_layernorm.bias
++	module.decoder.layers.8.mlp.linear_fc1.weight
++	module.decoder.layers.24.self_attention.linear_proj.bias
++	module.decoder.layers.9.mlp.linear_fc2.bias
++	module.decoder.layers.1.self_attention.linear_proj.weight
++	module.decoder.layers.29.self_attention.linear_proj.weight
++	module.decoder.layers.21.input_layernorm.weight
++	module.decoder.layers.16.self_attention.linear_proj.bias
++	module.decoder.layers.12.input_layernorm.weight
++	module.decoder.layers.8.self_attention.linear_proj.weight
++	module.decoder.layers.26.input_layernorm.bias
++	module.decoder.layers.31.mlp.linear_fc1.weight
++	module.decoder.layers.30.mlp.linear_fc2.weight
++	module.decoder.layers.22.mlp.linear_fc1.weight
++	module.decoder.layers.17.mlp.linear_fc2.weight
++	module.decoder.layers.10.mlp.linear_fc1.bias
++	module.decoder.layers.27.pre_mlp_layernorm.weight
++	module.decoder.layers.19.self_attention.linear_qkv.bias
++	module.decoder.layers.14.mlp.linear_fc1.weight
++	module.decoder.layers.13.mlp.linear_fc2.weight
++	module.decoder.layers.8.mlp.linear_fc1.bias
++	module.decoder.layers.5.mlp.linear_fc1.bias
++	module.decoder.layers.1.self_attention.linear_proj.bias
++	module.decoder.layers.29.self_attention.linear_proj.bias
++	module.decoder.layers.21.input_layernorm.bias
++	module.decoder.layers.12.input_layernorm.bias
++	module.decoder.layers.8.input_layernorm.bias
++	module.decoder.layers.4.self_attention.linear_proj.weight
++	module.decoder.layers.25.mlp.linear_fc2.weight
++	module.decoder.layers.2.mlp.linear_fc2.weight
++	module.decoder.layers.30.mlp.linear_fc2.bias
++	module.decoder.layers.22.mlp.linear_fc1.bias
++	module.decoder.layers.17.mlp.linear_fc2.bias
++	module.decoder.layers.27.pre_mlp_layernorm.bias
++	module.decoder.layers.14.mlp.linear_fc1.bias
++	module.decoder.layers.13.mlp.linear_fc2.bias
++	module.decoder.layers.5.self_attention.linear_qkv.weight
++	module.decoder.layers.21.self_attention.linear_proj.weight
++	module.decoder.layers.16.self_attention.linear_qkv.weight
++	module.decoder.layers.12.self_attention.linear_proj.weight
++	module.decoder.layers.6.mlp.linear_fc1.weight
++	module.decoder.layers.4.self_attention.linear_proj.bias
++	module.decoder.layers.9.input_layernorm.weight
++	module.decoder.layers.26.input_layernorm.weight
++	module.decoder.layers.6.pre_mlp_layernorm.weight
++	module.decoder.layers.2.mlp.linear_fc2.bias
++	module.decoder.layers.31.mlp.linear_fc1.bias
++	module.decoder.layers.31.self_attention.linear_proj.bias
++	module.decoder.layers.18.self_attention.linear_proj.bias
++	module.decoder.layers.10.mlp.linear_fc2.weight
++	module.decoder.layers.6.mlp.linear_fc2.bias
++	module.decoder.layers.6.self_attention.linear_qkv.weight
++	module.decoder.layers.0.self_attention.linear_qkv.weight
++	module.decoder.layers.27.mlp.linear_fc1.weight
++	module.decoder.layers.19.pre_mlp_layernorm.weight
++	module.decoder.layers.24.self_attention.linear_qkv.weight
++	module.decoder.layers.1.self_attention.linear_qkv.weight
++	module.decoder.layers.29.self_attention.linear_qkv.weight
++	module.decoder.layers.21.self_attention.linear_proj.bias
++	module.decoder.layers.16.self_attention.linear_qkv.bias
++	module.decoder.layers.12.self_attention.linear_proj.bias
++	module.decoder.layers.6.mlp.linear_fc2.weight
++	module.decoder.layers.31.pre_mlp_layernorm.weight
++	module.decoder.layers.31.input_layernorm.bias
++	module.decoder.layers.22.mlp.linear_fc2.weight
++	module.decoder.layers.18.input_layernorm.weight
++	module.decoder.layers.10.mlp.linear_fc2.bias
++	module.decoder.layers.27.mlp.linear_fc1.bias
++	module.decoder.layers.19.pre_mlp_layernorm.bias
++	module.decoder.layers.14.mlp.linear_fc2.weight
++	module.decoder.layers.14.input_layernorm.weight
++	module.decoder.layers.5.self_attention.linear_qkv.bias
++	module.decoder.layers.24.mlp.linear_fc1.bias
++	module.decoder.layers.1.self_attention.linear_qkv.bias
++	module.decoder.layers.29.self_attention.linear_qkv.bias
++	module.decoder.layers.8.input_layernorm.weight
++	module.decoder.layers.26.self_attention.linear_proj.weight
++	module.decoder.layers.9.input_layernorm.bias
++	module.decoder.layers.3.input_layernorm.weight
++	module.decoder.layers.0.input_layernorm.bias
++	module.decoder.layers.31.self_attention.linear_proj.weight
++	module.decoder.layers.22.mlp.linear_fc2.bias
++	module.decoder.layers.18.input_layernorm.bias
++	module.decoder.layers.19.mlp.linear_fc1.weight
++	module.decoder.layers.14.mlp.linear_fc2.bias
++	module.decoder.layers.14.input_layernorm.bias
++	module.decoder.layers.5.self_attention.linear_proj.weight
++	module.decoder.layers.21.self_attention.linear_qkv.weight
++	module.decoder.layers.16.pre_mlp_layernorm.weight
++	module.decoder.layers.12.self_attention.linear_qkv.weight
++	module.embedding.word_embeddings.weight
++	module.decoder.layers.26.self_attention.linear_proj.bias
++	module.decoder.layers.3.input_layernorm.bias
++INFO:megatron.core.optimizer:Setting up optimizer with config OptimizerConfig(optimizer='adam', lr=0.0001, min_lr=0.0001, decoupled_lr=None, decoupled_min_lr=None, weight_decay=0.01, fp16=False, bf16=True, params_dtype=torch.bfloat16, use_precision_aware_optimizer=False, main_grads_dtype=torch.float32, main_params_dtype=torch.float32, exp_avg_dtype=torch.float32, exp_avg_sq_dtype=torch.float32, loss_scale=None, initial_loss_scale=4294967296, min_loss_scale=1.0, loss_scale_window=1000, hysteresis=2, adam_beta1=0.9, adam_beta2=0.95, adam_eps=1e-08, sgd_momentum=0.9, use_distributed_optimizer=False, overlap_param_gather_with_optimizer_step=False, optimizer_cpu_offload=False, optimizer_offload_fraction=1.0, use_torch_optimizer_for_cpu_offload=False, overlap_cpu_optimizer_d2h_h2d=False, pin_cpu_grads=True, pin_cpu_params=True, clip_grad=1.0, log_num_zeros_in_grad=False, barrier_with_L1_time=True, timers=<megatron.core.timers.Timers object at 0x7f52a4401150>, config_logger_dir='')
++WARNING:root:Failed to load NVSHMEM libs
++WARNING:root:Failed to load NVSHMEM libs
++WARNING:root:Failed to load NVSHMEM libs
++INFO:megatron.core.optimizer_param_scheduler:> learning rate decay style: constant
++WARNING:root:Failed to load NVSHMEM libs
++WARNING:root:Failed to load NVSHMEM libs
++WARNING:root:Failed to load NVSHMEM libs
++WARNING:root:Failed to load NVSHMEM libs
++WARNING:root:Failed to load NVSHMEM libs
++SCALE_PROCESS_COMPLETE h100-phase6 G0 smoke 539.3524033327898
+diff --git a/logs/h100/phase6/ablation-gpt67-tp8-20261013-233551/execution.json b/logs/h100/phase6/ablation-gpt67-tp8-20261013-233551/execution.json
+index f73b314..6f7fdcb 100644
+--- a/logs/h100/phase6/ablation-gpt67-tp8-20261013-233551/execution.json
++++ b/logs/h100/phase6/ablation-gpt67-tp8-20261013-233551/execution.json
+@@ -1,16 +1,16 @@
+ {
+-  "status": "running",
+-  "stage": "preflight",
+-  "detail": "preflight.log",
+-  "updated_beijing": "2026-10-14T00:36:06.530244+08:00",
++  "status": "completed",
++  "stage": "report",
++  "detail": "Strict report passed; all 400 formal windows preserved",
++  "updated_beijing": "2026-10-14T06:03:00.569878+08:00",
+   "pid": 1310438,
+-  "child_pid": 1358669,
++  "child_pid": null,
+   "session": "ablation-gpt67-tp8-20261013-233551",
+   "compare": "/workspace/TempName/logs/h100/phase6/ablation-gpt67-tp8-20261013-233551/compare",
+   "built_candidates": 18,
+   "planned_candidates": 18,
+-  "started_windows": 0,
+-  "completed_windows": 0,
++  "started_windows": 400,
++  "completed_windows": 400,
+   "planned_windows": 400,
+   "gpu_monitoring": "before_run_only"
+ }
+diff --git a/logs/h100/phase6/ablation-gpt67-tp8-20261013-233551/handoff/README.md b/logs/h100/phase6/ablation-gpt67-tp8-20261013-233551/handoff/README.md
+index 467ec11..ba87ad1 100644
+--- a/logs/h100/phase6/ablation-gpt67-tp8-20261013-233551/handoff/README.md
++++ b/logs/h100/phase6/ablation-gpt67-tp8-20261013-233551/handoff/README.md
+@@ -2,11 +2,11 @@
+ 
+ Session: `ablation-gpt67-tp8-20261013-233551`.
+ 
+-Status: **partial**; GPU ablation preflight started; formal timing follows only after all gates pass. Updated Beijing: 2026-10-14T00:35:06.503505+08:00.
++Status: **complete**; Strict report passed; 400 formal windows; data return commit pending. Updated Beijing: 2026-10-14T06:03:00.591959+08:00.
+ 
+ One campaign only: remote_first/interleaved; native + G0-G6; G5 seeds 17/29/43; 10 blocks, schedule seed 20261013; 10 warmup + 20 full optimizer steps; 400 formal windows.
+ 
+-Source commit: `23e9cc214ef27ff22cecdd8425051a66c56fb5ad`. Initial source/environment/patch evidence is in this handoff directory; actual source snapshots and derived plans are in the session candidates directory. Parent freeze: h100-phase6-candidate-v1-20261013.
++Source commit: `ebb2ec32cf3fc1081f436847a59578bd2e60dc13`. Initial source/environment/patch evidence is in this handoff directory; actual source snapshots and derived plans are in the session candidates directory. Parent freeze: h100-phase6-candidate-v1-20261013.
+ 
+ Original builds, fixed baselines and historical evidence are unchanged. Parent calibration reuse is allowed only after full local source/plan/library/environment/host/GPU-order verification. Each new candidate is built independently with CUDA 12.8 and executed using CUDA 12.4.
+ 
+diff --git a/logs/h100/phase6/ablation-gpt67-tp8-20261013-233551/preflight.log b/logs/h100/phase6/ablation-gpt67-tp8-20261013-233551/preflight.log
+index 2aa4181..a6bfa3d 100644
+--- a/logs/h100/phase6/ablation-gpt67-tp8-20261013-233551/preflight.log
++++ b/logs/h100/phase6/ablation-gpt67-tp8-20261013-233551/preflight.log
+@@ -1,2 +1,40 @@
+ START remote_first/smoke-native
+ START remote_first/smoke-G0
++START remote_first/smoke-G1
++START remote_first/smoke-G2
++START remote_first/smoke-G3
++START remote_first/smoke-G4
++START remote_first/smoke-G5-s17
++START remote_first/smoke-G5-s29
++START remote_first/smoke-G5-s43
++START remote_first/smoke-G6
++START remote_first/profile-native
++START remote_first/profile-G0
++START remote_first/profile-G1
++START remote_first/profile-G2
++START remote_first/profile-G3
++START remote_first/profile-G4
++START remote_first/profile-G5-s17
++START remote_first/profile-G5-s29
++START remote_first/profile-G5-s43
++START remote_first/profile-G6
++START interleaved/smoke-native
++START interleaved/smoke-G0
++START interleaved/smoke-G1
++START interleaved/smoke-G2
++START interleaved/smoke-G3
++START interleaved/smoke-G4
++START interleaved/smoke-G5-s17
++START interleaved/smoke-G5-s29
++START interleaved/smoke-G5-s43
++START interleaved/smoke-G6
++START interleaved/profile-native
++START interleaved/profile-G0
++START interleaved/profile-G1
++START interleaved/profile-G2
++START interleaved/profile-G3
++START interleaved/profile-G4
++START interleaved/profile-G5-s17
++START interleaved/profile-G5-s29
++START interleaved/profile-G5-s43
++START interleaved/profile-G6

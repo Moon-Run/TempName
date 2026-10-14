@@ -2,11 +2,11 @@
 
 Session: `ablation-gpt67-tp8-20261013-233551`.
 
-Status: **partial**; GPU ablation preflight started; formal timing follows only after all gates pass. Updated Beijing: 2026-10-14T00:35:06.503505+08:00.
+Status: **complete**; Strict report passed; 400 formal windows; data return commit pending. Updated Beijing: 2026-10-14T06:03:00.591959+08:00.
 
 One campaign only: remote_first/interleaved; native + G0-G6; G5 seeds 17/29/43; 10 blocks, schedule seed 20261013; 10 warmup + 20 full optimizer steps; 400 formal windows.
 
-Source commit: `23e9cc214ef27ff22cecdd8425051a66c56fb5ad`. Initial source/environment/patch evidence is in this handoff directory; actual source snapshots and derived plans are in the session candidates directory. Parent freeze: h100-phase6-candidate-v1-20261013.
+Source commit: `ebb2ec32cf3fc1081f436847a59578bd2e60dc13`. Initial source/environment/patch evidence is in this handoff directory; actual source snapshots and derived plans are in the session candidates directory. Parent freeze: h100-phase6-candidate-v1-20261013.
 
 Original builds, fixed baselines and historical evidence are unchanged. Parent calibration reuse is allowed only after full local source/plan/library/environment/host/GPU-order verification. Each new candidate is built independently with CUDA 12.8 and executed using CUDA 12.4.
 
