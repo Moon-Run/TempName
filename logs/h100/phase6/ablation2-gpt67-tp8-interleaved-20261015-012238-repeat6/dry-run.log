@@ -1,0 +1,63 @@
+DRY RUN: no CUDA import/initialization, no GPU mapping, no workers. Pass --execute on H100.
+Formal windows: 50; requested worker windows: 60
+COMMAND ['/opt/conda/envs/flux-h100/bin/python', '-m', 'torch.distributed.run', '--standalone', '--nproc_per_node=8', '/workspace/TempName/logs/h100/phase6/ablation2-gpt67-tp8-interleaved-20261015-012238-repeat6/compare/scripts/interleaved/worker.py', '--num-layers', '32', '--hidden-size', '4096', '--ffn-hidden-size', '16384', '--num-attention-heads', '32', '--seq-length', '2048', '--max-position-embeddings', '2048', '--micro-batch-size', '1', '--global-batch-size', '4', '--seed', '1234', '--vocab-size', '32768', '--tensor-model-parallel-size', '8', '--transformer-impl', 'local', '--position-embedding-type', 'learned_absolute', '--untie-embeddings-and-output-weights', '--no-persist-layer-norm', '--no-masked-softmax-fusion', '--no-bias-gelu-fusion', '--no-bias-dropout-fusion', '--no-rope-fusion', '--train-iters', '1000', '--bf16', '--optimizer', 'adam', '--lr', '1e-4', '--min-lr', '1e-4', '--lr-decay-style', 'constant', '--weight-decay', '0.01', '--adam-beta1', '0.9', '--adam-beta2', '0.95', '--clip-grad', '1.0', '--init-method-std', '0.02', '--hidden-dropout', '0', '--attention-dropout', '0', '--no-gradient-accumulation-fusion', '--pipeline-model-parallel-size', '1', '--context-parallel-size', '1', '--sequence-parallel', '--mock-data', '--tokenizer-type', 'NullTokenizer', '--split', '100,0,0', '--num-workers', '0', '--eval-iters', '0', '--timing-log-level', '0', '--no-check-for-nan-in-loss-and-grad']
+{'base': 'interleaved', 'policy': 'native_taco', 'mode': 'smoke', 'block': -1, 'index': -1, 'directory': 'interleaved/smoke-native_taco'}
+{'base': 'interleaved', 'policy': 'G1', 'mode': 'smoke', 'block': -1, 'index': -1, 'directory': 'interleaved/smoke-G1'}
+{'base': 'interleaved', 'policy': 'G2', 'mode': 'smoke', 'block': -1, 'index': -1, 'directory': 'interleaved/smoke-G2'}
+{'base': 'interleaved', 'policy': 'G3', 'mode': 'smoke', 'block': -1, 'index': -1, 'directory': 'interleaved/smoke-G3'}
+{'base': 'interleaved', 'policy': 'G4', 'mode': 'smoke', 'block': -1, 'index': -1, 'directory': 'interleaved/smoke-G4'}
+{'base': 'interleaved', 'policy': 'native_taco', 'mode': 'profile', 'block': -1, 'index': -1, 'directory': 'interleaved/profile-native_taco'}
+{'base': 'interleaved', 'policy': 'G1', 'mode': 'profile', 'block': -1, 'index': -1, 'directory': 'interleaved/profile-G1'}
+{'base': 'interleaved', 'policy': 'G2', 'mode': 'profile', 'block': -1, 'index': -1, 'directory': 'interleaved/profile-G2'}
+{'base': 'interleaved', 'policy': 'G3', 'mode': 'profile', 'block': -1, 'index': -1, 'directory': 'interleaved/profile-G3'}
+{'base': 'interleaved', 'policy': 'G4', 'mode': 'profile', 'block': -1, 'index': -1, 'directory': 'interleaved/profile-G4'}
+{'base': 'interleaved', 'round': 1, 'block': 0, 'index': 0, 'policy': 'G2', 'directory': 'interleaved/round1/window-000-G2', 'mode': 'timing'}
+{'base': 'interleaved', 'round': 1, 'block': 0, 'index': 1, 'policy': 'G1', 'directory': 'interleaved/round1/window-001-G1', 'mode': 'timing'}
+{'base': 'interleaved', 'round': 1, 'block': 0, 'index': 2, 'policy': 'native_taco', 'directory': 'interleaved/round1/window-002-native_taco', 'mode': 'timing'}
+{'base': 'interleaved', 'round': 1, 'block': 0, 'index': 3, 'policy': 'G3', 'directory': 'interleaved/round1/window-003-G3', 'mode': 'timing'}
+{'base': 'interleaved', 'round': 1, 'block': 0, 'index': 4, 'policy': 'G4', 'directory': 'interleaved/round1/window-004-G4', 'mode': 'timing'}
+{'base': 'interleaved', 'round': 1, 'block': 1, 'index': 5, 'policy': 'G1', 'directory': 'interleaved/round1/window-005-G1', 'mode': 'timing'}
+{'base': 'interleaved', 'round': 1, 'block': 1, 'index': 6, 'policy': 'native_taco', 'directory': 'interleaved/round1/window-006-native_taco', 'mode': 'timing'}
+{'base': 'interleaved', 'round': 1, 'block': 1, 'index': 7, 'policy': 'G3', 'directory': 'interleaved/round1/window-007-G3', 'mode': 'timing'}
+{'base': 'interleaved', 'round': 1, 'block': 1, 'index': 8, 'policy': 'G4', 'directory': 'interleaved/round1/window-008-G4', 'mode': 'timing'}
+{'base': 'interleaved', 'round': 1, 'block': 1, 'index': 9, 'policy': 'G2', 'directory': 'interleaved/round1/window-009-G2', 'mode': 'timing'}
+{'base': 'interleaved', 'round': 1, 'block': 2, 'index': 10, 'policy': 'native_taco', 'directory': 'interleaved/round1/window-010-native_taco', 'mode': 'timing'}
+{'base': 'interleaved', 'round': 1, 'block': 2, 'index': 11, 'policy': 'G3', 'directory': 'interleaved/round1/window-011-G3', 'mode': 'timing'}
+{'base': 'interleaved', 'round': 1, 'block': 2, 'index': 12, 'policy': 'G4', 'directory': 'interleaved/round1/window-012-G4', 'mode': 'timing'}
+{'base': 'interleaved', 'round': 1, 'block': 2, 'index': 13, 'policy': 'G2', 'directory': 'interleaved/round1/window-013-G2', 'mode': 'timing'}
+{'base': 'interleaved', 'round': 1, 'block': 2, 'index': 14, 'policy': 'G1', 'directory': 'interleaved/round1/window-014-G1', 'mode': 'timing'}
+{'base': 'interleaved', 'round': 1, 'block': 3, 'index': 15, 'policy': 'G3', 'directory': 'interleaved/round1/window-015-G3', 'mode': 'timing'}
+{'base': 'interleaved', 'round': 1, 'block': 3, 'index': 16, 'policy': 'G4', 'directory': 'interleaved/round1/window-016-G4', 'mode': 'timing'}
+{'base': 'interleaved', 'round': 1, 'block': 3, 'index': 17, 'policy': 'G2', 'directory': 'interleaved/round1/window-017-G2', 'mode': 'timing'}
+{'base': 'interleaved', 'round': 1, 'block': 3, 'index': 18, 'policy': 'G1', 'directory': 'interleaved/round1/window-018-G1', 'mode': 'timing'}
+{'base': 'interleaved', 'round': 1, 'block': 3, 'index': 19, 'policy': 'native_taco', 'directory': 'interleaved/round1/window-019-native_taco', 'mode': 'timing'}
+{'base': 'interleaved', 'round': 1, 'block': 4, 'index': 20, 'policy': 'G4', 'directory': 'interleaved/round1/window-020-G4', 'mode': 'timing'}
+{'base': 'interleaved', 'round': 1, 'block': 4, 'index': 21, 'policy': 'G2', 'directory': 'interleaved/round1/window-021-G2', 'mode': 'timing'}
+{'base': 'interleaved', 'round': 1, 'block': 4, 'index': 22, 'policy': 'G1', 'directory': 'interleaved/round1/window-022-G1', 'mode': 'timing'}
+{'base': 'interleaved', 'round': 1, 'block': 4, 'index': 23, 'policy': 'native_taco', 'directory': 'interleaved/round1/window-023-native_taco', 'mode': 'timing'}
+{'base': 'interleaved', 'round': 1, 'block': 4, 'index': 24, 'policy': 'G3', 'directory': 'interleaved/round1/window-024-G3', 'mode': 'timing'}
+{'base': 'interleaved', 'round': 2, 'block': 0, 'index': 0, 'policy': 'G3', 'directory': 'interleaved/round2/window-000-G3', 'mode': 'timing'}
+{'base': 'interleaved', 'round': 2, 'block': 0, 'index': 1, 'policy': 'native_taco', 'directory': 'interleaved/round2/window-001-native_taco', 'mode': 'timing'}
+{'base': 'interleaved', 'round': 2, 'block': 0, 'index': 2, 'policy': 'G1', 'directory': 'interleaved/round2/window-002-G1', 'mode': 'timing'}
+{'base': 'interleaved', 'round': 2, 'block': 0, 'index': 3, 'policy': 'G2', 'directory': 'interleaved/round2/window-003-G2', 'mode': 'timing'}
+{'base': 'interleaved', 'round': 2, 'block': 0, 'index': 4, 'policy': 'G4', 'directory': 'interleaved/round2/window-004-G4', 'mode': 'timing'}
+{'base': 'interleaved', 'round': 2, 'block': 1, 'index': 5, 'policy': 'native_taco', 'directory': 'interleaved/round2/window-005-native_taco', 'mode': 'timing'}
+{'base': 'interleaved', 'round': 2, 'block': 1, 'index': 6, 'policy': 'G1', 'directory': 'interleaved/round2/window-006-G1', 'mode': 'timing'}
+{'base': 'interleaved', 'round': 2, 'block': 1, 'index': 7, 'policy': 'G2', 'directory': 'interleaved/round2/window-007-G2', 'mode': 'timing'}
+{'base': 'interleaved', 'round': 2, 'block': 1, 'index': 8, 'policy': 'G4', 'directory': 'interleaved/round2/window-008-G4', 'mode': 'timing'}
+{'base': 'interleaved', 'round': 2, 'block': 1, 'index': 9, 'policy': 'G3', 'directory': 'interleaved/round2/window-009-G3', 'mode': 'timing'}
+{'base': 'interleaved', 'round': 2, 'block': 2, 'index': 10, 'policy': 'G1', 'directory': 'interleaved/round2/window-010-G1', 'mode': 'timing'}
+{'base': 'interleaved', 'round': 2, 'block': 2, 'index': 11, 'policy': 'G2', 'directory': 'interleaved/round2/window-011-G2', 'mode': 'timing'}
+{'base': 'interleaved', 'round': 2, 'block': 2, 'index': 12, 'policy': 'G4', 'directory': 'interleaved/round2/window-012-G4', 'mode': 'timing'}
+{'base': 'interleaved', 'round': 2, 'block': 2, 'index': 13, 'policy': 'G3', 'directory': 'interleaved/round2/window-013-G3', 'mode': 'timing'}
+{'base': 'interleaved', 'round': 2, 'block': 2, 'index': 14, 'policy': 'native_taco', 'directory': 'interleaved/round2/window-014-native_taco', 'mode': 'timing'}
+{'base': 'interleaved', 'round': 2, 'block': 3, 'index': 15, 'policy': 'G2', 'directory': 'interleaved/round2/window-015-G2', 'mode': 'timing'}
+{'base': 'interleaved', 'round': 2, 'block': 3, 'index': 16, 'policy': 'G4', 'directory': 'interleaved/round2/window-016-G4', 'mode': 'timing'}
+{'base': 'interleaved', 'round': 2, 'block': 3, 'index': 17, 'policy': 'G3', 'directory': 'interleaved/round2/window-017-G3', 'mode': 'timing'}
+{'base': 'interleaved', 'round': 2, 'block': 3, 'index': 18, 'policy': 'native_taco', 'directory': 'interleaved/round2/window-018-native_taco', 'mode': 'timing'}
+{'base': 'interleaved', 'round': 2, 'block': 3, 'index': 19, 'policy': 'G1', 'directory': 'interleaved/round2/window-019-G1', 'mode': 'timing'}
+{'base': 'interleaved', 'round': 2, 'block': 4, 'index': 20, 'policy': 'G4', 'directory': 'interleaved/round2/window-020-G4', 'mode': 'timing'}
+{'base': 'interleaved', 'round': 2, 'block': 4, 'index': 21, 'policy': 'G3', 'directory': 'interleaved/round2/window-021-G3', 'mode': 'timing'}
+{'base': 'interleaved', 'round': 2, 'block': 4, 'index': 22, 'policy': 'native_taco', 'directory': 'interleaved/round2/window-022-native_taco', 'mode': 'timing'}
+{'base': 'interleaved', 'round': 2, 'block': 4, 'index': 23, 'policy': 'G1', 'directory': 'interleaved/round2/window-023-G1', 'mode': 'timing'}
+{'base': 'interleaved', 'round': 2, 'block': 4, 'index': 24, 'policy': 'G2', 'directory': 'interleaved/round2/window-024-G2', 'mode': 'timing'}
