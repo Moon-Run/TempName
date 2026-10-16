@@ -1,20 +1,20 @@
-"""Four scopes: default dry-run, explicit execution, no queue or retry."""
+"""Scope experiments: default dry-run, explicit execution, no queue or retry."""
 from pathlib import Path
 import subprocess
 import sys
+import scope_protocol
 
 from ablation_prepare import megatron_check
 from ablation2_guard import check_start
 from calibrate import environment
 from common import read, require, sha, verify_files, write
 from run import arguments
-from scope_protocol import POLICIES, SHAPES, definition, is_native
 
 
-def jobs(info, stage):
+def jobs(info, stage, routing=scope_protocol):
     if stage in ('preflight', 'all'):
         for mode in ('smoke', 'profile'):
-            for policy in POLICIES:
+            for policy in routing.POLICIES:
                 yield dict(policy=policy, mode=mode, block=-1, index=-1, directory=mode+'-'+policy)
     if stage in ('timing', 'all'):
         for job in info['schedule']:
@@ -26,24 +26,30 @@ def command(root, info, python):
             str(root/'scripts/worker.py'), *arguments(info['config'])]
 
 
-def mapping_jobs(root, info):
-    for policy in POLICIES:
-        if is_native(policy):
+def mapping_jobs(root, info, routing=scope_protocol):
+    for policy in routing.POLICIES:
+        if routing.is_native(policy):
             continue
         lib = Path(info['variants'][policy]['root'])
-        for role in definition(policy)['roles']:
-            yield policy, role, [str(lib/'check_mapping'), *map(str, SHAPES[role]), '8', str(lib/'libflux_cuda.so')]
+        for role in routing.definition(policy)['roles']:
+            yield policy, role, [str(lib/'check_mapping'), *map(str, routing.SHAPES[role]), '8', str(lib/'libflux_cuda.so')]
 
 
-def run(root, stage='all', execute=False, python=Path(sys.executable), cuda_home=None):
-    from scope_report import verify_inputs, preflight, window, report
+def run(root, stage='all', execute=False, python=Path(sys.executable), cuda_home=None,
+        routing=scope_protocol, reporter=None, execute_env='H100_SCOPE_EXECUTE'):
+    if reporter is None:
+        import scope_report as reporter
+    verify_inputs, preflight, window, report = (getattr(reporter, n) for n in ('verify_inputs', 'preflight', 'window', 'report'))
+    definition, is_native = routing.definition, routing.is_native
+    require(stage in ('preflight', 'timing', 'all'), 'Unknown stage')
     root = Path(root).resolve(); info = verify_inputs(root)
-    tasks = list(jobs(info, stage))
+    require(info['protocol'] == routing.PROTOCOL, 'Wrong runner protocol')
+    tasks = list(jobs(info, stage, routing))
     if not execute:
         print('DRY RUN scope comparison: no Torch import, GPU query, mapping or worker')
         print(f'Formal windows: {info["timing_windows"]}; requested worker windows: {len(tasks)}')
         print('COMMAND', command(root, info, python))
-        for item in mapping_jobs(root, info): print('MAPPING', item)
+        for item in mapping_jobs(root, info, routing): print('MAPPING', item)
         for job in tasks: print(job)
         return tasks
     require(info['executable'] and not info['source_only'], 'Source-only scope rehearsal is permanently non-executable')
@@ -57,7 +63,7 @@ def run(root, stage='all', execute=False, python=Path(sys.executable), cuda_home
         try:
             if stage in ('preflight', 'all'):
                 check_start(root, info)
-                for policy, role, cmd in mapping_jobs(root, info):
+                for policy, role, cmd in mapping_jobs(root, info, routing):
                     lib = Path(info['variants'][policy]['root'])
                     env = environment(python, lib, info['config'], info['run_id'], root/'scripts', cuda_home)
                     with (root/'results'/f'mapping-{policy}-{role}.csv').open('x') as f:
@@ -73,7 +79,8 @@ def run(root, stage='all', execute=False, python=Path(sys.executable), cuda_home
                 lib = root/'no-flux-library' if is_native(policy) else Path(info['variants'][policy]['root'])
                 env = environment(python, lib, info['config'], info['run_id'], root/'scripts', cuda_home)
                 folder = root/'results'/job['directory']; folder.mkdir(parents=True, exist_ok=False)
-                env.update(H100_SCOPE_EXECUTE='1', E2E_POLICY=policy, E2E_MODE=mode, E2E_CASE='h100-phase6',
+                env.update({execute_env: '1'})
+                env.update(E2E_POLICY=policy, E2E_MODE=mode, E2E_CASE='h100-phase6',
                            E2E_BUILD=str(root/'build'), E2E_PROCESS_OUT=str(folder),
                            E2E_BLOCK=str(job['block']), E2E_WINDOW=str(job['index']),
                            PYTHONPATH=f'{root}/scripts:{info["megatron"]}'+('' if is_native(policy) else f':{lib}/python'))

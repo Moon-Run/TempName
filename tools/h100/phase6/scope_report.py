@@ -6,6 +6,7 @@ import json
 import math
 from pathlib import Path
 import statistics
+import scope_protocol
 
 from ablation_plan import mask_sha
 from ablation2_report import native_profile
@@ -69,9 +70,13 @@ def verify_inputs(root, offline=False):
     return info
 
 
-def window(root, folder, policy, mode, block=-1, index=-1):
+def window(root, folder, policy, mode, block=-1, index=-1, routing=scope_protocol):
+    PROTOCOL, SHAPES = routing.PROTOCOL, routing.SHAPES
+    definition, is_native = routing.definition, routing.is_native
+    module_role, module_routes = routing.module_role, routing.module_routes
     root, folder = Path(root), Path(folder); info = read(root/'submission.json')
     c = info['config']; cfg = read(root/'scripts/config.json'); plans = read(root/'scripts/selection-plan.json')
+    role_records = routing.role_plans(plans, policy)
     model = dict(cfg['common'], **cfg['cases'][0]); v = info['variants'][policy]
     count = cfg['smoke_steps'] if mode == 'smoke' else 1 if mode == 'profile' else 20
     warmup = cfg['smoke_warmup_steps'] if mode == 'smoke' else 10
@@ -111,13 +116,13 @@ def window(root, folder, policy, mode, block=-1, index=-1):
             for name, slots in r['workspace_checks'].items():
                 role = module_role(name)
                 require(len(slots) == 2 and all(s['shape'] == SHAPES[role] and
-                        s['mask_sha256'] == plans['roles'][role]['mask_sha256'] for s in slots), 'Workspace shape/mask crossed roles')
+                        s['mask_sha256'] == role_records[role]['mask_sha256'] for s in slots), 'Workspace shape/mask crossed roles')
             for field in ('packet_ptr', 'mask_ptr'):
                 pointers = [s[field] for slots in r['workspace_checks'].values() for s in slots]
                 require(all(type(p) is int and p > 0 for p in pointers) and len(pointers) == len(set(pointers)), 'Workspaces alias across modules/slots')
         require(set(r['selection_checks']) == selected, 'Wrong quantized module set')
         for name, check in r['selection_checks'].items():
-            role = module_role(name); record = plans['roles'][role]; mask = record['entry']['mask']
+            role = module_role(name); record = role_records[role]; mask = record['entry']['mask']
             expected = dict(role=role, shape=SHAPES[role], bf16_wire_bytes=7*256*4096*2,
                             mask_sha256=None if is_native(policy) else mask_sha(mask),
                             plan_sha256=None if is_native(policy) else record['entry_sha256'],
@@ -132,8 +137,9 @@ def window(root, folder, policy, mode, block=-1, index=-1):
     return rows
 
 
-def profile_roles(events, policy):
+def profile_roles(events, policy, routing=scope_protocol):
     """Associate CUDA kernels with role scopes through their runtime launch correlation."""
+    SHAPES, definition, is_native = routing.SHAPES, routing.definition, routing.is_native
     result = {}
     for role in SHAPES:
         route = ('tensor' if is_native(policy) else 'candidate') if role in definition(policy)['roles'] else 'native_bf16'

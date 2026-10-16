@@ -75,6 +75,11 @@ def selection_entry(plan, policy, role, m, n, k):
     return record
 
 
+def role_plans(plan, policy):
+    definition(policy)
+    return plan['roles']
+
+
 def schedule(blocks=4, seed=20261013):
     require(type(blocks) is int and blocks > 0 and blocks % 4 == 0, 'Blocks must be a positive multiple of 4')
     require(seed == 20261013, 'Scope protocol fixes schedule seed 20261013')
