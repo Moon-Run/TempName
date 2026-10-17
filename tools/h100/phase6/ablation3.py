@@ -33,6 +33,8 @@ def main():
     q.add_argument('--build', type=Path, required=True)
     q.add_argument('--megatron', type=Path, default=REPO.parent/'Megatron-LM')
     q.add_argument('--blocks', type=int, default=9); q.add_argument('--source-only', action='store_true')
+    q.add_argument('--rounds', type=int, choices=(1, 2), default=2,
+                   help='Number of timing rounds; one keeps the original first-round schedule (default: two)')
     for action in ('calibration-run', 'run'):
         q = sub.add_parser(action); q.add_argument('root', type=Path)
         q.add_argument('--execute', action='store_true'); q.add_argument('--cuda-home', type=Path)
@@ -69,7 +71,7 @@ def main():
     elif a.action == 'fit':
         print(scope_calibrate.fit(a.calibration, a.out))
     elif a.action == 'prepare':
-        print(ablation3_prepare.prepare(a.out, a.build, a.megatron, a.blocks, a.source_only))
+        print(ablation3_prepare.prepare(a.out, a.build, a.megatron, a.blocks, a.source_only, rounds=a.rounds))
     elif a.action == 'run':
         ablation3_run.run(a.root, a.stage, a.execute, a.python, a.cuda_home)
     elif a.action == 'report':

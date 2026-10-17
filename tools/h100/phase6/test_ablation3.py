@@ -45,6 +45,31 @@ class ProtocolTests(unittest.TestCase):
         self.assertEqual(len(sp.schedule(18)), 324)
         with self.assertRaises(ValueError): sp.definition('native_taco')
 
+    def test_single_round_preserves_first_round_and_rejects_invalid_counts(self):
+        for blocks in (9, 18):
+            single = sp.schedule(blocks, rounds=1)
+            self.assertEqual(single, [job for job in sp.schedule(blocks) if job['round'] == 1])
+            self.assertEqual(len(single), 9*blocks)
+            self.assertEqual({job['round'] for job in single}, {1})
+        for rounds in (0, 3, -1, True, False, 1.0, '1', None):
+            with self.subTest(rounds=rounds), self.assertRaisesRegex(ValueError, 'Rounds'):
+                sp.schedule(rounds=rounds)
+
+    def test_prepare_cli_rounds_and_default(self):
+        for options, count in (([], 2), (['--rounds', '1'], 1), (['--rounds', '2'], 2)):
+            argv = ['ablation3.py', 'prepare', '/unused/compare', '--build', '/unused/build',
+                    '--megatron', '/unused/megatron', '--source-only', *options]
+            with self.subTest(rounds=count), mock.patch.object(sys, 'argv', argv), \
+                    mock.patch.object(preparation, 'prepare') as prepare, contextlib.redirect_stdout(io.StringIO()):
+                cli.main()
+                prepare.assert_called_once_with(Path('/unused/compare'), Path('/unused/build'),
+                                                Path('/unused/megatron'), 9, True, rounds=count)
+        with mock.patch.object(sys, 'argv', argv[:-2] + ['--rounds', '3']), \
+                mock.patch.object(preparation, 'prepare') as prepare, \
+                contextlib.redirect_stderr(io.StringIO()), self.assertRaises(SystemExit):
+            cli.main()
+        prepare.assert_not_called()
+
     def test_all_remote_and_sparse_masks_are_independent_of_order(self):
         p = planner.bundle(parent_fixture())
         for scope in sp.SCOPES:
@@ -168,6 +193,7 @@ class IntegrationTests(unittest.TestCase):
         cls.tmp=tempfile.TemporaryDirectory(prefix='ablation3-CPU-FIXTURE-');cls.root=Path(cls.tmp.name)
         cls.build=builder.prepare(cls.root/'build',source_only=True)
         cls.compare=preparation.prepare(cls.root/'compare',cls.build,Path('/absent'),source_only=True)
+        cls.single=preparation.prepare(cls.root/'single',cls.build,Path('/absent'),source_only=True,rounds=1)
 
     @classmethod
     def tearDownClass(cls):cls.tmp.cleanup()
@@ -187,6 +213,75 @@ class IntegrationTests(unittest.TestCase):
         m=builder.verify(self.build)
         a,b=[m['builds'][order]['source_sha256'] for order in builder.ORDERS]
         self.assertEqual({k for k in a if a[k]!=b[k]}, {'phase6_host.hpp',builder.scope_build.SWIZZLE})
+
+    def test_single_round_freezes_81_windows_and_keeps_full_preflight(self):
+        with mock.patch.object(subprocess, 'run', side_effect=AssertionError('GPU/process launch')), \
+                mock.patch.object(subprocess, 'check_output', side_effect=AssertionError('GPU query')):
+            info = report.verify_inputs(self.single)
+            self.assertEqual(info['rounds'], 1)
+            self.assertEqual(info['timing_windows'], 81)
+            self.assertEqual(read(self.single/'scripts/config.json')['repetitions'], 1)
+            self.assertEqual(read(self.single/'provenance/preparation.json')['rounds'], 1)
+            with contextlib.redirect_stdout(io.StringIO()):
+                self.assertEqual(len(runner.run(self.single)), 99)
+                self.assertEqual(len(runner.run(self.single, stage='preflight')), 18)
+                timing = runner.run(self.single, stage='timing')
+            self.assertEqual(len(timing), 81)
+            self.assertEqual({job['round'] for job in timing}, {1})
+            self.assertEqual(len(list(runner.mapping_jobs(self.single, info))), 12)
+            with self.assertRaises(ValueError): runner.run(self.single, execute=True)
+        self.assertNotIn('torch', sys.modules)
+
+    def test_round_count_and_schedule_tampering_rejected_even_with_new_hashes(self):
+        root = self.single
+        paths = [root/name for name in ('submission.json', 'provenance/preparation.json',
+                                        'scripts/config.json', 'schedule.json')]
+        originals = {p: p.read_bytes() for p in paths}
+        for mutation in ('submission', 'seal', 'config', 'missing_round_metadata', 'missing_window', 'extra_round'):
+            with self.subTest(mutation=mutation):
+                try:
+                    info = read(root/'submission.json')
+                    if mutation == 'submission': info['rounds'] = 2
+                    elif mutation in ('seal', 'missing_round_metadata'):
+                        seal = read(root/'provenance/preparation.json')
+                        if mutation == 'seal': seal['rounds'] = 2
+                        else:
+                            info.pop('rounds'); seal.pop('rounds')
+                        write(root/'provenance/preparation.json', seal)
+                    elif mutation == 'config':
+                        cfg = read(root/'scripts/config.json'); cfg['repetitions'] = 2
+                        write(root/'scripts/config.json', cfg)
+                    else:
+                        info['schedule'] = info['schedule'][:-1] if mutation == 'missing_window' else sp.schedule()
+                        info['timing_windows'] = len(info['schedule'])
+                        write(root/'schedule.json', info['schedule'])
+                    info['files'] = {p: sha(root/p) for p in info['files']}
+                    write(root/'submission.json', info)
+                    with self.assertRaises(ValueError): report.verify_inputs(root)
+                finally:
+                    for path, original in originals.items(): path.write_bytes(original)
+
+    def test_legacy_two_round_metadata_still_requires_both_rounds(self):
+        root = self.compare
+        paths = [root/name for name in ('submission.json', 'provenance/preparation.json', 'schedule.json')]
+        originals = {p: p.read_bytes() for p in paths}
+        try:
+            info = read(root/'submission.json'); info.pop('rounds')
+            seal = read(root/'provenance/preparation.json'); seal.pop('rounds')
+            write(root/'provenance/preparation.json', seal)
+            info['files']['provenance/preparation.json'] = sha(root/'provenance/preparation.json')
+            write(root/'submission.json', info)
+            verified = report.verify_inputs(root)
+            self.assertEqual(verified.get('rounds', 2), 2)
+            self.assertEqual(verified['timing_windows'], 162)
+            # An unfinished old two-round run cannot be relabelled as a completed single round.
+            info.update(rounds=1, schedule=sp.schedule(rounds=1), timing_windows=81)
+            write(root/'schedule.json', info['schedule'])
+            info['files']['schedule.json'] = sha(root/'schedule.json')
+            write(root/'submission.json', info)
+            with self.assertRaisesRegex(ValueError, 'Frozen round count'): report.verify_inputs(root)
+        finally:
+            for path, original in originals.items(): path.write_bytes(original)
 
     def test_frozen_input_and_library_order_mismatch_rejected(self):
         for name in ('scripts/taco_support.py','scripts/selection-plan.json','schedule.json'):
@@ -215,15 +310,9 @@ class IntegrationTests(unittest.TestCase):
     def test_complete_synthetic_180_window_report_and_failure_paths(self):
         root=preparation.prepare(self.root/'SYNTHETIC-NOT-GPU',self.build,Path('/absent'),source_only=True)
         info=executable_fixture(root)
-        for job in runner.jobs(info,'all'):make_window(root,info,job)
-        plans=read(root/'scripts/selection-plan.json')
-        for policy,role,_ in runner.mapping_jobs(root,info):
-            coords=sp.role_plans(plans,policy)[role]['entry']['coords']
-            with (root/'results'/f'mapping-{policy}-{role}.csv').open('w') as f:
-                w=csv.DictWriter(f,fieldnames=['rank','index','m','n','destination','sm_occupancy']);w.writeheader()
-                for rank,row in enumerate(coords):
-                    for i,t in enumerate(row):w.writerow(dict(rank=rank,index=i,m=t//32,n=t%32,destination=t//64,sm_occupancy=2))
-        report.preflight(root,offline=True);result=report.report(root,offline=True)
+        make_evidence(root, info)
+        result=report.report(root,offline=True)
+        self.assertEqual(result['round_count'], 2)
         self.assertEqual(result['timing_rank_records'],1296);self.assertEqual(result['preflight_rank_records'],144)
         self.assertEqual(result['profile_traces'],72);self.assertEqual(result['candidate_shape_mappings'],12)
         self.assertEqual(len(result['all_samples']),162);self.assertEqual(result['rounds']['combined']['blocks'],18)
@@ -245,6 +334,48 @@ class IntegrationTests(unittest.TestCase):
         with self.assertRaises(FileNotFoundError):report.report(root,offline=True)
         write(path,original)
 
+    def test_complete_single_round_report_and_missing_extra_evidence(self):
+        root = preparation.prepare(self.root/'SINGLE-SYNTHETIC-NOT-GPU', self.build, Path('/absent'),
+                                   source_only=True, rounds=1)
+        info = executable_fixture(root)
+        make_evidence(root, info)
+        result = report.report(root, offline=True)
+        self.assertTrue(result['completed'])
+        self.assertEqual(result['round_count'], 1)
+        self.assertEqual(result['blocks_per_round'], 9)
+        self.assertEqual(result['timing_windows'], 81)
+        self.assertEqual(result['timing_rank_records'], 648)
+        self.assertEqual(result['preflight_rank_records'], 144)
+        self.assertEqual(result['profile_traces'], 72)
+        self.assertEqual(result['candidate_shape_mappings'], 12)
+        self.assertEqual(len(result['all_samples']), 81)
+        self.assertEqual(len(result['evidence']['timing_files']), 648)
+        self.assertEqual(set(result['rounds']), {'1', 'combined'})
+        self.assertEqual(set(result['sensitivity']), {'1'})
+        self.assertEqual(result['rounds']['combined'], result['rounds']['1'])
+        self.assertEqual(result['rounds']['1']['blocks'], 9)
+        self.assertEqual(len(result['rounds']['1']['comparisons']), 18)
+        markdown = (root/'report.md').read_text()
+        self.assertIn('本次1轮', markdown)
+        self.assertIn('没有第二轮反转验证', markdown)
+        self.assertNotIn('| 2 |', markdown)
+        self.assertFalse((root/'results/round2').exists())
+
+        extra = root/'results/round2/window-000-unrequested'; extra.mkdir(parents=True)
+        try:
+            with self.assertRaisesRegex(ValueError, 'extra timing window'): report.report(root, offline=True)
+        finally:
+            extra.rmdir(); extra.parent.rmdir()
+        last = root/'results'/info['schedule'][-1]['directory']
+        renamed = last.with_name('hidden-last-window'); last.rename(renamed)
+        try:
+            with self.assertRaisesRegex(ValueError, 'Missing or extra timing'): report.report(root, offline=True)
+        finally: renamed.rename(last)
+        rank = last/'rank7.json'; original = rank.read_bytes(); rank.unlink()
+        try:
+            with self.assertRaises(FileNotFoundError): report.report(root, offline=True)
+        finally: rank.write_bytes(original)
+
 
 def profile_fixture(policy):
     with mock.patch.object(scope_tests,'sp',sp):return scope_tests.profile_fixture(policy)
@@ -259,6 +390,22 @@ def make_window(root,info,job):
         return data
     with mock.patch.object(scope_tests,'sp',sp),mock.patch.object(scope_tests,'read',side_effect=per_policy):
         scope_tests.make_window(root,info,job)
+
+
+def make_evidence(root, info):
+    """Complete simulated evidence under a temporary directory, never a GPU run."""
+    for job in runner.jobs(info, 'all'): make_window(root, info, job)
+    plans = read(root/'scripts/selection-plan.json')
+    for policy, role, _ in runner.mapping_jobs(root, info):
+        coords = sp.role_plans(plans, policy)[role]['entry']['coords']
+        with (root/'results'/f'mapping-{policy}-{role}.csv').open('w') as f:
+            writer = csv.DictWriter(f, fieldnames=['rank', 'index', 'm', 'n', 'destination', 'sm_occupancy'])
+            writer.writeheader()
+            for rank, row in enumerate(coords):
+                for i, tile in enumerate(row):
+                    writer.writerow(dict(rank=rank, index=i, m=tile//32, n=tile%32,
+                                         destination=tile//64, sm_occupancy=2))
+    report.preflight(root, offline=True)
 
 
 def executable_fixture(root):

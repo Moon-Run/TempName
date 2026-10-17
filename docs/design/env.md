@@ -6,7 +6,9 @@
 
 **Megatron-LM 必须固定为 `core_v0.12.3`，精确提交为 `3ea68ad6042cc1204386ae9364358f7c4de1bc37`。** 获取与校验命令见第 5 节；74 服务器现有镜像的选择建议见第 8 节。
 
-单机八卡 H100 的完整源码迁移、构建、校准和运行步骤见 [H100 TP8 部署指南](design-h100/deploy-tp8.md)。该指南使用相同的 PyTorch/Apex 版本，并单列已经过 H100 编译检查的 CMake 3.30.0。
+**2026-10-17，新服务器跑H100消融3：以 [H100 TP8 部署指南](design-h100/deploy-tp8.md) 为安装和执行主入口。** 本文保留公共依赖及A800历史环境；不要把两份安装脚本依次执行。H100采用Python 3.10.20、PyTorch 2.6.0+cu124、固定Apex/Megatron源码、GCC/G++ 11、CMake **3.30.0**、Ninja 1.11.1.3。下文A800示例的CMake 4.4.3不用于覆盖H100环境。容器基础镜像中的默认Python/PyTorch不能代替这些版本，安装后须实际导入Apex三个编译扩展并记录解释器路径。
+
+H100的Flux构建使用CUDA 12.8，Apex及训练环境使用CUDA 12.4；编译前设置`DEBUG=0`、清空`MAKEFLAGS`，固定`CC`、`CXX`、`CUDAHOSTCXX`。`DEBUG=release`会被固定NCCL Makefile识别为调试构建。按部署指南构建一次NCCL 2.19.3 Release开发库，采样/base/arrival统一通过`--nccl-root`引用；这是项目编译依赖，与PyTorch wheel的NCCL 2.21.5运行依赖分开。新主机重新校准Attention和MLP并完整编译库，不能仅凭拉取的旧日志或源码判断环境就绪。
 
 ## 1. 当前实际使用的环境
 
@@ -61,7 +63,7 @@ python -m pip install \
   psutil==6.1.1 PyYAML==6.0.2 tqdm==4.67.1 six==1.17.0 \
   pybind11==2.13.6 ninja==1.11.1.3
 
-# 需要在这个环境内编译 Flux 时安装。
+# A800历史配置；H100消融3改用deploy-tp8.md中的cmake==3.30.0。
 python -m pip install cmake==4.4.3
 ```
 

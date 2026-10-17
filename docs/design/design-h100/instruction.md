@@ -4,6 +4,10 @@
 
 H100端“怎么测试、测试完交什么”统一维护在 [instruction-h100.md](instruction-h100.md)，部署命令在 [deploy-tp8.md](deploy-tp8.md)。本页负责告诉开发端在哪里找代码、数据、结论，以及哪些事情尚未验证。最新用户任务决定本轮范围，不因历史实验记录或待验证列表自动启动新测试。
 
+**2026-10-17，新服务器消融3交接：** 给有H100服务器的新对话使用 [deploy-tp8.md](deploy-tp8.md) → [消融实验3.md](消融实验3.md) / [README-ablation3.md](../../../tools/h100/phase6/README-ablation3.md) → [instruction-h100.md](instruction-h100.md)；公共软件版本参考 [env.md](../env.md)。本页和A800说明提供开发背景，不是新H100的安装/运行脚本。**本次只跑一轮：`prepare --blocks 9 --rounds 1`，81个正式窗口/648份正式rank；18个预检窗口不减少。** 省略轮数参数仍兼容旧两轮协议，旧已冻结目录不得改成一轮。H100部署指南同时保留仅预检分支，并补充`DEBUG=0`、共用NCCL Release开发库及本机双角色计划要求。
+
+消融3的当前数据入口是 [base-phase6-ablation3.md](base-phase6-ablation3.md)，原始证据在 `logs/h100/phase6/ablation3-gpt67-tp8-scope-20261016-221018-release1/`，构建登记在同名`outputs/h100/phase6/`目录。回传已有完整预检、124个完整正式窗口，其中117窗口构成13个完整九组配对块；第二轮异常，尚无完整162窗口报告。旧“尚无GPU验证”不再适用，回传的`running`状态也不代表远端仍在运行。新服务器独立生成计划、构建和日志，不延续原服务器旧PID或repeat队列；消融3任务不自动转为Phase7。
+
 **2026-10-13 消融入口：** native＋G0–G6 已有独立实现，分组见 [消融实验.md](消融实验.md)，命令与验证边界见 [README-ablation.md](../../../tools/h100/phase6/README-ablation.md)。两种基础顺序分别测量，G5默认三个预登记seed；默认400个完整step窗口，不套用下文原六策略的72窗口及单项4%验收。本轮只进行CPU/dry-run/无GPU编译，GPU测试尚待执行端安排。
 
 **当前融合基线已对齐并有实测：** `build.py prepare` 的 `taco_fused` 使用 [固定 A800 源码](../../../tools/h100/phase6/fused_v2/README.md)，标识 `a800-fused-v2-cta-v1`：CTA 解码、旧融合编码转换、逐次 configure/reset、单工作区及两次 barrier；保留 H100 V2 MLP/V3 attention 的实例路由。`gpt67-tp8-fusedv2-*` 是该实现的实测会话；更早的 `gpt67-tp8-20261010-112249/compare-*` 属于 `phase6-warp-v1`。不要沿用旧文档“新基线尚无GPU结果”的判断，也不要混用两种基线结果。

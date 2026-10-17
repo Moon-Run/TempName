@@ -93,14 +93,15 @@ def selection_entry(plan, policy, role, m, n, k):
     return record
 
 
-def schedule(blocks=9, seed=20261013):
+def schedule(blocks=9, seed=20261013, rounds=2):
     require(type(blocks) is int and blocks > 0 and blocks % 9 == 0, 'Blocks must be a positive multiple of 9')
+    require(type(rounds) is int and rounds in (1, 2), 'Rounds must be one or two')
     require(seed == 20261013, 'Ablation3 fixes schedule seed 20261013')
     order = list(POLICIES); random.Random(seed).shuffle(order)
     first = [order[i % 9:]+order[:i % 9] for i in range(blocks)]
     return [dict(round=rep, block=b, index=b*9+i, policy=p,
                  directory=f'round{rep}/window-{b*9+i:03d}-{p}')
-            for rep, rows in enumerate((first, [r[::-1] for r in first[::-1]]), 1)
+            for rep, rows in enumerate((first, [r[::-1] for r in first[::-1]])[:rounds], 1)
             for b, row in enumerate(rows) for i, p in enumerate(row)]
 
 

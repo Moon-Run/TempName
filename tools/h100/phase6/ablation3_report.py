@@ -20,12 +20,16 @@ def verify_inputs(root, offline=False):
     root = Path(root); info = read(root/'submission.json')
     require(info['protocol'] == PROTOCOL and info['config'] == model_config(), 'Wrong ablation3 protocol/model')
     verify_files(root, info['files'])
-    require(info['schedule'] == read(root/'schedule.json') == schedule(info['blocks_per_round'], info['schedule_seed']) and
+    # Older sessions always froze two rounds, even when their measurements stopped early.
+    rounds = info.get('rounds', 2)
+    require(info['schedule'] == read(root/'schedule.json') == schedule(info['blocks_per_round'], info['schedule_seed'], rounds) and
             info['timing_windows'] == len(info['schedule']), 'Nine-group schedule changed')
     seal = read(root/'provenance/preparation.json')
     require(all(seal[k] == info[k] for k in ('protocol', 'run_id', 'source_only', 'executable')) and
             info['executable'] == (not info['source_only']), 'Rehearsal flags changed')
     plans = read(root/'scripts/selection-plan.json'); cfg = read(root/'scripts/config.json')
+    require(type(seal.get('rounds', 2)) is int and seal.get('rounds', 2) == rounds and
+            type(cfg['repetitions']) is int and cfg['repetitions'] == rounds, 'Frozen round count changed')
     hashes = {p: {r: v['entry_sha256'] for r, v in data['roles'].items()} for p, data in plans['variants'].items()}
     require(sha(root/'scripts/selection-plan.json') == seal['plans_sha256'] and cfg['protocol'] == PROTOCOL and
             cfg['policies'] == list(POLICIES) and cfg['role_plan_sha256'] == hashes, 'Worker policy/plan identity changed')
@@ -141,10 +145,14 @@ def sensitivity(values, blocks):
 
 def markdown(result):
     lines = ['# H100 GPT6.7B TP8 九组消融', '',
+             f'本次{result["round_count"]}轮，每轮{result["blocks_per_round"]}个完整配对块，'
+             f'共{result["timing_windows"]}个正式窗口。',
              '所有ms/step均为完整32层模型、4微批的optimizer step。九组同块，全样本为主。',
              'A=交替+全远端量化；B=交替+到达优先+全远端量化；C=交替+到达优先+选择性量化。',
              '本地贡献及未选中模块保持BF16；没有同期native_taco或固定融合v2基线。',
              '95% CI按完整九组配对块bootstrap 10000次、seed20261009，逐项区间未校正多重比较；无4%门槛。', '']
+    if result['round_count'] == 1:
+        lines += ['单轮保留原第一轮的循环移位调度，没有第二轮反转验证；combined与第1轮是同一批数据，不增加样本数。', '']
     for label, rounds in [('全样本', result['rounds']), ('慢窗口敏感性附表', {k: v['summary'] for k, v in result['sensitivity'].items()})]:
         lines += [f'## {label}', '', '| 轮次 | 策略 | 中位ms/step | tokens/s |', '| --- | --- | ---: | ---: |']
         for rep, s in rounds.items():
@@ -175,7 +183,13 @@ def report(root, offline=False):
     require(info['executable'] and not info['source_only'] and gate['completed'] and gate['protocol'] == PROTOCOL and
             gate['submission_sha256'] == sha(root/'submission.json'), 'Completed GPU preflight required')
     verify_files(root, gate['files'])
+    rounds = info.get('rounds', 2)
+    expected = {job['directory'] for job in info['schedule']}
+    observed = {str(path.relative_to(root/'results'))
+                for path in (root/'results').glob('round*/window-*') if path.is_dir()}
+    require(observed == expected, 'Missing or extra timing window directories')
     result = dict(protocol=PROTOCOL, run_id=info['run_id'], completed=False, offline=offline, all_samples=[], rounds={}, sensitivity={},
+                  round_count=rounds, blocks_per_round=info['blocks_per_round'],
                   acceptance_threshold=None, sample_policy='all samples primary', correctness_passed=True,
                   bootstrap=dict(resamples=10000, seed=20261009, unit='complete nine-policy block', multiple_comparison_correction=None),
                   primary_comparisons=PRIMARY, scope_comparisons=RANGE_COMPARISONS,
@@ -183,7 +197,7 @@ def report(root, offline=False):
                   measurement_identity=measurement_identity(info, gate),
                   role_plan_sha256=read(root/'scripts/config.json')['role_plan_sha256'])
     combined = {k: [] for k in POLICIES}; combined_blocks = []; files = {}
-    for rep in (1, 2):
+    for rep in range(1, rounds + 1):
         values = {k: [] for k in POLICIES}; blocks = [dict(round=rep, block=b) for b in range(info['blocks_per_round'])]
         for block in blocks:
             jobs = [j for j in info['schedule'] if j['round'] == rep and j['block'] == block['block']]

@@ -1,5 +1,11 @@
 # H100执行端：测试与数据交付说明
 
+**2026-10-17，消融3入口：** 新服务器先按 [deploy-tp8.md](deploy-tp8.md) 配置环境，结合 [消融实验3.md](消融实验3.md) 和 [README-ablation3.md](../../../tools/h100/phase6/README-ablation3.md) 执行。使用`ablation3.py`，固定单节点8×132 SM H100、GPT 6.7B、TP8，A/B/C三策略×MLP/Attention/双模块共九组。**本次只跑一轮：`prepare --blocks 9 --rounds 1`，81个正式窗口，另有18个预检窗口。** CLI省略`--rounds`仍默认两轮162窗口，本次不要省略。下文历史六/八组、50/72/400窗口和4%门槛都不适用于本协议，不自动切换Phase7或旧等待队列。
+
+新主机必须重新进行Attention与MLP的BF16校准、显式传入两份本机计划、完整编译采样及base/arrival候选库。按部署指南使用`DEBUG=0`及同一份NCCL Release开发库；旧服务器的路径、GPU UUID、计划与二进制均不能直接套用。当前回传的消融3已完成预检及124/162个正式窗口，第二轮异常，见 [结果与完成边界](base-phase6-ablation3.md)；不再使用“消融3没有GPU验证”的旧开发快照判断当前状态。
+
+本次新服务器任务实际执行一轮：prepare后dry-run应有99个worker窗口，再用`run --stage all --execute`完成预检和81个正式窗口，交付648份正式rank、144份预检rank、72份profile trace和12项mapping及严格报告，不追加第二轮或复测。若某次任务仅要求“配置环境并查看能否运行”，则在`run --stage preflight --execute`及`report --preflight`后停止。轮数在准备时冻结，旧两轮目录不能删改成一轮；本次报告`round_count=1`，无第二轮反转验证。忙时说明原因，不结束其他任务、不自行建队列；运行中不周期查询GPU占用。失败保留控制器/worker日志和阶段状态，不把`running`状态或遗留占显存进程当成完成证据。历史注明“开发阶段不启动GPU”的句子描述当时任务，不覆盖后来用户明确安排的执行范围。
+
 Attention/MLP四组作用范围任务使用 [README-mlp-attention.md](../../../tools/h100/phase6/README-mlp-attention.md)：先完成独立Attention BF16校准，再使用共享双shape候选库运行32个正式窗口。旧MLP-only计划或库不能直接冒充Attention验证，旧五组入口保持原义。
 
 2026-10-14：简化的 `native_taco＋G1–G4`、仅interleaved、默认50窗口任务使用 [五组使用说明](../../../tools/h100/phase6/README-ablation2.md)。该入口独立标记 `h100-gpt67-tp8-ablation2-v1`，本次开发只做CPU验证、dry-run及无GPU编译；GPU实验须在H100端另行执行。下文旧六/八组数量和4%门槛不适用于五组协议。

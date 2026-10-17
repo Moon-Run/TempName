@@ -12,9 +12,10 @@ from scope_plan import model_config
 from common import HERE, REPO, MEGATRON_COMMIT, read, require, replace_once, sha, write
 
 
-def prepare(out, build_root, megatron, blocks=9, source_only=False):
+def prepare(out, build_root, megatron, blocks=9, source_only=False, rounds=2):
     build_root, megatron = Path(build_root).resolve(), Path(megatron).resolve()
-    m = builder.verify(build_root, built=not source_only); jobs = schedule(blocks)
+    jobs = schedule(blocks, rounds=rounds)
+    m = builder.verify(build_root, built=not source_only)
     plans = read(build_root/'plans.json')
     require(source_only or not plans['source_only'], 'Cannot promote a CPU rehearsal')
     if not source_only:
@@ -37,7 +38,7 @@ def prepare(out, build_root, megatron, blocks=9, source_only=False):
         shutil.copy2(src, scripts/dst)
     shutil.copy2(build_root/'ablation3-manifest.json', provenance/'build-manifest.json')
     c = model_config(); cfg = read(REPO/'tools/a800/phase5/e2e/config.json')
-    cfg.update(protocol=PROTOCOL, policies=list(POLICIES), orders=[], repetitions=2, warmup_steps=10, timed_steps=20,
+    cfg.update(protocol=PROTOCOL, policies=list(POLICIES), orders=[], repetitions=rounds, warmup_steps=10, timed_steps=20,
                cases=[dict(name='h100-phase6', **{k: c[k] for k in ('hidden', 'ffn', 'heads', 'sequence', 'tp')})],
                common={k: c[k] for k in ('layers', 'micro_batch', 'global_batch', 'seed', 'token_seed', 'vocab')},
                graph_forward=False, double_buffered=True, ring_reduction=True,
@@ -46,7 +47,8 @@ def prepare(out, build_root, megatron, blocks=9, source_only=False):
                scope='Nine-group full optimizer steps; unselected projections native BF16.')
     write(scripts/'config.json', cfg); run_id = uuid.uuid4().hex
     write(provenance/'preparation.json', dict(protocol=PROTOCOL, run_id=run_id, source_only=source_only,
-                                             executable=not source_only, plans_sha256=sha(build_root/'plans.json')))
+                                             executable=not source_only, rounds=rounds,
+                                             plans_sha256=sha(build_root/'plans.json')))
     variants = {}; build_files = {str(build_root/'plans.json'): sha(build_root/'plans.json')}
     for order in builder.ORDERS:
         root = build_root/order; child = read(root/'manifest.json'); lib = root/'scope-candidate'
@@ -65,7 +67,7 @@ def prepare(out, build_root, megatron, blocks=9, source_only=False):
         variants[p] = v
     hardware = next((p['hardware'] for p in plans['parent']['roles'].values() if not p['test_only']), {})
     info = dict(protocol=PROTOCOL, run_id=run_id, config=c, source_only=source_only, executable=not source_only,
-                gpu_validated=False, blocks_per_round=blocks, schedule_seed=20261013,
+                gpu_validated=False, rounds=rounds, blocks_per_round=blocks, schedule_seed=20261013,
                 schedule=jobs, timing_windows=len(jobs), variants=variants, calibration_hardware=hardware,
                 megatron=str(megatron), megatron_commit=MEGATRON_COMMIT, candidate_source_commit=m['parent_source_commit'],
                 build_manifest=dict(path=str(build_root/'ablation3-manifest.json'), sha256=sha(build_root/'ablation3-manifest.json')),
