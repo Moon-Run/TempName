@@ -1,20 +1,17 @@
-# Phase7：独立分块 GEMM / 通信 / 解码原型
+# Phase7：原融合路径上的到达优先改进
 
-设计、实现边界、运行命令和验证记录见 [base-phase7.md](../../../docs/design/design-h100/base-phase7.md)。本目录不改写 Phase6、A800 或冻结候选源码。
+主入口是 `fused.py`，完整设计、实现边界及运行命令见 [base-phase7.md](../../../docs/design/design-h100/base-phase7.md)，后续路线见 [update.md](../../../docs/design/design-h100/update.md)。
 
-- `phase7.py`：准备冻结会话、默认 dry-run、显式执行、四组配对报告。
-- `planner.py`：共享分块顺序、物理 mask、旧计划导入和按完整候选净收益选计划。
-- `runtime.py` / `codec.py`：分块 BF16 GEMM、H128/E4M3 mixed-wire NCCL all-to-all、屏障/流水消费。
-- `adapter.py` / `worker.py`：独立算子与固定 GPT6.7B 的 BF16/STE 训练接入。
-- `protocol.py`：冻结身份、完整rank/窗口检查、完整配对块统计与交互效应。
-- `snapshot.py`：Phase6 原版来源归档及校验。
+- `fused_plan.py`：真实receiver采样、稳定剩余延迟、协调排序、保守回退。
+- `fused_build.py`：生成base/legacy/improved三套同源候选，仅CUDA/host映射表不同。
+- `fused_protocol.py`、`fused_prepare.py`、`fused_run.py`、`fused_report.py`：原融合模型接入、九组配对及严格证据检查。
+- `snapshot.py`：校验本地保留的Phase6原版快照。
 
-所有 GPU 入口必须显式传 `run --execute`。CPU 准备或测试不会升级为 GPU 验证。现有运行时使用新分块张量和 CUDA/NCCL 事件依赖，不是对旧 Flux epilogue 的直接无屏障改写，也没有实现设备端动态 ready 队列。
-
-在带 PyTorch 2.6 的 Python 环境运行全部 CPU 回归：
+三种顺序使用完全相同的原选择性量化mask；GemmV2、codec、IPC、屏障和双缓冲保持一致。默认dry-run，GPU执行须显式指定 `--execute`。静态模型筛选不等于性能提升。
 
 ```bash
-python -m unittest discover -s tools/h100/phase7 -p 'test_*.py' -v
+python3 tools/h100/phase7/fused.py --help
+python3 -m unittest discover -s tools/h100/phase7 -p 'test_fused_*.py' -v
 ```
 
-系统 Python 没有 PyTorch 时，纯标准库计划/协议测试仍可执行，依赖真实张量的 runtime 测试会明确 skip。
+此前独立分块原型及其CPU验证产物已删除。新生成的 `fused-*-dev/` 目录仅保留本地，不随Git提交。

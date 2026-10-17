@@ -1,220 +1,209 @@
-# H100 Phase7：分块消费与共享顺序首版实现
+# H100 Phase7：在原融合路径上改进到达优先
 
-更新：2026-10-17。依据 [改进方案](update.md) 实现独立的 Phase7 代码路径，并保存 Phase6 原版。**当前完成源码、CPU 回归和可执行实验入口；开发节点没有可见 GPU，尚未完成 H100 数值、并发、性能或真实数据训练验证。本文不填写未测的耗时或加速比。**
+更新：2026-10-17。本轮在原有**交替顺序＋到达优先＋选择性量化**基础上改进静态 tile 排序。交替目标顺序、GemmV2、融合编码、解码、IPC、屏障、双缓冲、BF16/STE 反向及物理量化 mask 保持一致，只派生新的 CUDA/host 映射表。
 
-## 1. 本次实现范围
+当前已完成代码、历史真实采样的离线拟合、三套同源候选源码和九组完整模型实验入口。**尚未运行 H100 实验，不能宣称加速或训练质量改善。** 此前独立的分块原型、相关文档、开发会话与 CPU 验证结果已删除；本页只记录当前融合实现。设计依据见 [update.md](update.md)。
 
-首版采用可独立验证的 **PyTorch 分块 GEMM＋NCCL 变长 all-to-all＋H128/E4M3 编解码原型**，验证“完整生产后消费”与“分块交换完成后提前消费”的差别。
+## 1. 本轮改进与原思想的关系
 
-这是 [update.md](update.md) 中分块原型阶段的实现。它会改变 GEMM 切分、kernel launch 数量、通信后端调用粒度和编码实现，不能把它与历史 Flux 候选的绝对耗时差直接归因于移除屏障。没有直接删除原 Flux V2 的 IPC barrier，也没有修改已有源码中的双缓冲复用条件。
+| 原思想 | 本轮处理 | 作用 |
+| --- | --- | --- |
+| 交替顺序 | 保留来源rank s的目标轮转 `s,s+1,...` 和每目标64个合法槽位 | 保持原来的目标分区服务节奏 |
+| 到达优先 | 从真实接收端观测估计生产位置趋势，使用跨两遍稳定的剩余延迟生成协调置换 | 尝试减少仅按历史汇合时刻独立排序的局限 |
+| 选择性量化 | 三种顺序使用逐元素相同的原物理mask | 先单独识别排序变化的收益；避免同时改变精度和流量 |
+| 融合执行 | 保留原SM90编译的GemmV2及相关封装 | 不引入小GEMM循环或新的张量通信后端 |
 
-| 设计项 | 本次状态 |
-| --- | --- |
-| 保存 Phase6 源码、计划、来源和复现入口 | 已完成实际快照与逐文件校验 |
-| 同一目标内的共享分块顺序、目标交替生产 | 已实现；默认从旧计划生成明确标注的逻辑槽位代理顺序 |
-| 物理 tile 量化 mask、BF16/全远端/旧选择/匹配随机 | 已实现；四组结构实验保持同一物理 mask |
-| 分块通信完成后消费、固定来源顺序归约 | 已实现独立 runtime，待 GPU 验证 |
-| 缓冲区安全与输出生命周期 | 使用每次调用独立张量、Work/event 依赖与 `record_stream`；不复用旧 IPC 工作区 |
-| 按实际路径重新校准后的净收益选择 | 已实现严格证据输入、完整候选选择与冻结评估 API；本次未采集新 GPU 校准数据 |
-| 独立算子与完整 GPT6.7B 训练入口 | 已实现，GPU执行需在目标环境显式启动 |
-| 四组配对统计及同步×顺序交互效应 | 已实现；缺 rank、缺块或身份不一致拒绝生成正式报告 |
-| 融合 epilogue 的 ready/epoch/consumed、乱序 ready 队列 | 尚未实现；需先评估本原型的收益空间，再移植融合路径 |
-| 运行中低频更新、真实数据长期质量评估 | 后续工作，不以当前合成输入代替 |
+新顺序仍然是离线静态计划，运行时继续通过原GEMM swizzle查表。它不增加每step的CPU调度，不实现实时就绪队列，也不删除现有完整生产后的屏障。
 
-实现目录：[tools/h100/phase7](../../../tools/h100/phase7/README.md)。运行时不依赖新编译的 Flux 动态库，因此本次没有 CUDA 编译成功或新 `.so` 的声明。
+首版只改进到达优先。新的顺序经过目标机器验证之后，再按新顺序重新采样并调整量化对象，避免一次改动多个因素而无法解释结果。
 
-## 2. Phase6 原版保存
+## 2. 改进到达优先的实现
 
-实际快照位于 [phase6-baseline-20261017（本地）](../../../outputs/h100/phase7/phase6-baseline-20261017/README.md)，保存3999个文件、61,625,410字节（约58.77 MiB）。维护 HEAD 为 `aa5d3d933319e5e9f38cb11fca5758d4781f9da0`，实测计算来源及子模块版本另在 manifest 中登记。
+### 2.1 原始证据与时间口径
 
-**`outputs/h100/phase7/phase6-baseline-20261017/` 仅保留本地，不随 Git 同步；克隆仓库不会自动获得快照。** 下列校验命令以本地目录已存在为前提，异机复现须另行复制快照及外部校准记录。
+[fused_plan.py](../../../tools/h100/phase7/fused_plan.py) 从父计划 `inputs` 登记的原始 `b0-interleaved-instrumented-rank*.json` 读取数据，经 `resolve_input` 按精确SHA256定位，检查rank、硬件顺序、run ID及完整shape。
 
-快照 manifest SHA256：
+同一目标GPU、同一次观察中，一个来源对一个tile的完整到达时间由全部fragment的最晚记录确定，再减去该接收GPU本次调用起点。保留合法的负相对时间，不比较不同GPU的绝对时钟。
+
+pass 0、1用于拟合；pass 2只在选择完成后作诊断，不决定映射、参数或回退。原始采样每次只观察部分tile，因此不同tile的观测来自不同调用，不能拼成一次完整调用的真实时间线。
+
+### 2.2 区分生产位置与剩余延迟
+
+对于每个目标分区d、来源s和训练遍p，令 `i_base(s,t)` 为tile t在原交替顺序中的逻辑槽位，`A(s,t,p)`为观测到达时间。先用Theil–Sen中位斜率拟合非负位置趋势：
 
 ```text
-34fda4720799ad9cec6fded3aed9913c1d853e007db9d6ae30cbeee521812c9a
+alpha(s,d,p) = max(0, median(pairwise arrival difference / slot difference))
+residual(s,t,p) = A(s,t,p) - alpha(s,d,p) × i_base(s,t)
 ```
 
-原版来源区分、归档范围、未复制的大型校准证据及完整复建说明已追加至 [Phase6 MLP/Attention 文档](base-phase6-mlp-attention.md#phase7-开发前的原版保存与复现2026-10-17)。旧源码、冻结候选、计划和历史日志未被 Phase7 改写。
+再使用保守的剩余延迟分数：
+
+```text
+priority(s,t) = min(residual(s,t,0), residual(s,t,1))
+                - max(poll_uncertainty(t,0), poll_uncertainty(t,1))
+```
+
+这会压低只在一遍中明显变慢的贡献，并扣除采样轮询的不确定度。该分数不是统计置信下界，也不能解释为压缩或排序可节省的微秒数。
+
+### 2.3 跨来源协调与局部微调
+
+每个destination分别生成两个候选，保持完整tile集合和原合法槽位：
+
+1. **共享剩余延迟顺序**：按同一tile在各来源中最大的稳定分数降序，形成各来源共同的物理tile顺序。
+2. **协调剩余延迟顺序**：先按上述共享顺序分成固定的8-tile组，各来源只在每组内部按自己的分数微调。
+
+共同的粗顺序用于减少各来源优先生产完全不同tile的情况，组内调整则保留来源差异。这里的8-tile组是静态排序约束，不会拆分GEMM或启动分块通信。
+
+两种候选均写回原destination的64个槽位；跨目标轮转、物理tile归属、本地/远端判定和量化对象不变。
+
+### 2.4 保守筛选与回退
+
+使用下面的静态近似，只对候选排序作内部筛选：
+
+```text
+A_surrogate(s,t,p) = A(s,t,p)
+                     + alpha(s,d,p) × (i_new(s,t) - i_base(s,t))
+J_surrogate(t,p) = max_s A_surrogate(s,t,p)
+```
+
+每个destination独立与**原到达优先legacy**比较。候选须满足两训练遍的p95和最大tile汇合代理值均不恶化，并且至少一个指标的改善超过该分区的中位轮询不确定度；若多个候选通过，用预先固定的代理指标顺序选择。固定绝对数值精度用于稳定同分排序。
+
+任一训练tile缺失时，该destination整个保留legacy；没有候选通过时也保留legacy。所有映射必须是完整双射，目标分区保持不变，不能删tile或用零到达时间补缺。
+
+**这个线性位置模型是假设，不是真实执行预测。** CTA多波并发、Stream-K、缓存、编码分支和链路争用都可能破坏“位置变化与到达变化近似线性”的关系。输出字段明确标为 `surrogate_*`、`not_recalibrated=true`、`measured_performance=false`。最终收益只由采样关闭后的新H100配对实验决定。
+
+## 3. 真实历史数据的离线拟合结果
+
+以下是读取历史原始记录后生成的映射变化，不是新性能测量：
+
+| 角色 | 接受新候选的目标分区（rank从0起） | 缺训练样本而回退的分区 | 各来源相对legacy改变的槽位数 |
+| --- | --- | --- | --- |
+| Attention | 2 | 4 | `[63,63,64,64,61,64,64,63]` |
+| MLP | 0、2、4、5、6 | 1、3 | `[320,318,319,320,315,319,320,320]` |
+
+其余分区因不满足保守条件保留legacy。Attention分区2和MLP分区0/2/5/6选择协调候选，MLP分区4选择完全共享候选。两角色分别拟合，不用MLP记录代替Attention记录。
+
+三个顺序版本始终保留父计划的量化数目：Attention各来源为 `[7,7,7,2,7,7,7,1]`，MLP为 `[2,7,7,2,7,7,7,0]`。`verify --refit`可重新读取原始证据，重建映射和诊断并检查完全一致。
+
+## 4. 同一融合实现上的九组对照
+
+| 顺序族 | 基础顺序 | 到达优先 | 量化mask |
+| --- | --- | --- | --- |
+| `base` | 原interleaved | 关闭，恒等置换 | 原选择性mask |
+| `legacy` | 原interleaved | 原来的到达置换 | 同一选择性mask |
+| `improved` | 原interleaved | 本轮生成的协调置换，必要时回退legacy | 同一选择性mask |
+
+每族分别作用于 `mlp`、`attn`、`attn_mlp`，策略ID为 `fused_<order>_<scope>`，共九组。**本轮base不是消融3的A组：A是全远端量化，本轮base仍使用原选择性mask。**
+
+主比较为同范围的 `improved / legacy`；`legacy / base`和`improved / base`是辅助比较。另保留同顺序作用范围比较。新旧到达优先的差异仅来自静态映射，不能把作用范围扩展的收益归因于排序。
+
+配置仍为GPT6.7B、32层、H4096/FFN16384、S2048、micro batch1/global batch4、BF16、TP8/DP1/PP1/CP1。每窗口10步预热＋20步完整optimizer step，每step含4个微批和8192 token。
+
+默认两轮，每轮9个完整配对块、每块九组各一次，共162个正式窗口。循环移位平衡位置，第二轮反转执行顺序。另有9组smoke和9组profile预检，共180个worker窗口。数值和有限loss检查仍来自固定合成输入，不构成真实语料收敛验证。
+
+## 5. 代码与构建不变量
+
+| 文件 | 职责 |
+| --- | --- |
+| [fused.py](../../../tools/h100/phase7/fused.py) | 构建准备、校验、编译、模型准备、执行、报告入口 |
+| [fused_plan.py](../../../tools/h100/phase7/fused_plan.py) | 原始采样解析、稳定剩余延迟排序、保守回退及拟合重建 |
+| [fused_build.py](../../../tools/h100/phase7/fused_build.py) | 从原冻结融合实现生成三套候选，只允许两份映射源码不同 |
+| [fused_protocol.py](../../../tools/h100/phase7/fused_protocol.py) | 九组路由、同mask定义、调度与比较集合 |
+| [fused_prepare.py](../../../tools/h100/phase7/fused_prepare.py) | 冻结旧融合模型adapter/worker及新控制代码 |
+| [fused_run.py](../../../tools/h100/phase7/fused_run.py) | 参数化复用原模型runner，默认dry-run |
+| [fused_report.py](../../../tools/h100/phase7/fused_report.py) | 实际库、映射、数值、profile、完整rank与配对报告验证 |
+
+每个候选保存351份注册源码。三个版本只允许以下两份文件的哈希不同：
+
+```text
+src/gemm_rs/tile_scheduler/threadblock_swizzle.hpp
+phase6_host.hpp
+```
+
+GEMM、epilogue、codec、IPC、双缓冲封装与反向代码保持同源一致。构建验证同时比较三版本计算源码，并检查它们相对原Phase6计算来源的差异；不能靠修改manifest将其他计算变化伪装成顺序变化。
+
+未选中投影保持原生Megatron BF16。所选投影仍使用原 `GemmRSTacoDoubleBuffered`、融合H128/E4M3、固定来源归约及BF16/STE反向，不导入新的张量通信runtime。
+
+## 6. 原版保留和本地开发产物
+
+Phase6原版快照仍位于本地 `outputs/h100/phase7/phase6-baseline-20261017/`，维护提交为 `aa5d3d933319e5e9f38cb11fca5758d4781f9da0`，原计算候选来源为 `ff38f5b1ff1c80cb831f58c64b95f42b0379879a`。快照和原始记录未被本轮改写，复现步骤见 [Phase6保存说明](base-phase6-mlp-attention.md#phase7-开发前的原版保存与复现2026-10-17)。
+
+本轮开发目录为 `outputs/h100/phase7/fused-arrival-20261017-dev/`，包含三套候选源码、计划和本地编译检查。它由 `.gitignore` 排除，不随Git同步。新机器应依据下面的命令重新生成，或显式携带对应本地文件与原始校准证据。
+
+此前分块原型的10个实现/测试文件、原型文档、三个chunk8开发会话及 `logs/h100/phase7/cpu-20261017/` 已删除。当前测试目录仅保留融合方案的测试；`snapshot.py`继续用于校验Phase6原版。
+
+## 7. 使用方式
+
+### 7.1 生成与核对源码
+
+在仓库根目录执行，输出目录必须不存在。默认使用已有真实Attention/MLP校准计划，也可通过 `--attn-plan`、`--mlp-plan`传入新计划。
 
 ```bash
-python3 tools/h100/phase7/snapshot.py verify \
-  outputs/h100/phase7/phase6-baseline-20261017 --original
+python3 tools/h100/phase7/fused.py build-prepare \
+  outputs/h100/phase7/fused-arrival-run1/candidates
+
+python3 tools/h100/phase7/fused.py verify \
+  outputs/h100/phase7/fused-arrival-run1/candidates --refit
 ```
 
-快照不包含动态库、构建树、环境和全部原始日志。24项大型校准记录保留原路径及哈希引用，迁移复现时需要同时携带；不能只复制快照就宣称具备完整历史实测证据。
+`--source-only`用于无真实到达拟合的CPU流程演练，improved保留legacy且永久不能升级为可执行GPU会话。正式候选必须使用真实父计划及其完整哈希证据。
 
-## 3. 分块 runtime 的执行方式
-
-### 3.1 几何与顺序
-
-保持两种真实输出投影形状：
-
-| 角色 | 全局 `[M,N,K]` | TP8本地K |
-| --- | --- | ---: |
-| Attention | `[2048,4096,4096]` | 512 |
-| MLP | `[2048,4096,16384]` | 2048 |
-
-物理 tile 为128×128；每目标rank有64个tile。`chunk_tiles` 支持1、2、4、8、16、32、64，默认8，即每目标8个消费分块。小于等于32时为一个tile行内的连续列区域；64为该目标的完整输出分区。
-
-每个通信stage为每个destination生产一个分块。来源rank s按 `s,s+1,...` 的循环目标顺序计算，保留本地目标优先及来源之间错开的目标轮转；各来源对同一destination使用相同的 `chunk_order[destination][stage]`。打包按目标rank编号排列，通信调用顺序在全部rank上完全相同。
-
-共享顺序控制消费分块的生产顺序，**不是旧 Phase6 每来源独立的 CTA swizzle**。首次准备默认按旧计划 `coords` 中各分块最晚逻辑槽位生成共同优先序，保留旧物理 mask，并记录 `evidence_kind=legacy_proxy`、`recalibrated=false`、`performance_validated=false`。它不是排序后的新到达测量。
-
-### 3.2 量化与变长传输
-
-每个物理tile按 `[source, physical_tile]` 查询mask。本地贡献保留BF16；远端贡献按mask使用原H128/E4M3协议或原始BF16字节。完整H128组的FP8 payload为128字节，附两个FP32 scale，共136字节，对应原BF16的256字节。
-
-每stage分别计算每个source/destination的字节split，使用 `all_to_all_single(..., async_op=True)` 传输。接收方按同一物理mask解析变长包。初始化阶段跨rank核对完整计划和消费模式，避免不同split或不同stage顺序导致通信错误。
-
-### 3.3 两种消费模式
-
-| 模式 | 放行条件 | 共同部分 |
-| --- | --- | --- |
-| `barrier` | 本次全部stage的通信Work完成后，才允许解码归约 | 相同GEMM切分、编码、字节布局、mask与固定归约数学实现 |
-| `pipeline` | 每stage的通信Work完成后即可消费该stage | 与后续stage生产形成潜在重叠 |
-
-这里的barrier模式是本原型的“整次交换完成后消费”对照，不是调用旧 Flux 的 `group_barrier`。stage内的一次交换仍同时覆盖各目标的相应分块；当前消费者按stage顺序处理，没有设备端任意就绪块领取队列。
-
-runtime使用生产、通信launch、消费三条CUDA stream。生产者等待调用方输入就绪；通信launch等待对应生产event；消费者在自身stream上下文调用NCCL `Work.wait()` 后读取数据及scale。调用方等待最后消费event后才能使用完整输出。生产者不等待消费者，避免建立相反方向的循环依赖。
-
-每次调用使用新张量，并为跨stream借用的输入、权重、发送包、接收包、本地贡献和输出登记生命周期。没有重复使用可被下一轮提前覆盖的IPC槽位，因此本原型不需要手写远端ready/ACK；将来复用持久IPC工作区时仍必须实现相应协议。此处的CPU模拟验证不能替代真实GPU并发和长时间运行检查。
-
-分块内部归约保持 `rank+1,...,rank` 的来源顺序，每次加法按BF16舍入。改变消费模式不改变数学归约次序。CUDA graph和隐式CPU fallback均拒绝；开启NCCL blocking wait会破坏预期的异步放行，worker明确拒绝该配置。
-
-## 4. 计划选择与数值边界
-
-[planner.py](../../../tools/h100/phase7/planner.py) 提供：
-
-- `import_phase6_plan`：迁移旧物理mask，派生自然/共享分块顺序，保存来源entry哈希。
-- `with_mask_mode`：从已有计划派生BF16、全远端或每来源数量匹配的随机mask，不改变其分块顺序。
-- `make_plan`：从明确区分train/heldout/final的证据生成共享顺序和量化计划。
-- `evaluate_frozen_plan`：对固定计划使用独立配对证据评估，不修改或重新拟合计划。
-
-定向选择以**已经测量过的完整候选mask**为单位，比较配对完整算子 `baseline_us−candidate_us` 的中位数净收益，同时满足每来源预算和最大绝对输出误差约束。包含并列拖尾来源的组合可以作为一个完整候选；不拼接未经测量的单项收益，也不在完整算子耗时之外再次扣除已经包含的编解码成本。
-
-证据必须包含实际runtime/input身份、接收端相对时钟、分块到达记录、完整算子对照、编码/解码/调度诊断成本和数值误差；干预记录必须匹配冻结顺序哈希并声明在该顺序后重新测量。缺少train干预证据时，`targeted`报错，不能自动伪造优化mask。确有测量但没有正净收益候选时允许回到全零mask。
-
-用于调参的数据不能再充当最终独立评估。final评估要求新的配对块、真实GPU来源、采样关闭和同runtime身份；合成测试证据始终标记rehearsal，不能升级为真实校准。
-
-目前的通用benchmark尚不自动采集上述精细校准schema，不能直接将普通窗口耗时JSON当作到达校准输入。默认实验仍使用旧计划代理；新的定向计划可通过Python API传给 `ChunkedGemmRS`，在独立校准后再冻结到后续实验版本。
-
-## 5. 四组实验与完整模型接入
-
-| 组别 | 消费方式 | 分块顺序 |
-| --- | --- | --- |
-| E0 | barrier | identity |
-| E1 | barrier | shared |
-| E2 | pipeline | identity |
-| E3 | pipeline | shared |
-
-同一会话四组的物理mask相同。默认每轮4个完整配对块，循环移位平衡执行位置；第二轮反转块和块内顺序。共32个正式窗口，另有4个smoke窗口；每窗口重新启动8个rank，每次默认10步预热＋20步计时。profile单独运行，每组只采集1个正式step，不进入性能报告。
-
-`kind=operator`测完整分块GEMM/通信/解码算子；`kind=model`测一次完整optimizer step，固定GPT6.7B、32层、S2048、micro batch1/global batch4、TP8/DP1/PP1/CP1、BF16，共8192 token/step。不能把operator耗时标成完整step耗时。
-
-[adapter.py](../../../tools/h100/phase7/adapter.py)仅接入选中的 `self_attention.linear_proj` 和 `mlp.linear_fc2`。未选中投影使用原生Megatron；反向采用sequence AllGather及BF16 dgrad/wgrad，即与前期一致的STE近似。拒绝不支持的形状、expert路径及梯度累积融合配置，不做静默fallback。
-
-独立算子smoke包含全GEMM＋独立codec参考、BF16参考，以及STE梯度对照；完整模型smoke检查所有启用投影，并记录有限loss、梯度范数及模块调用数。前向门槛沿用相对BF16 L2不超过5%、相对codec参考L2不超过1%；这不是长期训练质量保证。
-
-模型计时继续使用固定合成token，每窗口重新初始化，保持与Phase6的性能工作负载对应。该loss不能代表真实验证集或多种子收敛结果。
-
-## 6. 运行方式
-
-### 6.1 CPU准备与检查
-
-在仓库根目录执行。输出路径必须不存在，不覆盖失败会话或历史证据。
+仅做host映射执行与SM90目标文件编译，不启动GPU：
 
 ```bash
-python3 tools/h100/phase7/phase7.py prepare \
-  outputs/h100/phase7/attention-chunk8-run1 \
-  --kind operator --scope attention --chunk-tiles 8 --quantization legacy
-
-python3 outputs/h100/phase7/attention-chunk8-run1/scripts/phase7.py verify \
-  outputs/h100/phase7/attention-chunk8-run1
-
-# 默认只打印36个worker窗口，不查询GPU、不启动进程。
-python3 outputs/h100/phase7/attention-chunk8-run1/scripts/phase7.py run \
-  outputs/h100/phase7/attention-chunk8-run1
+python3 tools/h100/phase7/fused.py compile-check \
+  outputs/h100/phase7/fused-arrival-run1/candidates \
+  --out outputs/h100/phase7/fused-arrival-run1/compile-check \
+  --cuda-home /data/apps/cuda/12.8
 ```
 
-MLP算子使用新的输出目录和 `--scope mlp`。`--quantization bf16`为同分块runtime的全零mask对照，另支持`all_remote`和`random_matched`。改变粒度、预算或mask后新建会话，不能重写已冻结计划。
+这个检查不链接完整Flux动态库，不证明实际GPU映射、占用或训练正确性；不能将其当成 `compile` 或GPU预检。
 
-准备阶段复制运行时、控制/统计脚本、独立codec参考、两种顺序计划和父计划，逐文件记录SHA256。后续优先调用会话内的 `scripts/phase7.py`；live控制脚本若与冻结版本不一致，会拒绝运行或生成报告。
+### 7.2 H100端完整编译和模型实验
 
-本次已实际准备并完成dry-run的三个会话如下。每个会话登记36个worker窗口，`results/`为空，`gpu_validated=false`；这些是可审查的冻结输入，不是GPU结果。**下表三个 `outputs/h100/phase7/*-20261017-dev/` 目录仅保留本地，不随 Git 同步；克隆后须另行复制，或按本节命令新建会话。**
-
-| 会话 | 本地冻结manifest | 本地dry-run |
-| --- | --- | --- |
-| Attention算子 | [attention-chunk8-20261017-dev](../../../outputs/h100/phase7/attention-chunk8-20261017-dev/manifest.json) | [命令与调度](../../../outputs/h100/phase7/attention-chunk8-20261017-dev/dry-run.txt) |
-| MLP算子 | [mlp-chunk8-20261017-dev](../../../outputs/h100/phase7/mlp-chunk8-20261017-dev/manifest.json) | [命令与调度](../../../outputs/h100/phase7/mlp-chunk8-20261017-dev/dry-run.txt) |
-| 双模块完整模型 | [model-both-chunk8-20261017-dev](../../../outputs/h100/phase7/model-both-chunk8-20261017-dev/manifest.json) | [命令与调度](../../../outputs/h100/phase7/model-both-chunk8-20261017-dev/dry-run.txt) |
-
-完整模型会话登记的目标Megatron路径为 `/workspace/Megatron-LM`。迁移时可以移动整个会话并用新位置调用冻结脚本；若目标依赖路径或实验配置不同，则重新prepare，不能编辑已有manifest适配。
-
-### 6.2 在H100端执行
-
-需要单节点8张132-SM H100和兼容的PyTorch/NCCL环境；本次CPU张量测试使用PyTorch `2.6.0+cu124`。以下路径按实际H100环境设置，命令本身尚未在该机器执行：
+下面的路径按H100主机配置设置。若更换host、GPU UUID/顺序，应先按原Phase6流程重新采集两角色BF16校准记录，而不是绕过硬件检查。
 
 ```bash
 export PHASE7_PY=/opt/conda/envs/flux-h100/bin/python
-export PHASE7_ROOT="$PWD/outputs/h100/phase7/attention-chunk8-run1"
-unset TORCH_NCCL_BLOCKING_WAIT NCCL_BLOCKING_WAIT
+export PHASE7_ROOT="$PWD/outputs/h100/phase7/fused-arrival-run1"
+export PHASE7_CUDA=/usr/local/cuda-12.8
+export PHASE7_NCCL="$PWD/outputs/h100/phase6/tp8-20261009-deployment/nccl-release"
 
-"$PHASE7_PY" "$PHASE7_ROOT/scripts/phase7.py" run "$PHASE7_ROOT" \
-  --stage preflight --python "$PHASE7_PY" --execute
+DEBUG=0 "$PHASE7_PY" tools/h100/phase7/fused.py compile \
+  "$PHASE7_ROOT/candidates" --cuda-home "$PHASE7_CUDA" \
+  --nccl-root "$PHASE7_NCCL" --jobs 2
 
-"$PHASE7_PY" "$PHASE7_ROOT/scripts/phase7.py" run "$PHASE7_ROOT" \
-  --stage timing --python "$PHASE7_PY" --execute
+"$PHASE7_PY" tools/h100/phase7/fused.py prepare "$PHASE7_ROOT/compare" \
+  --build "$PHASE7_ROOT/candidates" --megatron /workspace/Megatron-LM
 
-# 独立profile，须先通过预检，产生各rank的压缩Chrome trace。
-"$PHASE7_PY" "$PHASE7_ROOT/scripts/phase7.py" run "$PHASE7_ROOT" \
-  --stage profile --python "$PHASE7_PY" --execute
+# 默认只列出任务，不查询GPU、不启动worker。
+"$PHASE7_PY" tools/h100/phase7/fused.py run "$PHASE7_ROOT/compare"
+
+"$PHASE7_PY" tools/h100/phase7/fused.py run "$PHASE7_ROOT/compare" \
+  --stage preflight --python "$PHASE7_PY" --cuda-home "$PHASE7_CUDA" --execute
+
+"$PHASE7_PY" tools/h100/phase7/fused.py run "$PHASE7_ROOT/compare" \
+  --stage timing --python "$PHASE7_PY" --cuda-home "$PHASE7_CUDA" --execute
 ```
 
-代码不强制 `CUDA_DEVICE_MAX_CONNECTIONS=1`；运行环境值会被记录并要求跨rank/窗口一致。先在目标主机确认资源可用，再执行显式GPU入口。本次未启动远端作业或排队程序。
+Megatron固定 `3ea68ad6042cc1204386ae9364358f7c4de1bc37`。准备时冻结Phase6依赖控制代码和本轮 `fused_*` 控制代码；执行前核对实际控制脚本、构建库和输入哈希，不能在已准备会话中继续改代码后直接续跑。
 
-### 6.3 完整模型会话
+预检包含九组smoke、九组独立profile、八rank完整性和12项策略/角色GPU映射；profile须出现实际V2与解码kernel，未选中角色不能进入候选。正式计时不使用采样库。失败会话保留现场，新实验使用新目录。
 
-Megatron固定提交为 `3ea68ad6042cc1204386ae9364358f7c4de1bc37`，执行前检查提交及tracked工作树。建议先完成两种shape的算子预检，再启动模型实验。
+### 7.3 CPU回归
 
 ```bash
-python3 tools/h100/phase7/phase7.py prepare \
-  outputs/h100/phase7/model-both-chunk8-run1 \
-  --kind model --scope both --chunk-tiles 8 --quantization legacy \
-  --megatron /workspace/Megatron-LM
+python3 -m unittest discover -s tools/h100/phase7 -p 'test_fused_*.py' -v
 ```
 
-之后使用该会话冻结脚本执行 `preflight`、`timing`及必要的`profile`。`--scope attention`或`--scope mlp`分别限制启用投影。每个scope使用独立会话，不把不同scope的运行拼成同场配对块。
+新回归验证真实父源码派生、三版本同mask与同计算、合法映射、负相对时间、缺样本回退、heldout隔离、模型预检入口和完整配对统计。测试通过只能说明这些检查通过，不能替代H100数值与性能验证。
 
-## 7. 报告和证据检查
+本次清理旧代码后，32项融合方案CPU回归通过；真实采样的拟合重建一致，三顺序×两角色的host映射检查通过，三个SM90映射目标文件及共享解码runtime目标文件编译通过。开发compare会话仅用于source-only dry-run，不能执行GPU；相关本地产物位于已忽略的开发目录，不新增测试结果文件到Git。
 
-窗口耗时为八rank最大elapsed除以正式step数；算子报告单位为 `ms/operator`，模型报告为 `ms/full_optimizer_step`。逐轮报告E1/E0、E3/E2、E2/E0、E3/E1及顺序×消费方式的交互效应。
+## 8. 收益边界与后续改进
 
-交互使用每块的 `log(E3/E2)−log(E1/E0)`，正向改善按 `100×(1−exp(mean(log交互比)))` 表示。置信区间按完整四组配对块bootstrap10000次，不把rank、微批或step当独立重复，也不通过比较两项显著性代替交互检验。各区间不做多重比较校正。
+本轮保留完整生产后的屏障，所以新排序仍主要通过生产/远端写的时序、拥塞和尾部变化影响完成时间。静态代理的tile汇合改善不保证最后一个生产者更早结束，也不保证step更快。
 
-报告要求八rank完整、GPU身份唯一、固定设备与软件环境、同rank跨窗口初始化/输入指纹一致、正确variant/round/block/directory、冻结计划与控制脚本哈希一致。模型还要求所有目标层调用齐全、20步loss/梯度有限及零skip。预检必须覆盖全部四组；正式报告不接受缺块、不完整窗口或把同一窗口复制到另一个block。
+当前最重要的实验是同一融合实现上的 `improved / legacy`。报告使用八rank最大elapsed除以20，逐轮按完整九组配对块计算耗时下降和bootstrap区间；没有预设通过门槛，负收益和跨零区间都保留。
 
-原始记录在 `results/`，预检为 `preflight.json`，逐轮结果为 `report.json`；profile在各组的 `rank*-profile.json.gz`。阶段开始与结束状态分文件记录；已启动阶段或已有输出目录拒绝覆盖，失败保留现场后新建会话。
-
-新增机制是否有价值，应同时看最终算子/step耗时和trace里的生产/消费重叠。原型内部加速不等于优于历史原生Flux、Megatron或融合候选；移植融合路径后仍需重新验证。
-
-## 8. 本次CPU验证
-
-本地存在CUDA 12.8编译器，但没有可见GPU；使用已有环境 `/data/home/scyb672/run/conda_envs/flux-megatron-a800/bin/python`，PyTorch `2.6.0+cu124`，`torch.cuda.is_available()`为False。没有安装新环境或执行GPU测试。
-
-```bash
-/data/home/scyb672/run/conda_envs/flux-megatron-a800/bin/python \
-  -m unittest discover -s tools/h100/phase7 -p 'test_*.py' -v
-
-python3 -m unittest discover -s tools/h100/phase6 -p 'test_ablation3.py' -v
-python3 tools/h100/phase7/snapshot.py verify \
-  outputs/h100/phase7/phase6-baseline-20261017 --original
-```
-
-Phase7最终完整回归57项全部通过，包括24项计划测试、21项协议/报告/模型接入测试、12项真实CPU张量及传输调度模拟测试。覆盖：独立Phase4编码参考逐位一致、变长包偏移与split守恒、所有粒度的物理tile覆盖、固定ring归约舍入、屏障/流水的消费放行差异、跨stream生命周期登记、STE反向、计划证据隔离和冻结输入/窗口篡改拒绝。
-
-Phase6原有消融3回归13项全部通过；原版快照3999个文件及91项校准输入引用校验通过，Python语法编译、文档本地链接和diff空白检查通过。详细测试日志和核验JSON仅保存在本地 `logs/h100/phase7/cpu-20261017/`；`logs/h100/phase7/cpu-*/` 已加入 `.gitignore`，不随仓库同步。测试源码和本节验证摘要继续保留。
-
-CPU传输模拟不运行CUDA/NCCL；它验证控制依赖和数据布局，不能证明GPU前进性或重叠。合成报告测试仅使用临时目录，并标记非GPU证据。
-
-本次实现的下一道门槛是目标H100端的算子smoke、受控延迟/重复调用和profile检查。通过后再进行完整step测量；只有确认净收益空间，才将分块发布与消费机制迁移到原融合GEMM的epilogue及持久工作区。
+若新顺序没有稳定收益，保留legacy并分析真实profile；若有收益，再按新顺序重新测量剩余拖尾，更新选择性mask及量化预算。更进一步的分块ready消费需要在原融合epilogue和IPC生命周期内实现，单独检验新增协议与资源竞争成本。
