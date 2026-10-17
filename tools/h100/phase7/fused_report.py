@@ -26,12 +26,17 @@ def verify_inputs(root, offline=False):
     root = Path(root); info = read(root/'submission.json')
     require(info['protocol'] == PROTOCOL and info['config'] == model_config(), 'Wrong Phase7 fused protocol/model')
     verify_files(root, info['files'])
-    require(info['schedule'] == read(root/'schedule.json') == schedule(info['blocks_per_round'], info['schedule_seed']) and
+    # Sessions prepared before the explicit round option always had two rounds.
+    rounds = info.get('rounds', 2)
+    require(info['schedule'] == read(root/'schedule.json') == schedule(info['blocks_per_round'], info['schedule_seed'], rounds) and
             info['timing_windows'] == len(info['schedule']), 'Nine-group schedule changed')
     seal = read(root/'provenance/preparation.json')
     require(all(seal[k] == info[k] for k in ('protocol', 'run_id', 'source_only', 'executable')) and
             info['executable'] == (not info['source_only']), 'Rehearsal flags changed')
     plans = read(root/'scripts/selection-plan.json'); cfg = read(root/'scripts/config.json')
+    require(type(seal.get('rounds', 2)) is int and seal.get('rounds', 2) == rounds and
+            type(cfg['repetitions']) is int and cfg['repetitions'] == rounds,
+            'Frozen round count changed')
     hashes = {p: {r: v['entry_sha256'] for r, v in data['roles'].items()} for p, data in plans['variants'].items()}
     require(sha(root/'scripts/selection-plan.json') == seal['plans_sha256'] and cfg['protocol'] == PROTOCOL and
             cfg['policies'] == list(POLICIES) and cfg['role_plan_sha256'] == hashes, 'Worker policy/plan identity changed')
@@ -150,6 +155,8 @@ def sensitivity(values, blocks):
 def markdown(result):
     lines = ['# H100 GPT6.7B TP8 Phase7 融合路径顺序消融', '',
              '所有ms/step均为完整32层模型、4微批的optimizer step。九组同块，全样本为主。',
+             f'本次{result["round_count"]}轮，每轮{result["blocks_per_round"]}个完整配对块，'
+             f'共{result["timing_windows"]}个正式窗口；combined合并已有块，不新增样本。',
              'base=原交替顺序；legacy=原到达置换；improved=改进静态到达置换。三者使用完全相同的原选择性物理mask。',
              '保留原SM90/V2融合GEMM、编码、解码、整算子屏障及双缓冲；本地贡献和未选中模块保持BF16。',
              '主比较是同范围improved/legacy，解释为静态顺序改动的完整step效果；本实验不包含分块Tensor/NCCL原型。',
@@ -186,7 +193,13 @@ def report(root, offline=False):
     require(info['executable'] and not info['source_only'] and gate['completed'] and gate['protocol'] == PROTOCOL and
             gate['submission_sha256'] == sha(root/'submission.json'), 'Completed GPU preflight required')
     verify_files(root, gate['files'])
+    rounds = info.get('rounds', 2)
+    expected = {job['directory'] for job in info['schedule']}
+    observed = {str(path.relative_to(root/'results'))
+                for path in (root/'results').glob('round*/window-*') if path.is_dir()}
+    require(observed == expected, 'Missing or extra timing window directories')
     result = dict(protocol=PROTOCOL, run_id=info['run_id'], completed=False, offline=offline, all_samples=[], rounds={}, sensitivity={},
+                  round_count=rounds, blocks_per_round=info['blocks_per_round'],
                   acceptance_threshold=None, sample_policy='all samples primary', correctness_passed=True,
                   bootstrap=dict(resamples=10000, seed=20261009, unit='complete nine-policy block', multiple_comparison_correction=None),
                   primary_comparisons=PRIMARY, secondary_comparisons=SECONDARY,
@@ -195,7 +208,7 @@ def report(root, offline=False):
                   measurement_identity=measurement_identity(info, gate),
                   role_plan_sha256=read(root/'scripts/config.json')['role_plan_sha256'])
     combined = {k: [] for k in POLICIES}; combined_blocks = []; files = {}
-    for rep in (1, 2):
+    for rep in range(1, rounds + 1):
         values = {k: [] for k in POLICIES}; blocks = [dict(round=rep, block=b) for b in range(info['blocks_per_round'])]
         for block in blocks:
             jobs = [j for j in info['schedule'] if j['round'] == rep and j['block'] == block['block']]

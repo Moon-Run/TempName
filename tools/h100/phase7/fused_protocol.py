@@ -98,16 +98,17 @@ def selection_entry(plan, policy, role, m, n, k):
     return record
 
 
-def schedule(blocks=9, seed=SCHEDULE_SEED):
+def schedule(blocks=9, seed=SCHEDULE_SEED, rounds=2):
     require(type(blocks) is int and blocks > 0 and blocks % 9 == 0,
             'Blocks must be a positive multiple of nine')
+    require(type(rounds) is int and rounds in (1, 2), 'Rounds must be one or two')
     require(seed == SCHEDULE_SEED, 'Phase7 fused fixes schedule seed 20261017')
     order = list(POLICIES)
     random.Random(seed).shuffle(order)
     first = [order[i % 9:] + order[:i % 9] for i in range(blocks)]
     return [dict(round=rep, block=block, index=block * 9 + index, policy=policy,
                  directory=f'round{rep}/window-{block*9+index:03d}-{policy}')
-            for rep, rows in enumerate((first, [row[::-1] for row in first[::-1]]), 1)
+            for rep, rows in enumerate((first, [row[::-1] for row in first[::-1]])[:rounds], 1)
             for block, row in enumerate(rows) for index, policy in enumerate(row)]
 
 

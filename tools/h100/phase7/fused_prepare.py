@@ -25,10 +25,10 @@ def controller_paths():
            [path for path in HERE7.glob('fused*.py') if not path.name.startswith('test_')]
 
 
-def prepare(out, build_root, megatron, blocks=9, source_only=False):
+def prepare(out, build_root, megatron, blocks=9, source_only=False, rounds=2):
     build_root, megatron = Path(build_root).resolve(), Path(megatron).resolve()
+    jobs = schedule(blocks, rounds=rounds)
     manifest = builder.verify(build_root, built=not source_only)
-    jobs = schedule(blocks)
     plans = read(build_root / 'plans.json')
     require(source_only or not plans['source_only'], 'Cannot promote a CPU rehearsal')
     if not source_only:
@@ -59,7 +59,7 @@ def prepare(out, build_root, megatron, blocks=9, source_only=False):
     shutil.copy2(build_root / 'fused-manifest.json', provenance / 'build-manifest.json')
     config = model_config()
     cfg = read(REPO / 'tools/a800/phase5/e2e/config.json')
-    cfg.update(protocol=PROTOCOL, policies=list(POLICIES), orders=[], repetitions=2,
+    cfg.update(protocol=PROTOCOL, policies=list(POLICIES), orders=[], repetitions=rounds,
                warmup_steps=10, timed_steps=20,
                cases=[dict(name='h100-phase6', **{k: config[k] for k in ('hidden', 'ffn', 'heads', 'sequence', 'tp')})],
                common={k: config[k] for k in ('layers', 'micro_batch', 'global_batch', 'seed', 'token_seed', 'vocab')},
@@ -70,7 +70,8 @@ def prepare(out, build_root, megatron, blocks=9, source_only=False):
     write(scripts / 'config.json', cfg)
     run_id = uuid.uuid4().hex
     write(provenance / 'preparation.json', dict(protocol=PROTOCOL, run_id=run_id,
-          source_only=source_only, executable=not source_only, plans_sha256=sha(build_root / 'plans.json')))
+          source_only=source_only, executable=not source_only, rounds=rounds,
+          plans_sha256=sha(build_root / 'plans.json')))
     variants = {}
     build_files = {str(build_root / 'plans.json'): sha(build_root / 'plans.json')}
     for order in builder.ORDERS:
@@ -96,7 +97,7 @@ def prepare(out, build_root, megatron, blocks=9, source_only=False):
     hardware = next((record['hardware'] for record in plans['parent']['roles'].values()
                      if not record['test_only']), {})
     info = dict(protocol=PROTOCOL, run_id=run_id, config=config, source_only=source_only,
-                executable=not source_only, gpu_validated=False, blocks_per_round=blocks,
+                executable=not source_only, gpu_validated=False, blocks_per_round=blocks, rounds=rounds,
                 schedule_seed=SCHEDULE_SEED, schedule=jobs, timing_windows=len(jobs), variants=variants,
                 calibration_hardware=hardware, megatron=str(megatron), megatron_commit=MEGATRON_COMMIT,
                 candidate_source_commit=manifest['parent_source_commit'],

@@ -9,6 +9,8 @@
 
 三种顺序使用完全相同的原选择性量化mask；GemmV2、codec、IPC、屏障和双缓冲保持一致。默认dry-run，GPU执行须显式指定 `--execute`。静态模型筛选不等于性能提升。
 
+`prepare --rounds 1 --blocks 9`准备单轮九组均衡实验：81个正式窗口加18个预检窗口，共99个worker窗口。省略 `--rounds` 时保持两轮，共162个正式窗口加18个预检窗口。两种模式均有12项策略/shape映射和72份profile trace。轮数在准备时冻结，`run`按冻结调度执行，报告检查全部预期窗口且拒绝额外窗口；不能通过提前停止默认两轮实验得到完整单轮报告。
+
 ```bash
 python3 tools/h100/phase7/fused.py --help
 python3 -m unittest discover -s tools/h100/phase7 -p 'test_fused_*.py' -v

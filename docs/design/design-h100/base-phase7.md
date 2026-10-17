@@ -99,7 +99,11 @@ J_surrogate(t,p) = max_s A_surrogate(s,t,p)
 
 配置仍为GPT6.7B、32层、H4096/FFN16384、S2048、micro batch1/global batch4、BF16、TP8/DP1/PP1/CP1。每窗口10步预热＋20步完整optimizer step，每step含4个微批和8192 token。
 
-默认两轮，每轮9个完整配对块、每块九组各一次，共162个正式窗口。循环移位平衡位置，第二轮反转执行顺序。另有9组smoke和9组profile预检，共180个worker窗口。数值和有限loss检查仍来自固定合成输入，不构成真实语料收敛验证。
+默认两轮，每轮9个完整配对块、每块九组各一次，共162个正式窗口。循环移位平衡位置，第二轮反转执行顺序。另有9组smoke和9组profile预检，共180个worker窗口。
+
+准备时指定 `--rounds 1 --blocks 9` 可只运行原第一轮，保留九组在九个执行位置各出现一次的均衡调度：81个正式窗口、648份正式rank记录，另有18个预检窗口、144份预检rank记录、72份压缩profile trace和12项策略/shape映射，共99个worker窗口。`--rounds`仅支持1或2，省略时仍为2；`--blocks`仍须为9的正整数倍。
+
+轮数同时写入submission、准备记录和worker配置，调度校验及报告据此检查完整性。报告拒绝缺失或额外的正式窗口；单轮报告只包含第一轮及其combined汇总，combined不增加独立样本。旧会话缺少显式rounds字段时按两轮读取，但修改控制代码后仍须重新准备执行会话。数值和有限loss检查仍来自固定合成输入，不构成真实语料收敛验证。
 
 ## 5. 代码与构建不变量
 
@@ -161,7 +165,7 @@ python3 tools/h100/phase7/fused.py compile-check \
 
 ### 7.2 H100端完整编译和模型实验
 
-下面的路径按H100主机配置设置。若更换host、GPU UUID/顺序，应先按原Phase6流程重新采集两角色BF16校准记录，而不是绕过硬件检查。
+下面的路径按H100主机配置设置，示例显式选择单轮九块。若更换host、GPU UUID/顺序，应先按原Phase6流程重新采集两角色BF16校准记录，而不是绕过硬件检查。
 
 ```bash
 export PHASE7_PY=/opt/conda/envs/flux-h100/bin/python
@@ -174,7 +178,8 @@ DEBUG=0 "$PHASE7_PY" tools/h100/phase7/fused.py compile \
   --nccl-root "$PHASE7_NCCL" --jobs 2
 
 "$PHASE7_PY" tools/h100/phase7/fused.py prepare "$PHASE7_ROOT/compare" \
-  --build "$PHASE7_ROOT/candidates" --megatron /workspace/Megatron-LM
+  --build "$PHASE7_ROOT/candidates" --megatron /workspace/Megatron-LM \
+  --rounds 1 --blocks 9
 
 # 默认只列出任务，不查询GPU、不启动worker。
 "$PHASE7_PY" tools/h100/phase7/fused.py run "$PHASE7_ROOT/compare"
@@ -186,7 +191,7 @@ DEBUG=0 "$PHASE7_PY" tools/h100/phase7/fused.py compile \
   --stage timing --python "$PHASE7_PY" --cuda-home "$PHASE7_CUDA" --execute
 ```
 
-Megatron固定 `3ea68ad6042cc1204386ae9364358f7c4de1bc37`。准备时冻结Phase6依赖控制代码和本轮 `fused_*` 控制代码；执行前核对实际控制脚本、构建库和输入哈希，不能在已准备会话中继续改代码后直接续跑。
+Megatron固定 `3ea68ad6042cc1204386ae9364358f7c4de1bc37`。单轮dry-run应列出81个正式窗口、99个worker窗口和12项映射；省略 `--rounds 1` 则恢复默认两轮的162个正式窗口及180个worker窗口。`run`从已冻结的调度读取轮数，不提供运行时截断轮次的选项。准备时冻结Phase6依赖控制代码和本轮 `fused_*` 控制代码；执行前核对实际控制脚本、构建库和输入哈希，不能在已准备会话中继续改代码后直接续跑。
 
 预检包含九组smoke、九组独立profile、八rank完整性和12项策略/角色GPU映射；profile须出现实际V2与解码kernel，未选中角色不能进入候选。正式计时不使用采样库。失败会话保留现场，新实验使用新目录。
 
@@ -196,9 +201,11 @@ Megatron固定 `3ea68ad6042cc1204386ae9364358f7c4de1bc37`。准备时冻结Phase
 python3 -m unittest discover -s tools/h100/phase7 -p 'test_fused_*.py' -v
 ```
 
-新回归验证真实父源码派生、三版本同mask与同计算、合法映射、负相对时间、缺样本回退、heldout隔离、模型预检入口和完整配对统计。测试通过只能说明这些检查通过，不能替代H100数值与性能验证。
+新回归验证真实父源码派生、三版本同mask与同计算、合法映射、负相对时间、缺样本回退、heldout隔离、模型预检入口和完整配对统计；轮次回归覆盖单轮/默认两轮调度、冻结轮数篡改、旧两轮元数据读取及报告窗口完整性。测试通过只能说明这些检查通过，不能替代H100数值与性能验证。
 
-本次清理旧代码后，32项融合方案CPU回归通过；真实采样的拟合重建一致，三顺序×两角色的host映射检查通过，三个SM90映射目标文件及共享解码runtime目标文件编译通过。开发compare会话仅用于source-only dry-run，不能执行GPU；相关本地产物位于已忽略的开发目录，不新增测试结果文件到Git。
+单轮支持加入后，41项融合方案CPU回归通过；实际CLI的source-only准备及dry-run分别确认单轮99个、默认两轮180个worker窗口，两者均有12项映射检查，首轮调度与原版完全一致。验证使用自动清理的临时目录，不新增测试结果文件到Git，也未启动GPU。
+
+此前真实采样的拟合重建一致，三顺序×两角色的host映射检查通过，三个SM90映射目标文件及共享解码runtime目标文件编译通过。原开发compare会话仅用于source-only dry-run，不能执行GPU；相关本地产物仍位于已忽略的开发目录。
 
 ## 8. 收益边界与后续改进
 

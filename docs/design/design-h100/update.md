@@ -92,7 +92,7 @@ Q[s,t]   = min(R[0,s,t], R[1,s,t]) − max(ε[0,t], ε[1,t])
 
 **主比较是同作用范围的 `improved / legacy`。** `legacy / base`和`improved / base`用于辅助判断旧、新到达映射的作用。同顺序不同scope的比较单独报告，不能解释为调度增益。
 
-每个scope复用相同的角色映射和mask，不分别调参。默认每轮9个完整块，每块九组各一次，共两轮；执行位置循环平衡，第二轮反转块与块内顺序。计时、运行身份和完整性检查由 [fused_prepare.py](../../../tools/h100/phase7/fused_prepare.py)、[fused_run.py](../../../tools/h100/phase7/fused_run.py) 与 [fused_report.py](../../../tools/h100/phase7/fused_report.py)管理。
+每个scope复用相同的角色映射和mask，不分别调参。默认每轮9个完整块，每块九组各一次，共两轮；执行位置循环平衡，第二轮反转块与块内顺序。准备时可显式指定 `--rounds 1 --blocks 9`，只运行原第一轮的81个正式窗口，仍保留18个预检窗口和12项映射检查；默认两轮行为不变。轮数在准备时冻结，不能通过中断两轮实验或删记录改成单轮。计时、运行身份和完整性检查由 [fused_prepare.py](../../../tools/h100/phase7/fused_prepare.py)、[fused_run.py](../../../tools/h100/phase7/fused_run.py) 与 [fused_report.py](../../../tools/h100/phase7/fused_report.py)管理。
 
 性能比较使用采样关闭的正式完整 step，按同场完整配对块统计，不把rank、微批或单步当作独立重复，也不以旧批次均值充当同期分母。当前九组默认固定选择性量化；量化预算和mask变化放入后续独立实验。
 

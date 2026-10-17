@@ -18,6 +18,7 @@ import fused_report as reporter
 import fused_run as runner
 import fused_build as builder
 import fused_plan as planner
+import fused as cli
 import scope_sources
 from common import read, write, sha
 from ablation_plan import mask_sha
@@ -41,6 +42,23 @@ def profile_fixture(policy):
 
 
 class ProtocolTests(unittest.TestCase):
+    def test_single_round_is_exact_original_first_round_and_balanced(self):
+        default = routing.schedule()
+        single = routing.schedule(rounds=1)
+        # Golden digest captured from the original fixed-two-round scheduler.
+        self.assertEqual(routing.digest(default),
+                         'cd077378fd8dc0dbb2342cce03af88dffaa92d9832a2ce5bc04f13e3022181c8')
+        self.assertEqual(default, routing.schedule(rounds=2))
+        self.assertEqual(single, [job for job in default if job['round'] == 1])
+        self.assertEqual(len(single), 81)
+        for position in range(9):
+            self.assertEqual({job['policy'] for job in single if job['index'] % 9 == position},
+                             set(routing.POLICIES))
+        self.assertTrue(all(job['directory'].startswith('round1/') for job in single))
+        for rounds in (0, 3, -1, 1.0, True, '1', None):
+            with self.subTest(rounds=rounds), self.assertRaises(ValueError):
+                routing.schedule(rounds=rounds)
+
     def test_nine_groups_balance_and_primary_comparison(self):
         jobs = routing.schedule()
         self.assertEqual(len(jobs), 162)
@@ -103,6 +121,27 @@ class ProtocolTests(unittest.TestCase):
 
 
 class SourceTests(unittest.TestCase):
+    def test_prepare_cli_exposes_explicit_rounds_and_preserves_default(self):
+        captured = []
+
+        def prepare(out, build_root, megatron, blocks=9, source_only=False, rounds=2):
+            captured.append((rounds, blocks, source_only))
+            return out
+
+        for option, expected in (([], 2), (['--rounds', '1'], 1), (['--rounds', '2'], 2)):
+            argv = ['fused.py', 'prepare', '/unused/out', '--build', '/unused/build',
+                    '--source-only', *option]
+            with mock.patch.object(sys, 'argv', argv), mock.patch.object(preparation, 'prepare', side_effect=prepare), \
+                    contextlib.redirect_stdout(io.StringIO()):
+                cli.main()
+            self.assertEqual(captured[-1], (expected, 9, True))
+        with mock.patch.object(sys, 'argv', argv[:-2] + ['--rounds', '3']), \
+                mock.patch.object(preparation, 'prepare') as call, contextlib.redirect_stderr(io.StringIO()):
+            with self.assertRaises(SystemExit) as raised:
+                cli.main()
+            self.assertEqual(raised.exception.code, 2)
+            call.assert_not_called()
+
     def test_worker_gate_runs_before_torch_and_source_only_cannot_be_enabled(self):
         source = preparation.worker_source()
         self.assertLess(source.index('H100_PHASE7_FUSED_EXECUTE'), source.index('import torch'))
@@ -165,6 +204,7 @@ class IntegrationTests(unittest.TestCase):
         cls.root = Path(cls.temp.name)
         cls.build = builder.prepare(cls.root / 'build', source_only=True)
         cls.compare = preparation.prepare(cls.root / 'compare', cls.build, Path('/absent'), source_only=True)
+        cls.single = preparation.prepare(cls.root / 'single', cls.build, Path('/absent'), source_only=True, rounds=1)
 
     @classmethod
     def tearDownClass(cls):
@@ -186,6 +226,91 @@ class IntegrationTests(unittest.TestCase):
         self.assertNotIn('ChunkedGemmRS', (self.compare / 'scripts/adapter.py').read_text())
         with self.assertRaises(ValueError):
             builder.verify(self.build, built=True)
+
+    def test_single_round_prepare_and_dry_run_keep_all_preflight_checks(self):
+        with mock.patch.object(subprocess, 'run', side_effect=AssertionError('Unexpected process launch')), \
+                mock.patch.object(subprocess, 'check_output', side_effect=AssertionError('Unexpected GPU query')), \
+                contextlib.redirect_stdout(io.StringIO()):
+            jobs = runner.run(self.single)
+            info = reporter.verify_inputs(self.single)
+            self.assertEqual(info['rounds'], 1)
+            self.assertEqual(info['timing_windows'], 81)
+            self.assertEqual(read(self.single / 'scripts/config.json')['repetitions'], 1)
+            self.assertEqual(read(self.single / 'provenance/preparation.json')['rounds'], 1)
+            self.assertEqual(len(jobs), 99)
+            self.assertEqual(len([j for j in jobs if j['mode'] == 'timing']), 81)
+            self.assertEqual(len([j for j in jobs if j['mode'] == 'smoke']), 9)
+            self.assertEqual(len([j for j in jobs if j['mode'] == 'profile']), 9)
+            self.assertEqual(len(list(runner.mapping_jobs(self.single, info))), 12)
+            self.assertEqual(len(runner.run(self.single, stage='preflight')), 18)
+            self.assertEqual(len(runner.run(self.single, stage='timing')), 81)
+            with self.assertRaises(ValueError):
+                runner.run(self.single, execute=True)
+        default = reporter.verify_inputs(self.compare)
+        self.assertEqual(default['rounds'], 2)
+        self.assertEqual(read(self.compare / 'scripts/config.json')['repetitions'], 2)
+        self.assertEqual(info['schedule'], [j for j in default['schedule'] if j['round'] == 1])
+
+    def test_round_count_and_schedule_tampering_is_rejected_even_with_updated_hashes(self):
+        names = ('submission.json', 'provenance/preparation.json', 'scripts/config.json', 'schedule.json')
+        originals = {name: (self.single / name).read_bytes() for name in names}
+        for mutation in ('submission_rounds', 'seal_rounds', 'config_repetitions', 'missing_window',
+                         'second_round', 'missing_round_metadata'):
+            with self.subTest(mutation=mutation):
+                try:
+                    info = read(self.single / 'submission.json')
+                    if mutation == 'submission_rounds':
+                        info['rounds'] = 2
+                    elif mutation in ('seal_rounds', 'missing_round_metadata'):
+                        seal = read(self.single / 'provenance/preparation.json')
+                        if mutation == 'missing_round_metadata':
+                            info.pop('rounds')
+                            seal.pop('rounds')
+                        else:
+                            seal['rounds'] = 2
+                        write(self.single / 'provenance/preparation.json', seal)
+                    elif mutation == 'config_repetitions':
+                        cfg = read(self.single / 'scripts/config.json')
+                        cfg['repetitions'] = 2
+                        write(self.single / 'scripts/config.json', cfg)
+                    else:
+                        jobs = routing.schedule() if mutation == 'second_round' else info['schedule'][:-1]
+                        info.update(schedule=jobs, timing_windows=len(jobs))
+                        write(self.single / 'schedule.json', jobs)
+                    for name in names[1:]:
+                        info['files'][name] = sha(self.single / name)
+                    write(self.single / 'submission.json', info)
+                    with self.assertRaises(ValueError):
+                        reporter.verify_inputs(self.single)
+                finally:
+                    for name, content in originals.items():
+                        (self.single / name).write_bytes(content)
+
+    def test_legacy_two_round_metadata_is_readable_but_not_reinterpreted(self):
+        names = ('submission.json', 'provenance/preparation.json', 'scripts/config.json')
+        originals = {name: (self.compare / name).read_bytes() for name in names}
+        try:
+            info = read(self.compare / 'submission.json')
+            seal = read(self.compare / 'provenance/preparation.json')
+            info.pop('rounds')
+            seal.pop('rounds')
+            write(self.compare / 'provenance/preparation.json', seal)
+            info['files']['provenance/preparation.json'] = sha(self.compare / 'provenance/preparation.json')
+            write(self.compare / 'submission.json', info)
+            verified = reporter.verify_inputs(self.compare)
+            self.assertNotIn('rounds', verified)
+            self.assertEqual(verified.get('rounds', 2), 2)
+            self.assertEqual(len(verified['schedule']), 162)
+            cfg = read(self.compare / 'scripts/config.json')
+            cfg['repetitions'] = 1
+            write(self.compare / 'scripts/config.json', cfg)
+            info['files']['scripts/config.json'] = sha(self.compare / 'scripts/config.json')
+            write(self.compare / 'submission.json', info)
+            with self.assertRaises(ValueError):
+                reporter.verify_inputs(self.compare)
+        finally:
+            for name, content in originals.items():
+                (self.compare / name).write_bytes(content)
 
     def test_rewritten_hashes_cannot_promote_rehearsal_or_change_library_order(self):
         path = self.compare / 'submission.json'
