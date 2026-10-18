@@ -36,11 +36,12 @@ def mapping_jobs(root, info, routing=scope_protocol):
 
 
 def run(root, stage='all', execute=False, python=Path(sys.executable), cuda_home=None,
-        routing=scope_protocol, reporter=None, execute_env='H100_SCOPE_EXECUTE'):
+        routing=scope_protocol, reporter=None, execute_env='H100_SCOPE_EXECUTE', environment_fn=None):
     if reporter is None:
         import scope_report as reporter
     verify_inputs, preflight, window, report = (getattr(reporter, n) for n in ('verify_inputs', 'preflight', 'window', 'report'))
     definition, is_native = routing.definition, routing.is_native
+    make_environment = environment if environment_fn is None else environment_fn
     require(stage in ('preflight', 'timing', 'all'), 'Unknown stage')
     root = Path(root).resolve(); info = verify_inputs(root)
     require(info['protocol'] == routing.PROTOCOL, 'Wrong runner protocol')
@@ -65,7 +66,7 @@ def run(root, stage='all', execute=False, python=Path(sys.executable), cuda_home
                 check_start(root, info)
                 for policy, role, cmd in mapping_jobs(root, info, routing):
                     lib = Path(info['variants'][policy]['root'])
-                    env = environment(python, lib, info['config'], info['run_id'], root/'scripts', cuda_home)
+                    env = make_environment(python, lib, info['config'], info['run_id'], root/'scripts', cuda_home)
                     with (root/'results'/f'mapping-{policy}-{role}.csv').open('x') as f:
                         subprocess.run(cmd, env=env, stdout=f, check=True)
             gated = False
@@ -77,7 +78,7 @@ def run(root, stage='all', execute=False, python=Path(sys.executable), cuda_home
                     verify_files(root, gate['files']); gated = True
                 verify_inputs(root)
                 lib = root/'no-flux-library' if is_native(policy) else Path(info['variants'][policy]['root'])
-                env = environment(python, lib, info['config'], info['run_id'], root/'scripts', cuda_home)
+                env = make_environment(python, lib, info['config'], info['run_id'], root/'scripts', cuda_home)
                 folder = root/'results'/job['directory']; folder.mkdir(parents=True, exist_ok=False)
                 env.update({execute_env: '1'})
                 env.update(E2E_POLICY=policy, E2E_MODE=mode, E2E_CASE='h100-phase6',
@@ -85,7 +86,10 @@ def run(root, stage='all', execute=False, python=Path(sys.executable), cuda_home
                            E2E_BLOCK=str(job['block']), E2E_WINDOW=str(job['index']),
                            PYTHONPATH=f'{root}/scripts:{info["megatron"]}'+('' if is_native(policy) else f':{lib}/python'))
                 cmd = command(root, info, python)
-                write(folder/'command.json', dict(job, command=cmd, scope=definition(policy)))
+                metadata = dict(job, command=cmd, scope=definition(policy))
+                if 'communication' in info:
+                    metadata['communication'] = info['communication']
+                write(folder/'command.json', metadata)
                 print('START', job['directory'], flush=True)
                 with (folder/'process.log').open('x') as f:
                     subprocess.run(cmd, cwd=info['megatron'], env=env, stdout=f, stderr=subprocess.STDOUT, check=True)

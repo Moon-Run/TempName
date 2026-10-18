@@ -1,5 +1,7 @@
 # H100 单节点 Phase6
 
+**MLP＋Attention 五组量化消融使用 [`ablation4.py`](ablation4.py)：[消融实验 4](../../../docs/design/design-h100/消融实验4.md)。** Megatron＋量化、固定 Flux 融合 v2、同融合 v2 实现的 A/B，以及消融 3 双缓冲完整版 C；默认单轮 25 个正式窗口。75 的消融 3 五套结果见 [汇总与 74 历史封存](../../../docs/design/design-h100/base-phase6-ablation3.md)。
+
 **native＋G0–G6 消融实验使用独立入口：[README-ablation.md](README-ablation.md)。** 它固定 GPT 6.7B/TP8，分别测量 remote_first 与 interleaved，显式支持 BF16、定向、随机同数量及全远端模式。下文仍是原六策略协议，不将其 72 窗口或 4% 验收套用到单项消融。
 
 本入口把 A800 Phase6 的完整 step 对比协议移植到单节点 H100，默认 TP8，支持 TP4，DP/PP/CP 均为 1。无需 Slurm，使用独立 `torchrun --standalone` 进程。H100构建只生成独立快照，A800冻结库、到达表和历史结果均不改写。

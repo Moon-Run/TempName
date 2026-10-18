@@ -171,7 +171,7 @@ def snapshot(dest):
     (dest/'3rdparty/cutlass').symlink_to(REPO/'3rdparty/cutlass', target_is_directory=True)
 
 
-def prepare(out, config_path, plan_path=None):
+def prepare(out, config_path, plan_path=None, only_variants=None):
     c = config(config_path)
     measured = plan(plan_path, c) if plan_path else None
     out = out.resolve()
@@ -182,6 +182,10 @@ def prepare(out, config_path, plan_path=None):
     variants = {policy(b): ('candidate', b) for b in c['bases']} if measured else {
         'original': ('hopper', 'original'), 'taco_fused': ('fused', 'original'),
         **{'sampler_'+b: ('sampler', b) for b in c['bases']}}
+    if only_variants is not None:
+        require(only_variants and len(set(only_variants)) == len(only_variants) and
+                set(only_variants) <= set(variants), 'Unknown or duplicate build variants')
+        variants = {name: variants[name] for name in only_variants}
     info = dict(protocol=PROTOCOL, arch='sm90', kind=kind, config=c, status='prepared',
                 gpu_validated=False, variants={}, files={}, inputs={},
                 source_commit=subprocess.check_output(['git','rev-parse','HEAD'],cwd=REPO,text=True).strip(),

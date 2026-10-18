@@ -112,13 +112,13 @@ def preflight(root, offline=False):
     return gate
 
 
-def summarize(values, blocks):
-    require(set(values) == set(POLICIES) and all(len(v) == len(blocks) for v in values.values()), 'Incomplete nine-group pairing')
+def summarize(values, blocks, policies=POLICIES, pairs=COMPARISONS):
+    require(set(values) == set(policies) and all(len(v) == len(blocks) for v in values.values()), 'Incomplete policy pairing')
     require(all(math.isfinite(x) and x > 0 for v in values.values() for x in v), 'Invalid timings')
     if not blocks:
         return dict(status='无可用配对块', blocks=0, comparisons={}, speedups={})
     comparisons = {}; speedups = {}
-    for a, b in COMPARISONS:
+    for a, b in pairs:
         logs = [math.log(x/y) for x, y in zip(values[a], values[b])]
         stat = paired(logs) if len(blocks) > 1 else dict(percent=100*(1-math.exp(logs[0])), ci95=None, blocks=1)
         key = a+'/'+b
@@ -131,16 +131,16 @@ def summarize(values, blocks):
                 median_tokens_per_second={k: statistics.median(8192000/x for x in v) for k, v in values.items()})
 
 
-def sensitivity(values, blocks):
+def sensitivity(values, blocks, policies=POLICIES, pairs=COMPARISONS):
     medians = {k: statistics.median(v) for k, v in values.items()}; keep = []; excluded = []
     for i, block in enumerate(blocks):
-        triggers = {k: dict(ms=values[k][i], threshold_ms=1.1*medians[k]) for k in POLICIES if values[k][i] > 1.1*medians[k]}
+        triggers = {k: dict(ms=values[k][i], threshold_ms=1.1*medians[k]) for k in policies if values[k][i] > 1.1*medians[k]}
         if triggers:
             excluded.append(dict(block, triggers=triggers))
         else:
             keep.append(i)
     return dict(original_median_ms=medians, excluded=excluded, remaining_blocks=len(keep),
-                summary=summarize({k: [v[i] for i in keep] for k, v in values.items()}, [blocks[i] for i in keep]))
+                summary=summarize({k: [v[i] for i in keep] for k, v in values.items()}, [blocks[i] for i in keep], policies, pairs))
 
 
 def markdown(result):

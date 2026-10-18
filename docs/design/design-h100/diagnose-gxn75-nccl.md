@@ -1,9 +1,16 @@
 # 75：Fabric Manager 检查与纯 NCCL 对照
 
-最新回传 `adb9ef4e` 的 `TTention-MLP-gpt67-tp8-20261017-154456` 仍在校准
-`worker.py:58` 的 `flux.create_tensor_list` 失败：PyTorch NCCL 2.21.5、CUDA 401。
-内核又记录了 `NV_ERR_FABRIC_STATE_OUT_OF_SYNC`。之前 `0f14fcee` 只完成构建、准备和
-dry-run，没有成功的 GPU 校准。以下是待在 75 执行的诊断，不是已经通过的测试。
+历史回传 `adb9ef4e` 中，75 的 `TTention-MLP-gpt67-tp8-20261017-154456` 在校准
+`worker.py:58` 的 `flux.create_tensor_list` 失败：PyTorch NCCL 2.21.5、CUDA 401，
+内核记录 `NV_ERR_FABRIC_STATE_OUT_OF_SYNC`。
+
+后续 [独立 NCCL 对照记录](../../../logs/h100/nccl-probe-20261017T161905Z/) 已回传：
+default 退出码 1，`nvls-off` 退出码 0、八 rank 全部 PASS。75 随后在关闭 NVLS 的配置下
+完成校准及五套消融 3，见 [结果汇总](base-phase6-ablation3.md)。以下命令保留作诊断复现说明；
+宿主 Fabric Manager 的具体状态仍需实际宿主日志确认，不能由容器状态推断。
+
+2026-10-18 清理失败会话后，原失败构建不再作为下列命令的路径来源；改用保留的
+`ablation3-gpt67-tp8-scope-20261017-163146` 校准库。独立 NCCL 对照记录继续保留。
 
 ## 1. 在 75 宿主机采集服务与驱动信息
 
@@ -68,8 +75,8 @@ export CUDA_DEVICE_MAX_CONNECTIONS=1
 export CUDA_HOME=/usr/local/cuda-12.4
 export PATH="$(dirname "$H100_PYTHON"):$CUDA_HOME/bin:$PATH"
 
-# 对齐最新校准启动器的库搜索目录，但测试程序不导入 Flux。
-H100_PROBE_LIB="$PWD/outputs/h100/phase6/TTention-MLP-gpt67-tp8-20261017-154456/calibration/scope-sampler"
+# 使用保留的 75 校准库目录；测试程序不导入 Flux。
+H100_PROBE_LIB="$PWD/outputs/h100/phase6/ablation3-gpt67-tp8-scope-20261017-163146/calibration/scope-sampler"
 export LD_LIBRARY_PATH="$H100_PROBE_LIB/python/flux/lib:$H100_PROBE_LIB:$CUDA_HOME/lib64${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
 export NCCL_DEBUG=INFO NCCL_DEBUG_SUBSYS=ALL
 H100_NCCL_DIAG=$(mktemp -d "$PWD/logs/h100/nccl-probe-XXXXXXXX")

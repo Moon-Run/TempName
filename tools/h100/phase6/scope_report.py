@@ -73,6 +73,7 @@ def verify_inputs(root, offline=False):
 def window(root, folder, policy, mode, block=-1, index=-1, routing=scope_protocol):
     PROTOCOL, SHAPES = routing.PROTOCOL, routing.SHAPES
     definition, is_native = routing.definition, routing.is_native
+    fused_v2 = getattr(routing, 'is_fused_v2', lambda p: False)(policy)
     module_role, module_routes = routing.module_role, routing.module_routes
     root, folder = Path(root), Path(folder); info = read(root/'submission.json')
     c = info['config']; cfg = read(root/'scripts/config.json'); plans = read(root/'scripts/selection-plan.json')
@@ -115,18 +116,22 @@ def window(root, folder, policy, mode, block=-1, index=-1, routing=scope_protoco
             require(set(r['workspace_checks']) == selected, 'Missing candidate workspace identities')
             for name, slots in r['workspace_checks'].items():
                 role = module_role(name)
-                require(len(slots) == 2 and all(s['shape'] == SHAPES[role] and
-                        s['mask_sha256'] == role_records[role]['mask_sha256'] for s in slots), 'Workspace shape/mask crossed roles')
-            for field in ('packet_ptr', 'mask_ptr'):
+                if fused_v2:
+                    require(len(slots) == 1 and set(slots[0]) == {'shape', 'packet_ptr'} and
+                            slots[0]['shape'] == SHAPES[role], 'Wrong original fused-v2 workspace')
+                else:
+                    require(len(slots) == 2 and all(s['shape'] == SHAPES[role] and
+                            s['mask_sha256'] == role_records[role]['mask_sha256'] for s in slots), 'Workspace shape/mask crossed roles')
+            for field in (('packet_ptr',) if fused_v2 else ('packet_ptr', 'mask_ptr')):
                 pointers = [s[field] for slots in r['workspace_checks'].values() for s in slots]
                 require(all(type(p) is int and p > 0 for p in pointers) and len(pointers) == len(set(pointers)), 'Workspaces alias across modules/slots')
         require(set(r['selection_checks']) == selected, 'Wrong quantized module set')
         for name, check in r['selection_checks'].items():
             role = module_role(name); record = role_records[role]; mask = record['entry']['mask']
             expected = dict(role=role, shape=SHAPES[role], bf16_wire_bytes=7*256*4096*2,
-                            mask_sha256=None if is_native(policy) else mask_sha(mask),
-                            plan_sha256=None if is_native(policy) else record['entry_sha256'],
-                            wire_bytes=7*256*32*136 if is_native(policy) else 7*256*4096*2+sum(mask[rank])*128*(136-256))
+                            mask_sha256=None if is_native(policy) or fused_v2 else mask_sha(mask),
+                            plan_sha256=None if is_native(policy) or fused_v2 else record['entry_sha256'],
+                            wire_bytes=7*256*32*136 if is_native(policy) or fused_v2 else 7*256*4096*2+sum(mask[rank])*128*(136-256))
             require(check == expected, 'Wrong role/full-shape physical mask or wire bytes')
         if mode == 'smoke':
             require(set(r['forward_checks']) == selected, 'Missing/extra enabled-module numerical checks')
