@@ -40,7 +40,7 @@ PY
 
 echo "recovery_supervisor_started=$(date -Is)"
 echo "preserving_incomplete_compare=$LOG/compare"
-run_compare compare-recovery0
+run_compare compare-recovery1
 for repeat in 1 2 3 4 5 6 7; do
   run_compare "compare-repeat$repeat"
 done
