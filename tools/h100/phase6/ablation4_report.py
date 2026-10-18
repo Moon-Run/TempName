@@ -15,6 +15,7 @@ from common import read, require, sha, verify_files, write
 from report import fingerprints
 from scope_plan import model_config, hardware_identity
 import scope_report
+import ablation_timing
 
 PROTOCOL, POLICIES = routing.PROTOCOL, routing.POLICIES
 
@@ -30,7 +31,8 @@ def verify_inputs(root, offline=False):
             info['executable'] == (not info['source_only']), 'Rehearsal/round/communication identity changed')
     require(cfg['protocol'] == PROTOCOL and cfg['policies'] == list(POLICIES) and cfg['repetitions'] == info['rounds'] and
             cfg['communication'] == communication.validate(info['communication']), 'Worker configuration changed')
-    require(cfg['warmup_steps'] == 10 and cfg['timed_steps'] == 20 and cfg['graph_forward'] is False and
+    ablation_timing.validate(root, info)
+    require(cfg['graph_forward'] is False and
             cfg['double_buffered'] is True and cfg['ring_reduction'] is True, 'Full optimizer-step protocol changed')
     model = model_config()
     require(cfg['common'] == {k: model[k] for k in ('layers', 'micro_batch', 'global_batch', 'seed', 'token_seed', 'vocab')} and
@@ -149,6 +151,8 @@ def markdown(result):
     lines = ['# H100 GPT6.7B TP8 消融实验4：五组 MLP＋Attention', '',
              f'本次 {result["round_count"]} 轮，每轮 {result["blocks_per_round"]} 个完整五组块，'
              f'共 {result["timing_windows"]} 个正式窗口。所有组均启用64个输出投影。',
+             f'每窗口预热{result["execution_timing"]["warmup_steps"]}步，正式计时{result["execution_timing"]["timed_steps"]}步；'
+             f'合计{result["formal_optimizer_steps"]}个正式optimizer step（不重复计rank）。',
              '计时是完整32层模型、4微批的optimizer step，8192 token/step；全样本主表，不筛选慢窗口。',
              '完整量化仅指全部远端贡献；本地贡献、GEMM及反向保持既定BF16/STE路径。',
              'Flux/A/B共用固定融合v2 codec、逐次配置/复位、单工作区和输出clone，只改变调度顺序；C沿用消融3双缓冲实现。',
@@ -181,6 +185,7 @@ def markdown(result):
 
 def report(root, offline=False):
     root = Path(root); info = verify_inputs(root, offline); gate = read(root/'preflight.json')
+    timing = ablation_timing.validate(root, info)
     require(info['executable'] and not info['source_only'] and gate['completed'] and gate['protocol'] == PROTOCOL and
             gate['submission_sha256'] == sha(root/'submission.json') and gate['communication'] == info['communication'],
             'Completed GPU preflight under the same communication settings required')
@@ -189,7 +194,9 @@ def report(root, offline=False):
     require(observed == {j['directory'] for j in info['schedule']}, 'Missing or extra timing window directories')
     result = dict(protocol=PROTOCOL, run_id=info['run_id'], completed=False, offline=offline, all_samples=[],
                   rounds={}, sensitivity={}, round_count=info['rounds'], blocks_per_round=info['blocks_per_round'],
-                  communication=info['communication'], acceptance_threshold=None, sample_policy='all samples primary',
+                  communication=info['communication'], execution_timing=timing,
+                  formal_optimizer_steps=info['timing_windows']*timing['timed_steps'],
+                  acceptance_threshold=None, sample_policy='all samples primary',
                   correctness_passed=True, bootstrap=dict(resamples=10000, seed=20261009, unit='complete five-policy block',
                                                        multiple_comparison_correction=None),
                   primary_comparisons=routing.PRIMARY, comparisons=routing.COMPARISONS, config=info['config'],
@@ -205,7 +212,7 @@ def report(root, offline=False):
             for job in jobs:
                 folder = root/'results'/job['directory']; rows = window(root, folder, job['policy'], 'timing', job['block'], job['index'])
                 require(fingerprints(rows) == [tuple(x) for x in gate['fingerprints']], 'Timing initialization/RNG/tokens/software changed')
-                elapsed = [r['elapsed_seconds'] for r in rows]; ms = max(elapsed)*1000/20
+                elapsed = [r['elapsed_seconds'] for r in rows]; ms = max(elapsed)*1000/timing['timed_steps']
                 values[job['policy']].append(ms)
                 result['all_samples'].append(dict(job, rank_elapsed_seconds=elapsed, ms_per_step=ms, tokens_per_second=8192000/ms))
                 files.update({str(p.relative_to(root)): sha(p) for p in folder.rglob('*') if p.is_file()})

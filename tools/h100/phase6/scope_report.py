@@ -79,8 +79,8 @@ def window(root, folder, policy, mode, block=-1, index=-1, routing=scope_protoco
     c = info['config']; cfg = read(root/'scripts/config.json'); plans = read(root/'scripts/selection-plan.json')
     role_records = routing.role_plans(plans, policy)
     model = dict(cfg['common'], **cfg['cases'][0]); v = info['variants'][policy]
-    count = cfg['smoke_steps'] if mode == 'smoke' else 1 if mode == 'profile' else 20
-    warmup = cfg['smoke_warmup_steps'] if mode == 'smoke' else 10
+    count = cfg['smoke_steps'] if mode == 'smoke' else 1 if mode == 'profile' else cfg['timed_steps']
+    warmup = cfg['smoke_warmup_steps'] if mode == 'smoke' else cfg['warmup_steps']
     rows = [read(folder/f'rank{r}.json') for r in range(8)]
     for rank, r in enumerate(rows):
         require(r['completed'] and r['passed'] and r['skips'] == r['fallback_calls'] == 0, 'Failed/skipped/fallback window')

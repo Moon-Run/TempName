@@ -384,8 +384,8 @@ def profile_fixture(policy):
 def make_window(root, info, job):
     policy, mode = job['policy'], job['mode']; folder = root/'results'/job['directory']; folder.mkdir(parents=True)
     cfg = read(root/'scripts/config.json'); bundle = read(root/'scripts/selection-plan.json')
-    count = cfg['smoke_steps'] if mode == 'smoke' else 1 if mode == 'profile' else 20
-    warmup = cfg['smoke_warmup_steps'] if mode == 'smoke' else 10
+    count = cfg['smoke_steps'] if mode == 'smoke' else 1 if mode == 'profile' else cfg['timed_steps']
+    warmup = cfg['smoke_warmup_steps'] if mode == 'smoke' else cfg['warmup_steps']
     observed = {f'layers.{i}.{suffix}':dict(M=2048,N=4096,K_global=k,K_local=k//8) for i in range(32)
                 for suffix,k in [('self_attention.linear_proj',4096),('mlp.linear_fc2',16384)]}
     routes = sp.module_routes(observed, policy); selected = {n for n,v in routes.items() if v!='native_bf16'}
@@ -396,7 +396,7 @@ def make_window(root, info, job):
                  tp_group_ranks=list(range(8)),dp_group_ranks=[rank],world_size=8,hardware=hardware,gpu_uuid=hardware['devices'][rank]['uuid'],
                  model=dict(cfg['common'],**cfg['cases'][0]),padded_vocab_size=33792,block=job['block'],window=job['index'],
                  timing_protocol='full-step-one-clear-v2',sampling=False,profiling=mode=='profile',losses=[1.]*count,grad_norms=[1.]*count,
-                 initial_loss=1.,warmup_steps=warmup,timed_steps=count,elapsed_seconds=(20 if rank==7 else 10)*(2 if job['block']==0 and policy==sp.POLICIES[0] else 1),
+                 initial_loss=1.,warmup_steps=warmup,timed_steps=count,elapsed_seconds=(count if rank==7 else count/2)*(2 if job['block']==0 and policy==sp.POLICIES[0] else 1),
                  observed_shapes=observed,module_policies=routes,post_audit_routes=routes,target_modules=list(routes),warmup_calls={n:warmup*4 for n in routes},
                  timed_calls={n:count*4 for n in routes},enabled_modules=sorted(selected),replaced_modules=len(selected),independent_scope_instances=len(selected),
                  forward_preserved={n:v!='candidate' for n,v in routes.items()},codec_placements={n:{'native_bf16':'native','tensor':'tensor','candidate':'fused'}[v] for n,v in routes.items()},

@@ -7,6 +7,7 @@ import ablation4_build as builder
 import ablation4_protocol as routing
 import ablation4_runtime as communication
 import ablation4_sources as sources
+from ablation_timing import execution_timing
 from ablation_prepare import megatron_check
 from common import HERE, REPO, MEGATRON_COMMIT, read, require, replace_once, sha, write
 from scope_plan import model_config
@@ -57,14 +58,15 @@ def prepare(out, build_root, megatron, blocks=5, source_only=False, rounds=1, nv
     c = model_config(); plans = read(build_root/'plans.json'); comm = communication.capture(nvls)
     cfg = read(REPO/'tools/a800/phase5/e2e/config.json')
     cfg.update(protocol=routing.PROTOCOL, policies=list(routing.POLICIES), orders=[], repetitions=rounds,
-               warmup_steps=10, timed_steps=20, graph_forward=False, double_buffered=True, ring_reduction=True,
+               **execution_timing(), graph_forward=False, double_buffered=True, ring_reduction=True,
                cases=[dict(name='h100-phase6', **{k: c[k] for k in ('hidden', 'ffn', 'heads', 'sequence', 'tp')})],
                common={k: c[k] for k in ('layers', 'micro_batch', 'global_batch', 'seed', 'token_seed', 'vocab')},
                role_plan_sha256=role_hashes(plans), communication=comm,
                scope='Ablation4: all five implementations quantize both Attention and MLP output projections; full optimizer steps.')
     write(scripts/'config.json', cfg); run_id = uuid.uuid4().hex
     write(provenance/'preparation.json', dict(protocol=routing.PROTOCOL, run_id=run_id, source_only=source_only,
-            executable=not source_only, rounds=rounds, communication=comm, plans_sha256=sha(build_root/'plans.json')))
+            executable=not source_only, rounds=rounds, communication=comm, execution_timing=execution_timing(),
+            plans_sha256=sha(build_root/'plans.json')))
     variants = {}
     for policy in routing.POLICIES:
         v = routing.definition(policy)
@@ -77,7 +79,7 @@ def prepare(out, build_root, megatron, blocks=5, source_only=False, rounds=1, nv
                                   for n in ('libflux_cuda.so', 'libflux_cuda_ths_op.so')}
         variants[policy] = v
     hardware = next((p['hardware'] for p in plans['parent']['roles'].values() if not p['test_only']), {})
-    info = dict(protocol=routing.PROTOCOL, run_id=run_id, config=c, source_only=source_only,
+    info = dict(protocol=routing.PROTOCOL, run_id=run_id, config=c, execution_timing=execution_timing(), source_only=source_only,
                 executable=not source_only, gpu_validated=False, rounds=rounds, blocks_per_round=blocks,
                 schedule_seed=20261013, schedule=jobs, timing_windows=len(jobs), variants=variants,
                 communication=comm, calibration_hardware=hardware, megatron=str(megatron),

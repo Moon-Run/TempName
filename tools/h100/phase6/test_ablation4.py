@@ -208,6 +208,8 @@ class IntegrationTests(unittest.TestCase):
             self.assertTrue(result['completed']); self.assertEqual(result['round_count'], rounds)
             self.assertEqual(result['timing_windows'], 25*rounds)
             self.assertEqual(result['timing_rank_records'], 200*rounds)
+            self.assertEqual(result['execution_timing'], dict(warmup_steps=10, timed_steps=60))
+            self.assertEqual(result['formal_optimizer_steps'], 1500*rounds)
             self.assertEqual(result['preflight_rank_records'], 80)
             self.assertEqual(result['profile_traces'], 40); self.assertEqual(result['candidate_shape_mappings'], 8)
             self.assertEqual(len(result['rounds']['combined']['comparisons']), 10)
@@ -216,7 +218,9 @@ class IntegrationTests(unittest.TestCase):
             if rounds == 1: self.assertEqual(result['rounds']['combined'], result['rounds']['1'])
             job = next(j for j in info['schedule'] if sp.is_fused_v2(j['policy']))
             path = root/'results'/job['directory']/'rank7.json'; original = read(path)
-            for field, value in (('communication', {}), ('timed_calls', {}), ('sampling', True)):
+            self.assertEqual(len(original['losses']), 60)
+            for field, value in (('communication', {}), ('timed_calls', {}), ('sampling', True),
+                                 ('losses', original['losses'][:20]), ('timed_steps', 20)):
                 write(path, dict(original, **{field: value}))
                 with self.assertRaises(ValueError): report.window(root, path.parent, job['policy'], 'timing', job['block'], job['index'])
             changed = copy.deepcopy(original); checks = list(changed['workspace_checks'].values())
