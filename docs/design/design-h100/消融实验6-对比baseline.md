@@ -170,4 +170,32 @@ export H100_A6_PARENT=/workspace/TempName/outputs/h100/phase6/ablation4-gpt67-tp
 
 新增3＋3总脚本另通过8项CPU测试，覆盖六次串行顺序、两种构建失败、正式执行失败、第三次报告/输入漂移拒绝、独立run_id、复用构建仍重新预检、NCCL记录校验和默认只读预览。测试使用模拟子进程与报告元数据，不启动GPU训练。
 
-本次仅完成CPU源码准备与模拟证据验证。**新GemmOnly库尚未完成CUDA编译/链接，新baseline也尚未通过H100实测预检。** 一键脚本会在原容器先编译，再通过数值与profile门槛后才进入正式窗口；此处不将CPU检查写成GPU验证结果。
+上述初版检查仅覆盖CPU源码准备与模拟证据，未覆盖真实生成器编译；后续首次构建失败和修复验证见第9节。**新baseline尚未通过H100实测预检。** 一键脚本在原容器先编译，再通过数值与profile门槛后才进入正式窗口；CPU检查和编译通过均不等同于GPU数值或性能验证。
+
+## 9. 2026-10-19首次3＋3批次编译失败及修复
+
+回传批次 `ablation6-then7-3x-50steps-20261019-122720-434246` 的顶层状态为 `failed`，停止于 `ablation6/compile`。后台托管成功，消融6的 `comparisons` 仍为空，消融7为 `pending`：**六次实验均未进入预检或正式训练，没有可汇总的性能/loss结果。**
+
+直接原因见 [GemmOnly构建日志](../../../logs/h100/phase6/ablation6-then7-3x-50steps-20261019-122720-434246/ablation6/flux-build/compile.log)：`gen_comm_none.cc:29` 向 `main_template` 传参时出现 `invalid initialization of reference`。日志已识别 GNU11.4.0 和 CUDA12.8.93；编译环境检查通过后，新增生成器中的未限定 `make_tuple(...)` 因 `std::vector/std::string` 参数触发ADL，选中了 `std::make_tuple`，而接口要求 `cute::tuple`。
+
+[ablation6_gemm_only_generator.cc](../../../tools/h100/phase6/ablation6_gemm_only_generator.cc) 已显式使用 `cute::make_tuple(...)`，与上游生成器一致。这是构建注册器的类型修复，保留原BF16/GemmV3参数空间、共享Tensor TACO、A/B/C实现、10＋50步和3＋3执行顺序。
+
+此前Python模拟测试没有覆盖真实C++编译。新增 [test_ablation6_generator.py](../../../tools/h100/phase6/test_ablation6_generator.py) 使用实际CUDA头文件和C++编译器，编译并运行生成器，核验仅生成一个SM90/H800/BF16/RCR注册文件及6个GemmOnly配置；不调用GPU。修复前错误已在本地GCC11重现，修复后该编译测试通过。可在容器复核：
+
+```bash
+CUDA_HOME=/usr/local/cuda-12.8 CXX=/usr/bin/g++-11 \
+  /workspace/conda-envs/flux-h100-ablation3-20261017/bin/python \
+  -m unittest discover -s tools/h100/phase6 -p test_ablation6_generator.py -v
+```
+
+本次复核 **19项既有消融6/3＋3启动器测试＋1项真实生成器编译测试全部通过**。另在本地GNU11.4.0、CUDA12.8.61环境完成全新GemmOnly源码快照的CMake配置、6个配置的SM90内核编译、`libflux_cuda.so` / `libflux_cuda_ths_op.so`链接安装及 `setup.py build_ext --inplace`，最终manifest状态为 `built`。临时产物位于 `/tmp/ablation6-fixed-build-rce5pqpd/build/`，保持 `source_only=true`、`gpu_validated=false`，不能作为正式实验构建复用。
+
+本机没有NVIDIA驱动库 `libcuda.so.1`，按正式运行环境进行的动态加载检查在该依赖处停止；这不属于已回传批次的生成器编译错误，也未通过改动加载器掩盖。**原H100容器的实际加载、八卡数值/profile预检及训练仍待重新执行。**
+
+将修复同步至原容器的 `tools/h100/phase6/` 后，在仓库根目录重新执行总入口即可。默认自动创建新时间戳批次；保留旧失败批次作为证据，不向 `--flux-build` 传入旧失败构建，也不覆盖其源码或manifest哈希。
+
+```bash
+cd /workspace/TempName
+/workspace/conda-envs/flux-h100-ablation3-20261017/bin/python \
+  tools/h100/phase6/detach_ablation6_then7.py --execute
+```

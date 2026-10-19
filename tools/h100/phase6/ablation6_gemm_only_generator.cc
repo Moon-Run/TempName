@@ -26,6 +26,8 @@ int main(int argc, char const **argv) {
         return !(to_gemm_v3_hparams(h.impl_spec()).kernel_schedule() == _PingPong{} &&
                  h.gemm_kind() == _GemmStreamK{});
       });
-  return main_template(options, {make_tuple(build_gen_space(meta, hp),
+  // std::vector/std::string arguments let ADL select std::make_tuple here.
+  // main_template requires a cute::tuple, as in the upstream generators.
+  return main_template(options, {cute::make_tuple(build_gen_space(meta, hp),
       std::string("comm_none/gemm_v3_comm_none.hpp"), std::string("GemmV3CommNone"))});
 }
