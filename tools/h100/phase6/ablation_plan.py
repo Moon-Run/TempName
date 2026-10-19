@@ -50,17 +50,44 @@ def definitions(base, seeds=(17, 29, 43)):
     return result
 
 
-def resolve_input(name, digest):
-    """Relocate returned evidence by exact hash; never rewrite historical files."""
+def _input_paths(name):
+    """Original/container/local locations for the same registered input."""
     path = Path(name)
     candidates = [path]
     prefix = '/workspace/TempName/'
-    if name.startswith(prefix):
-        relative = name[len(prefix):]
+    if str(path).startswith(prefix):
+        relative = Path(str(path)[len(prefix):])
+    else:
+        try:
+            relative = path.relative_to(REPO)
+        except ValueError:
+            relative = None
+    if relative is not None:
         candidates += [REPO / relative, FREEZE / 'source' / relative]
+    return candidates, relative
+
+
+def resolve_input(name, digest, registered_inputs=None):
+    """Resolve exact bytes, including controller snapshots sealed by this plan.
+
+    A historical calibration may register both its original tools/ path and
+    the copied controllers/ path. Editing the live tools must not invalidate
+    that immutable evidence. Never use unregistered copies or substitute raw
+    measurements by basename; all candidates still need the expected SHA256.
+    """
+    candidates, relative = _input_paths(name)
     for candidate in candidates:
         if candidate.is_file() and sha(candidate) == digest:
             return candidate.resolve()
+    if (registered_inputs and relative is not None and relative.parent == Path('tools/h100/phase6')
+            and relative.suffix == '.py' and registered_inputs.get(str(name)) == digest):
+        for archived, expected in registered_inputs.items():
+            snapshot = Path(archived)
+            if expected == digest and snapshot.parent.name == 'controllers' and snapshot.name == relative.name:
+                paths, _ = _input_paths(archived)
+                for candidate in paths:
+                    if candidate.is_file() and sha(candidate) == digest:
+                        return candidate.resolve()
     raise ValueError(f'Missing/changed frozen input: {name} ({digest})')
 
 

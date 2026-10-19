@@ -43,7 +43,7 @@ def validate(record, role, allow_test=False, verify_evidence=True):
         validate_hardware(record['hardware'])
         if verify_evidence:
             for name, value in record['inputs'].items():
-                resolve_input(name, value)
+                resolve_input(name, value, registered_inputs=record['inputs'])
     entry = record['entry']
     require(entry['shape'] == SHAPES[role] and
             [entry[k] for k in ('M', 'N', 'K_global')] == SHAPES[role], 'Full shape/role mismatch')

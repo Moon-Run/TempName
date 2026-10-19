@@ -176,7 +176,7 @@ export H100_A6_PARENT=/workspace/TempName/outputs/h100/phase6/ablation4-gpt67-tp
 
 回传批次 `ablation6-then7-3x-50steps-20261019-122720-434246` 的顶层状态为 `failed`，停止于 `ablation6/compile`。后台托管成功，消融6的 `comparisons` 仍为空，消融7为 `pending`：**六次实验均未进入预检或正式训练，没有可汇总的性能/loss结果。**
 
-直接原因见 [GemmOnly构建日志](../../../logs/h100/phase6/ablation6-then7-3x-50steps-20261019-122720-434246/ablation6/flux-build/compile.log)：`gen_comm_none.cc:29` 向 `main_template` 传参时出现 `invalid initialization of reference`。日志已识别 GNU11.4.0 和 CUDA12.8.93；编译环境检查通过后，新增生成器中的未限定 `make_tuple(...)` 因 `std::vector/std::string` 参数触发ADL，选中了 `std::make_tuple`，而接口要求 `cute::tuple`。
+当时的GemmOnly构建日志显示：`gen_comm_none.cc:29` 向 `main_template` 传参时出现 `invalid initialization of reference`。日志已识别 GNU11.4.0 和 CUDA12.8.93；编译环境检查通过后，新增生成器中的未限定 `make_tuple(...)` 因 `std::vector/std::string` 参数触发ADL，选中了 `std::make_tuple`，而接口要求 `cute::tuple`。该失败会话目录已按用户要求清理，根因保留在本节。
 
 [ablation6_gemm_only_generator.cc](../../../tools/h100/phase6/ablation6_gemm_only_generator.cc) 已显式使用 `cute::make_tuple(...)`，与上游生成器一致。这是构建注册器的类型修复，保留原BF16/GemmV3参数空间、共享Tensor TACO、A/B/C实现、10＋50步和3＋3执行顺序。
 
@@ -192,10 +192,31 @@ CUDA_HOME=/usr/local/cuda-12.8 CXX=/usr/bin/g++-11 \
 
 本机没有NVIDIA驱动库 `libcuda.so.1`，按正式运行环境进行的动态加载检查在该依赖处停止；这不属于已回传批次的生成器编译错误，也未通过改动加载器掩盖。**原H100容器的实际加载、八卡数值/profile预检及训练仍待重新执行。**
 
-将修复同步至原容器的 `tools/h100/phase6/` 后，在仓库根目录重新执行总入口即可。默认自动创建新时间戳批次；保留旧失败批次作为证据，不向 `--flux-build` 传入旧失败构建，也不覆盖其源码或manifest哈希。
+将修复同步至原容器的 `tools/h100/phase6/` 后，在仓库根目录重新执行总入口即可。默认自动创建新时间戳批次；不要复用已清理的失败会话目录或覆盖历史manifest哈希。
 
 ```bash
 cd /workspace/TempName
 /workspace/conda-envs/flux-h100-ablation3-20261017/bin/python \
   tools/h100/phase6/detach_ablation6_then7.py --execute
 ```
+
+## 10. 第二次会话准备失败：解析原校准的冻结源码副本
+
+批次 `ablation6-then7-3x-50steps-20261019-152811-461354` 的GemmOnly构建已完成（manifest为 `built`），之后在 `ablation6/compare1-prepare` 停止，尚未执行预检和正式窗口。错误为旧校准记录中的 `tools/h100/phase6/scope_calibrate.py` 无法按原SHA256解析。
+
+消融7开发更新了当前的 `scope_calibrate.py` 与 `plan.py`，旧校准计划仍登记它们生成证据时的版本。原校准会话同时保存并登记了 `calibration/controllers/` 副本，但旧解析器只检查工作树和最早的candidate冻结目录，因此没有找到已经存在的正确副本。
+
+| 原文件 | 旧计划登记的SHA256 |
+| --- | --- |
+| `scope_calibrate.py` | `c215e1926c928b2fc3189ee19b8adc10edd75ac6be07fb8fe15c437d4c894c00` |
+| `plan.py` | `e110229caedff76e28110271c7a468d4dd3d18f000b1c7a59b73d57c293715f1` |
+
+修复位于 [ablation_plan.py](../../../tools/h100/phase6/ablation_plan.py) 和 [scope_plan.py](../../../tools/h100/phase6/scope_plan.py)：校验当前文件或最早冻结版本失败时，可使用**同一旧计划已登记、同名且期望SHA256相同**的 `controllers/` 副本，并重新计算文件SHA256。只允许phase6控制器源码使用此路径；测量数据、运行库、未知文件以及缺失/被修改的副本仍拒绝。历史副本只用于核对证据，不导入执行；当前消融7仍运行新的到达调度代码。未改写旧计划、旧源码、二进制或预检门槛。
+
+新增 [test_frozen_input_resolution.py](../../../tools/h100/phase6/test_frozen_input_resolution.py) 覆盖7项检查：已登记副本的精确解析、当前文件优先、本地路径迁移、旧冻结源兼容、未登记/错误名称/错误哈希/缺失副本拒绝、篡改拒绝及原始数据不得借用控制器副本，并核对真实Attention/MLP历史记录中的两份源码。
+
+本次7项新增检查及56项既有回归全部通过，合计 **63项**。另外逐项审计两角色各79份登记输入：本地各78份通过，包括先前失败的两份控制器；对实际raw数据进行CPU重放后，原Attention/MLP mask保持一致，改进到达算法仍均为0个接受交换组。
+
+本地回传档案缺少原校准登记的一份 `runtime.cpython-310.pyc`，因此完整可执行父构建的准入仍需在原容器验证；不会为了离线通过而跳过该文件。当前修复针对的是已确认的两份源码路径解析问题，不能把CPU回放或合成测试当作八卡执行验收。
+
+按本次要求，已清理本地 `logs/h100/phase6/` 下两份状态明确为 `failed` 的3＋3会话：`ablation6-then7-3x-50steps-20261019-122720-434246`、`ablation6-then7-3x-50steps-20261019-152811-461354`。原始消融3校准档案、消融4/5成功结果和父构建均保留。此处清理针对本地拉回副本，不表示已经操作远端容器。
