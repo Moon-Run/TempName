@@ -1,0 +1,59 @@
+{
+  "completed": true,
+  "gpu_used": false,
+  "gpu_validated": false,
+  "synthetic_nonidentity": true,
+  "changed_per_rank": {
+    "attn": [
+      32,
+      32,
+      32,
+      32,
+      32,
+      32,
+      32,
+      32
+    ],
+    "mlp": [
+      32,
+      32,
+      32,
+      32,
+      32,
+      32,
+      32,
+      32
+    ]
+  },
+  "commands": [
+    [
+      "g++",
+      "-std=c++17",
+      "-O2",
+      "outputs/h100/phase6/arrival-op1-cpu-20261019/compile/host.cc",
+      "-o",
+      "outputs/h100/phase6/arrival-op1-cpu-20261019/compile/host-check"
+    ],
+    [
+      "outputs/h100/phase6/arrival-op1-cpu-20261019/compile/host-check"
+    ],
+    [
+      "/data/apps/cuda/12.8/bin/nvcc",
+      "-std=c++17",
+      "-O2",
+      "-gencode=arch=compute_90,code=sm_90",
+      "-c",
+      "outputs/h100/phase6/arrival-op1-cpu-20261019/compile/device.cu",
+      "-o",
+      "outputs/h100/phase6/arrival-op1-cpu-20261019/compile/device.o"
+    ]
+  ],
+  "files": {
+    "compile.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "host-check": "9e5bbc43d994fe01b8e933c8b0c4181738068c58c2222d6c6720d5884fd0103d",
+    "device.cu": "786c64444803bd1a909243a025723016caf712ec61754b21046c0c77f6dc5d43",
+    "device.o": "23f98f666914dc92cfdddfb1e23525f2cf179930fe492673ab59821d43588caa",
+    "host.hpp": "da14a100429c5c8597a3844e9f42867cf3f0448ab4bd08a4e11fecd16c70a7eb",
+    "host.cc": "f20067c92cddadc90bbe2f3a2d86fb7b2c97e32891b97215347bf0ccb5b318f7"
+  }
+}

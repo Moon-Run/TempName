@@ -165,8 +165,10 @@ def fit(root, out, arrival_order='legacy_tail'):
     inputs = {str(f): sha(f) for f in root.rglob('*') if f.is_file() and f.suffix != '.lock'}
     for f in (HERE/'scope_calibrate.py', HERE/'plan.py', REPO/'tools/a800/arrival/plan.py', REPO/'tools/a800/phase5/plan.py'):
         inputs[str(f)] = sha(f)
-    if arrival_order == 'tail_residual':
+    if arrival_order in ('tail_residual', 'tail_assignment'):
         inputs[str(HERE/'arrival_tail.py')] = sha(HERE/'arrival_tail.py')
+    if arrival_order == 'tail_assignment':
+        inputs[str(HERE/'arrival_assignment.py')] = sha(HERE/'arrival_assignment.py')
     results = {}
     for role in p['roles']:
         with (root/f'mapping-{role}.csv').open() as f:

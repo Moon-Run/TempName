@@ -32,7 +32,7 @@ def validate_mapping(rows,c,base,expected_shape=None):
 
 def fit(reports,rows,c,base,expected_shape=None,arrival_order='legacy_tail'):
     """Pure CPU fit; held-out observations are used only for diagnostics."""
-    require(arrival_order in ('legacy_tail', 'tail_residual'), 'Unknown arrival order')
+    require(arrival_order in ('legacy_tail', 'tail_residual', 'tail_assignment'), 'Unknown arrival order')
     validate_mapping(rows,c,base,expected_shape)
     m,n,k=expected_shape if expected_shape is not None else shape(c);world=c['tp'];tiles=m//128*(n//128);per=tiles//world
     scores=[[0.]*tiles for _ in range(world)];heldout={};overhead=[];invalid=[];valid=0;observations={}
@@ -58,8 +58,11 @@ def fit(reports,rows,c,base,expected_shape=None,arrival_order='legacy_tail'):
         mapping=arrival.permute(rr,dict(enumerate(scores[rank])),c['window'])
         maps.append(mapping);coords.append([original[i] for i in mapping]);base_coords.append(original)
     order_diagnostics = None
-    if arrival_order == 'tail_residual':
-        from arrival_tail import fit_order
+    if arrival_order in ('tail_residual', 'tail_assignment'):
+        if arrival_order == 'tail_assignment':
+            from arrival_assignment import fit_order
+        else:
+            from arrival_tail import fit_order
         maps, order_diagnostics = fit_order(rows, observations, world, c['window'])
         coords = [[base_coords[r][i] for i in maps[r]] for r in range(world)]
     mask=selection.select(scores,world,c['fraction'])

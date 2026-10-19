@@ -61,9 +61,58 @@ class ArrivalIntegrationTests(unittest.TestCase):
         for field in ('maps', 'coords', 'mask'):
             self.assertEqual(a[field], b[field])
 
+    def test_joint_order_reaches_full_shape_generated_tables_without_changing_mask(self):
+        entries = {}
+        for role in ('attn', 'mlp'):
+            record = scope_plan.cpu_fixture(role)
+            config = record['config']
+            samples = reports(config)
+            for sample in samples:
+                shape = sample['shapes'][0]
+                shape['K_global'] = record['entry']['K_global']
+                # Two equally late contributions require a joint move. All
+                # displaced tiles are included in the candidate's tail cost.
+                for observation in shape['samples']:
+                    if observation['mode'] == 'receiver_sparse':
+                        late_offsets = (2, 3) if role == 'attn' else (6, 7)
+                        value = (1 if observation['offset'] < 2 else
+                                 11 if observation['offset'] in late_offsets else 9)
+                        for fragment in observation['receiver']:
+                            fragment['observed_ns'] = 1000000 + value * 1000 + fragment['fragment']
+            rows = mapping(config, 'interleaved')
+            legacy = plan.fit(samples, rows, config, 'interleaved', record['entry']['shape'])
+            single = plan.fit(samples, rows, config, 'interleaved', record['entry']['shape'],
+                              arrival_order='tail_residual')
+            candidate = plan.fit(samples, rows, config, 'interleaved', record['entry']['shape'],
+                                 arrival_order='tail_assignment')
+            self.assertTrue(single['arrival_order']['identity_fallback'])
+            self.assertFalse(candidate['arrival_order']['identity_fallback'])
+            self.assertEqual(candidate['mask'], legacy['mask'])
+            self.assertEqual(candidate['base_coords'], legacy['base_coords'])
+            validate_entry(candidate, config, record['entry']['shape'])
+            entries[role] = candidate
+        self.assertNotEqual(entries['attn']['maps'], entries['mlp']['maps'])
+        source = (REPO/scope_build.SWIZZLE).read_text()
+        device = scope_build.swizzle(source, entries)
+        host = scope_build.tables(entries)
+        self.assertIn('phase6_device_attn_lookup', device)
+        self.assertIn('phase6_device_mlp_lookup', device)
+        self.assertIn('phase6_host_attn_lookup', host)
+        self.assertIn('phase6_host_mlp_lookup', host)
+
+    def test_joint_fit_heldout_does_not_select_order_or_mask(self):
+        config = fixture_config()
+        first = plan.fit(reports(config), mapping(config, 'interleaved'), config, 'interleaved',
+                         arrival_order='tail_assignment')
+        altered = plan.fit(reports(config, heldout_shift=1), mapping(config, 'interleaved'),
+                           config, 'interleaved', arrival_order='tail_assignment')
+        for field in ('maps', 'coords', 'mask'):
+            self.assertEqual(first[field], altered[field])
+
     def test_ablation4_fit_keeps_legacy_default_and_accepts_explicit_candidate(self):
         for option, expected in (([], 'legacy_tail'), (['--arrival-order', 'legacy_tail'], 'legacy_tail'),
-                                 (['--arrival-order', 'tail_residual'], 'tail_residual')):
+                                 (['--arrival-order', 'tail_residual'], 'tail_residual'),
+                                 (['--arrival-order', 'tail_assignment'], 'tail_assignment')):
             with mock.patch('sys.argv', ['ablation4.py', 'fit', '/calibration', '/new-plan', *option]), \
                  mock.patch.object(ablation4.scope_calibrate, 'verify', return_value={'communication': {}}), \
                  mock.patch.object(ablation4.scope_calibrate, 'calibration_records', return_value=[]), \

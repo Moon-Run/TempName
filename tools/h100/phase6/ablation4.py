@@ -58,8 +58,8 @@ def main():
     q.add_argument('--build', type=Path, required=True); q.add_argument('--source-only', action='store_true')
     q.add_argument('--nvls-enable', choices=('0', 'auto'), default='0')
     q = sub.add_parser('fit'); q.add_argument('calibration', type=Path); q.add_argument('out', type=Path)
-    q.add_argument('--arrival-order', choices=('tail_residual', 'legacy_tail'), default='legacy_tail',
-                   help='Preserve the original ablation4 heuristic by default; tail_residual explicitly fits the new candidate')
+    q.add_argument('--arrival-order', choices=('tail_residual', 'tail_assignment', 'legacy_tail'), default='legacy_tail',
+                   help='Keep the historical default; explicitly opt into residual swaps or joint tail assignment')
     q = sub.add_parser('build-prepare'); q.add_argument('out', type=Path)
     q.add_argument('--attn-plan', type=Path); q.add_argument('--mlp-plan', type=Path)
     q.add_argument('--source-only', action='store_true')
