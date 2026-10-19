@@ -1,0 +1,4287 @@
+{
+  "protocol": "h100-gpt67-tp8-ablation6-v1",
+  "run_id": "902a722e1b3745558cc9cef217caf38c",
+  "completed": true,
+  "correctness_passed": true,
+  "offline": false,
+  "round_count": 2,
+  "blocks_per_round": 5,
+  "config": {
+    "tp": 8,
+    "sm_count": 132,
+    "layers": 32,
+    "hidden": 4096,
+    "ffn": 16384,
+    "heads": 32,
+    "sequence": 2048,
+    "micro_batch": 1,
+    "global_batch": 4,
+    "seed": 1234,
+    "token_seed": 4321,
+    "vocab": 32768,
+    "warmup_steps": 10,
+    "timed_steps": 20,
+    "window": 64,
+    "fraction": 0.015625,
+    "bases": [
+      "remote_first",
+      "interleaved"
+    ],
+    "target_percent": 4.0
+  },
+  "execution_timing": {
+    "warmup_steps": 10,
+    "timed_steps": 50
+  },
+  "communication": {
+    "environment": {
+      "NCCL_VERSION": "2.21.5-1",
+      "NCCL_NVLS_ENABLE": "0",
+      "NCCL_DEBUG": "WARN",
+      "TORCH_NCCL_ASYNC_ERROR_HANDLING": "1"
+    },
+    "config_files": {
+      "/etc/nccl.conf": null,
+      "/root/.nccl.conf": null
+    },
+    "nvls_request": "0"
+  },
+  "naive_codec_identity": {
+    "implementation": "shared-tensor-taco-h128-e4m3-v1",
+    "source_sha256": "0f5813bccacbbc5700b571337a73aad8a421d3292a85e6f80804c8cb898f602e",
+    "reference_sha256": "1a6f8e4ef7a7a20b1709d2a91eeed55832c0cf7d73f351b4dc6e8f152be60b5b"
+  },
+  "all_samples": [
+    {
+      "round": 1,
+      "block": 0,
+      "index": 0,
+      "policy": "interleaved_all_attn_mlp",
+      "directory": "round1/window-000-interleaved_all_attn_mlp",
+      "rank_elapsed_seconds": [
+        26.815099088475108,
+        26.814923767000437,
+        26.814997212029994,
+        26.81494408659637,
+        26.814958311617374,
+        26.815044604241848,
+        26.814959618262947,
+        26.815108668990433
+      ],
+      "ms_per_step": 536.3021733798087,
+      "tokens_per_second": 15274.970728485998,
+      "mean_loss": 3.8210143247736412,
+      "final_loss": 3.2611555070616305e-05
+    },
+    {
+      "round": 1,
+      "block": 0,
+      "index": 1,
+      "policy": "flux_tensor_taco_attn_mlp",
+      "directory": "round1/window-001-flux_tensor_taco_attn_mlp",
+      "rank_elapsed_seconds": [
+        49.52660879958421,
+        49.526491354219615,
+        49.526560856960714,
+        49.526529419235885,
+        49.52644916716963,
+        49.52648963499814,
+        49.526438486762345,
+        49.526430496014655
+      ],
+      "ms_per_step": 990.5321759916842,
+      "tokens_per_second": 8270.301761574248,
+      "mean_loss": 2.8346267302524213,
+      "final_loss": 4.73859254270792e-05
+    },
+    {
+      "round": 1,
+      "block": 0,
+      "index": 2,
+      "policy": "native_taco_attn_mlp",
+      "directory": "round1/window-002-native_taco_attn_mlp",
+      "rank_elapsed_seconds": [
+        50.458084570243955,
+        50.45798463560641,
+        50.45812479779124,
+        50.45806124154478,
+        50.457983002997935,
+        50.45805331878364,
+        50.4580293437466,
+        50.45804903097451
+      ],
+      "ms_per_step": 1009.1624959558249,
+      "tokens_per_second": 8117.62231833732,
+      "mean_loss": 2.8346267302524213,
+      "final_loss": 4.73859254270792e-05
+    },
+    {
+      "round": 1,
+      "block": 0,
+      "index": 3,
+      "policy": "interleaved_arrival_all_attn_mlp",
+      "directory": "round1/window-003-interleaved_arrival_all_attn_mlp",
+      "rank_elapsed_seconds": [
+        26.63710396643728,
+        26.636917524039745,
+        26.637033916078508,
+        26.636932829394937,
+        26.63700484391302,
+        26.636844700202346,
+        26.636992572806776,
+        26.636844143271446
+      ],
+      "ms_per_step": 532.7420793287456,
+      "tokens_per_second": 15377.04701367294,
+      "mean_loss": 3.8210143247736412,
+      "final_loss": 3.2611555070616305e-05
+    },
+    {
+      "round": 1,
+      "block": 0,
+      "index": 4,
+      "policy": "interleaved_arrival_selective_attn_mlp",
+      "directory": "round1/window-004-interleaved_arrival_selective_attn_mlp",
+      "rank_elapsed_seconds": [
+        25.673866259865463,
+        25.67374884709716,
+        25.67373374849558,
+        25.67369599826634,
+        25.673700742423534,
+        25.673748220317066,
+        25.67358232755214,
+        25.673579212278128
+      ],
+      "ms_per_step": 513.4773251973093,
+      "tokens_per_second": 15953.966412931934,
+      "mean_loss": 3.793363792030723,
+      "final_loss": 0.00030573460389859974
+    },
+    {
+      "round": 1,
+      "block": 1,
+      "index": 5,
+      "policy": "flux_tensor_taco_attn_mlp",
+      "directory": "round1/window-005-flux_tensor_taco_attn_mlp",
+      "rank_elapsed_seconds": [
+        49.454290696419775,
+        49.45412713102996,
+        49.45416481606662,
+        49.45409306604415,
+        49.45397703256458,
+        49.45425542630255,
+        49.454376166686416,
+        49.454032253474
+      ],
+      "ms_per_step": 989.0875233337283,
+      "tokens_per_second": 8282.381292596625,
+      "mean_loss": 2.8346267302524213,
+      "final_loss": 4.73859254270792e-05
+    },
+    {
+      "round": 1,
+      "block": 1,
+      "index": 6,
+      "policy": "native_taco_attn_mlp",
+      "directory": "round1/window-006-native_taco_attn_mlp",
+      "rank_elapsed_seconds": [
+        50.4143796665594,
+        50.41434313636273,
+        50.41433355771005,
+        50.414392763748765,
+        50.41429497394711,
+        50.41433749906719,
+        50.41432010196149,
+        50.41429605707526
+      ],
+      "ms_per_step": 1008.2878552749753,
+      "tokens_per_second": 8124.663960933972,
+      "mean_loss": 2.8346267302524213,
+      "final_loss": 4.73859254270792e-05
+    },
+    {
+      "round": 1,
+      "block": 1,
+      "index": 7,
+      "policy": "interleaved_arrival_all_attn_mlp",
+      "directory": "round1/window-007-interleaved_arrival_all_attn_mlp",
+      "rank_elapsed_seconds": [
+        26.75279237795621,
+        26.752647751942277,
+        26.75263219792396,
+        26.752618888393044,
+        26.75259018689394,
+        26.752647023648024,
+        26.75267598219216,
+        26.752688226290047
+      ],
+      "ms_per_step": 535.0558475591242,
+      "tokens_per_second": 15310.551295479068,
+      "mean_loss": 3.8210143247736412,
+      "final_loss": 3.2611555070616305e-05
+    },
+    {
+      "round": 1,
+      "block": 1,
+      "index": 8,
+      "policy": "interleaved_arrival_selective_attn_mlp",
+      "directory": "round1/window-008-interleaved_arrival_selective_attn_mlp",
+      "rank_elapsed_seconds": [
+        25.900207366794348,
+        25.899870451539755,
+        25.90007322654128,
+        25.900057929567993,
+        25.899942577816546,
+        25.899977921508253,
+        25.900034349411726,
+        25.90004310104996
+      ],
+      "ms_per_step": 518.004147335887,
+      "tokens_per_second": 15814.54519646558,
+      "mean_loss": 3.793363792030723,
+      "final_loss": 0.00030573460389859974
+    },
+    {
+      "round": 1,
+      "block": 1,
+      "index": 9,
+      "policy": "interleaved_all_attn_mlp",
+      "directory": "round1/window-009-interleaved_all_attn_mlp",
+      "rank_elapsed_seconds": [
+        26.794469065964222,
+        26.79432898852974,
+        26.79440379422158,
+        26.794386045075953,
+        26.794276264496148,
+        26.79428270459175,
+        26.79438888374716,
+        26.79438863415271
+      ],
+      "ms_per_step": 535.8893813192844,
+      "tokens_per_second": 15286.736937821843,
+      "mean_loss": 3.8210143247736412,
+      "final_loss": 3.2611555070616305e-05
+    },
+    {
+      "round": 1,
+      "block": 2,
+      "index": 10,
+      "policy": "native_taco_attn_mlp",
+      "directory": "round1/window-010-native_taco_attn_mlp",
+      "rank_elapsed_seconds": [
+        50.64654156006873,
+        50.646487758494914,
+        50.646560894325376,
+        50.64649925939739,
+        50.64648956526071,
+        50.64650700148195,
+        50.64645479246974,
+        50.646557440049946
+      ],
+      "ms_per_step": 1012.9312178865075,
+      "tokens_per_second": 8087.419812267906,
+      "mean_loss": 2.8346267302524213,
+      "final_loss": 4.73859254270792e-05
+    },
+    {
+      "round": 1,
+      "block": 2,
+      "index": 11,
+      "policy": "interleaved_arrival_all_attn_mlp",
+      "directory": "round1/window-011-interleaved_arrival_all_attn_mlp",
+      "rank_elapsed_seconds": [
+        26.706943346187472,
+        26.706807773560286,
+        26.70696292631328,
+        26.706857282668352,
+        26.70700808428228,
+        26.706463664770126,
+        26.706856662407517,
+        26.706858221441507
+      ],
+      "ms_per_step": 534.1401616856456,
+      "tokens_per_second": 15336.798442842406,
+      "mean_loss": 3.8210143247736412,
+      "final_loss": 3.2611555070616305e-05
+    },
+    {
+      "round": 1,
+      "block": 2,
+      "index": 12,
+      "policy": "interleaved_arrival_selective_attn_mlp",
+      "directory": "round1/window-012-interleaved_arrival_selective_attn_mlp",
+      "rank_elapsed_seconds": [
+        25.736272159963846,
+        25.736105125397444,
+        25.736057891510427,
+        25.735941263847053,
+        25.736141229979694,
+        25.736034438945353,
+        25.736060651950538,
+        25.73594359960407
+      ],
+      "ms_per_step": 514.7254431992769,
+      "tokens_per_second": 15915.280871065183,
+      "mean_loss": 3.793363792030723,
+      "final_loss": 0.00030573460389859974
+    },
+    {
+      "round": 1,
+      "block": 2,
+      "index": 13,
+      "policy": "interleaved_all_attn_mlp",
+      "directory": "round1/window-013-interleaved_all_attn_mlp",
+      "rank_elapsed_seconds": [
+        26.84503365121782,
+        26.844867007806897,
+        26.844876842573285,
+        26.844977780245245,
+        26.844826253131032,
+        26.84496929962188,
+        26.844902338460088,
+        26.84485254343599
+      ],
+      "ms_per_step": 536.9006730243564,
+      "tokens_per_second": 15257.943250200344,
+      "mean_loss": 3.8210143247736412,
+      "final_loss": 3.2611555070616305e-05
+    },
+    {
+      "round": 1,
+      "block": 2,
+      "index": 14,
+      "policy": "flux_tensor_taco_attn_mlp",
+      "directory": "round1/window-014-flux_tensor_taco_attn_mlp",
+      "rank_elapsed_seconds": [
+        49.40582286566496,
+        49.40576938446611,
+        49.40581551659852,
+        49.40568515192717,
+        49.405788123607635,
+        49.40570594277233,
+        49.405803764238954,
+        49.40575789567083
+      ],
+      "ms_per_step": 988.1164573132992,
+      "tokens_per_second": 8290.520757314527,
+      "mean_loss": 2.8346267302524213,
+      "final_loss": 4.73859254270792e-05
+    },
+    {
+      "round": 1,
+      "block": 3,
+      "index": 15,
+      "policy": "interleaved_arrival_all_attn_mlp",
+      "directory": "round1/window-015-interleaved_arrival_all_attn_mlp",
+      "rank_elapsed_seconds": [
+        26.657923541031778,
+        26.657693292945623,
+        26.657794644124806,
+        26.657707573845983,
+        26.65768364444375,
+        26.657711585983634,
+        26.658174254000187,
+        26.657754568383098
+      ],
+      "ms_per_step": 533.1634850800037,
+      "tokens_per_second": 15364.893188007336,
+      "mean_loss": 3.8210143247736412,
+      "final_loss": 3.2611555070616305e-05
+    },
+    {
+      "round": 1,
+      "block": 3,
+      "index": 16,
+      "policy": "interleaved_arrival_selective_attn_mlp",
+      "directory": "round1/window-016-interleaved_arrival_selective_attn_mlp",
+      "rank_elapsed_seconds": [
+        25.925215580500662,
+        25.925101502798498,
+        25.92512501310557,
+        25.925061895512044,
+        25.925073289312422,
+        25.925011137500405,
+        25.925115138292313,
+        25.92501479946077
+      ],
+      "ms_per_step": 518.5043116100132,
+      "tokens_per_second": 15799.290028202338,
+      "mean_loss": 3.793363792030723,
+      "final_loss": 0.00030573460389859974
+    },
+    {
+      "round": 1,
+      "block": 3,
+      "index": 17,
+      "policy": "interleaved_all_attn_mlp",
+      "directory": "round1/window-017-interleaved_all_attn_mlp",
+      "rank_elapsed_seconds": [
+        26.70646513067186,
+        26.706391581334174,
+        26.706432943232358,
+        26.70676145888865,
+        26.70639682561159,
+        26.70635768584907,
+        26.706387411803007,
+        26.706407262012362
+      ],
+      "ms_per_step": 534.135229177773,
+      "tokens_per_second": 15336.94007154414,
+      "mean_loss": 3.8210143247736412,
+      "final_loss": 3.2611555070616305e-05
+    },
+    {
+      "round": 1,
+      "block": 3,
+      "index": 18,
+      "policy": "flux_tensor_taco_attn_mlp",
+      "directory": "round1/window-018-flux_tensor_taco_attn_mlp",
+      "rank_elapsed_seconds": [
+        49.29526218120009,
+        49.29520266316831,
+        49.295250529423356,
+        49.2952083023265,
+        49.2951749060303,
+        49.29518130328506,
+        49.2951788213104,
+        49.29512025881559
+      ],
+      "ms_per_step": 985.9052436240017,
+      "tokens_per_second": 8309.114950933574,
+      "mean_loss": 2.8346267302524213,
+      "final_loss": 4.73859254270792e-05
+    },
+    {
+      "round": 1,
+      "block": 3,
+      "index": 19,
+      "policy": "native_taco_attn_mlp",
+      "directory": "round1/window-019-native_taco_attn_mlp",
+      "rank_elapsed_seconds": [
+        50.333500884473324,
+        50.3333131223917,
+        50.33344293478876,
+        50.33328177779913,
+        50.33335562329739,
+        50.3332764711231,
+        50.33338999841362,
+        50.33336902782321
+      ],
+      "ms_per_step": 1006.6700176894665,
+      "tokens_per_second": 8137.721255275366,
+      "mean_loss": 2.8346267302524213,
+      "final_loss": 4.73859254270792e-05
+    },
+    {
+      "round": 1,
+      "block": 4,
+      "index": 20,
+      "policy": "interleaved_arrival_selective_attn_mlp",
+      "directory": "round1/window-020-interleaved_arrival_selective_attn_mlp",
+      "rank_elapsed_seconds": [
+        25.80997683852911,
+        25.80979075282812,
+        25.80984350759536,
+        25.809851902537048,
+        25.80981504265219,
+        25.809906912967563,
+        25.80998578108847,
+        25.809769732877612
+      ],
+      "ms_per_step": 516.1997156217694,
+      "tokens_per_second": 15869.826642838474,
+      "mean_loss": 3.793363792030723,
+      "final_loss": 0.00030573460389859974
+    },
+    {
+      "round": 1,
+      "block": 4,
+      "index": 21,
+      "policy": "interleaved_all_attn_mlp",
+      "directory": "round1/window-021-interleaved_all_attn_mlp",
+      "rank_elapsed_seconds": [
+        26.802110390737653,
+        26.802000360563397,
+        26.802052062004805,
+        26.802005471661687,
+        26.80196445994079,
+        26.801901990547776,
+        26.801971124485135,
+        26.801978448405862
+      ],
+      "ms_per_step": 536.042207814753,
+      "tokens_per_second": 15282.37866453795,
+      "mean_loss": 3.8210143247736412,
+      "final_loss": 3.2611555070616305e-05
+    },
+    {
+      "round": 1,
+      "block": 4,
+      "index": 22,
+      "policy": "flux_tensor_taco_attn_mlp",
+      "directory": "round1/window-022-flux_tensor_taco_attn_mlp",
+      "rank_elapsed_seconds": [
+        49.4324518609792,
+        49.43233105447143,
+        49.43233171850443,
+        49.43233955092728,
+        49.43222491629422,
+        49.432325961999595,
+        49.43234702385962,
+        49.43226983118802
+      ],
+      "ms_per_step": 988.649037219584,
+      "tokens_per_second": 8286.054698478925,
+      "mean_loss": 2.8346267302524213,
+      "final_loss": 4.73859254270792e-05
+    },
+    {
+      "round": 1,
+      "block": 4,
+      "index": 23,
+      "policy": "native_taco_attn_mlp",
+      "directory": "round1/window-023-native_taco_attn_mlp",
+      "rank_elapsed_seconds": [
+        50.25821267347783,
+        50.258077688515186,
+        50.25813270546496,
+        50.25809301622212,
+        50.25802640337497,
+        50.25802165269852,
+        50.25800843257457,
+        50.257998678833246
+      ],
+      "ms_per_step": 1005.1642534695566,
+      "tokens_per_second": 8149.911789763136,
+      "mean_loss": 2.8346267302524213,
+      "final_loss": 4.73859254270792e-05
+    },
+    {
+      "round": 1,
+      "block": 4,
+      "index": 24,
+      "policy": "interleaved_arrival_all_attn_mlp",
+      "directory": "round1/window-024-interleaved_arrival_all_attn_mlp",
+      "rank_elapsed_seconds": [
+        26.73415610473603,
+        26.734060045331717,
+        26.734068462625146,
+        26.73410597257316,
+        26.73405048251152,
+        26.73401721380651,
+        26.734092094935477,
+        26.734017592854798
+      ],
+      "ms_per_step": 534.6831220947206,
+      "tokens_per_second": 15321.2242195084,
+      "mean_loss": 3.8210143247736412,
+      "final_loss": 3.2611555070616305e-05
+    },
+    {
+      "round": 2,
+      "block": 0,
+      "index": 0,
+      "policy": "interleaved_arrival_all_attn_mlp",
+      "directory": "round2/window-000-interleaved_arrival_all_attn_mlp",
+      "rank_elapsed_seconds": [
+        26.7795479753986,
+        26.77942595258355,
+        26.77955044992268,
+        26.77943313959986,
+        26.779503193683922,
+        26.77944004163146,
+        26.77952710725367,
+        26.779539891518652
+      ],
+      "ms_per_step": 535.5910089984536,
+      "tokens_per_second": 15295.253023979818,
+      "mean_loss": 3.8210143247736412,
+      "final_loss": 3.2611555070616305e-05
+    },
+    {
+      "round": 2,
+      "block": 0,
+      "index": 1,
+      "policy": "native_taco_attn_mlp",
+      "directory": "round2/window-001-native_taco_attn_mlp",
+      "rank_elapsed_seconds": [
+        50.416053818538785,
+        50.4157494250685,
+        50.415832488797605,
+        50.41588798444718,
+        50.41581325978041,
+        50.415819361805916,
+        50.41577462852001,
+        50.415815429762006
+      ],
+      "ms_per_step": 1008.3210763707757,
+      "tokens_per_second": 8124.396278103455,
+      "mean_loss": 2.8346267302524213,
+      "final_loss": 4.73859254270792e-05
+    },
+    {
+      "round": 2,
+      "block": 0,
+      "index": 2,
+      "policy": "flux_tensor_taco_attn_mlp",
+      "directory": "round2/window-002-flux_tensor_taco_attn_mlp",
+      "rank_elapsed_seconds": [
+        49.54310208931565,
+        49.54291849490255,
+        49.54303670860827,
+        49.5429909164086,
+        49.542903824709356,
+        49.5429171603173,
+        49.543063711375,
+        49.54296179674566
+      ],
+      "ms_per_step": 990.8620417863131,
+      "tokens_per_second": 8267.548512839961,
+      "mean_loss": 2.8346267302524213,
+      "final_loss": 4.73859254270792e-05
+    },
+    {
+      "round": 2,
+      "block": 0,
+      "index": 3,
+      "policy": "interleaved_all_attn_mlp",
+      "directory": "round2/window-003-interleaved_all_attn_mlp",
+      "rank_elapsed_seconds": [
+        26.817213932052255,
+        26.8169967494905,
+        26.816997541114688,
+        26.81705383490771,
+        26.816960711963475,
+        26.817104557529092,
+        26.817064511589706,
+        26.817041845060885
+      ],
+      "ms_per_step": 536.3442786410451,
+      "tokens_per_second": 15273.771579621147,
+      "mean_loss": 3.8210143247736412,
+      "final_loss": 3.2611555070616305e-05
+    },
+    {
+      "round": 2,
+      "block": 0,
+      "index": 4,
+      "policy": "interleaved_arrival_selective_attn_mlp",
+      "directory": "round2/window-004-interleaved_arrival_selective_attn_mlp",
+      "rank_elapsed_seconds": [
+        25.556615693494678,
+        25.556556678377092,
+        25.556427920237184,
+        25.556433137506247,
+        25.556579432450235,
+        25.556586543098092,
+        25.55666842404753,
+        25.55644761491567
+      ],
+      "ms_per_step": 511.1333684809506,
+      "tokens_per_second": 16027.128153158928,
+      "mean_loss": 3.793363792030723,
+      "final_loss": 0.00030573460389859974
+    },
+    {
+      "round": 2,
+      "block": 1,
+      "index": 5,
+      "policy": "native_taco_attn_mlp",
+      "directory": "round2/window-005-native_taco_attn_mlp",
+      "rank_elapsed_seconds": [
+        50.64492804836482,
+        50.64476377144456,
+        50.64489811565727,
+        50.64483662880957,
+        50.64475533366203,
+        50.64472690131515,
+        50.64493564143777,
+        50.644755186513066
+      ],
+      "ms_per_step": 1012.8987128287554,
+      "tokens_per_second": 8087.679346656423,
+      "mean_loss": 2.8346267302524213,
+      "final_loss": 4.73859254270792e-05
+    },
+    {
+      "round": 2,
+      "block": 1,
+      "index": 6,
+      "policy": "flux_tensor_taco_attn_mlp",
+      "directory": "round2/window-006-flux_tensor_taco_attn_mlp",
+      "rank_elapsed_seconds": [
+        49.49779708869755,
+        49.49766130093485,
+        49.497854054905474,
+        49.49773441348225,
+        49.49767743423581,
+        49.49767951667309,
+        49.497667466290295,
+        49.497707169502974
+      ],
+      "ms_per_step": 989.9570810981095,
+      "tokens_per_second": 8275.106220678806,
+      "mean_loss": 2.8346267302524213,
+      "final_loss": 4.73859254270792e-05
+    },
+    {
+      "round": 2,
+      "block": 1,
+      "index": 7,
+      "policy": "interleaved_all_attn_mlp",
+      "directory": "round2/window-007-interleaved_all_attn_mlp",
+      "rank_elapsed_seconds": [
+        26.782449485734105,
+        26.782190687023103,
+        26.782242076471448,
+        26.78216521628201,
+        26.782205739989877,
+        26.782218060456216,
+        26.78228034079075,
+        26.782303196378052
+      ],
+      "ms_per_step": 535.6489897146821,
+      "tokens_per_second": 15293.597406696383,
+      "mean_loss": 3.8210143247736412,
+      "final_loss": 3.2611555070616305e-05
+    },
+    {
+      "round": 2,
+      "block": 1,
+      "index": 8,
+      "policy": "interleaved_arrival_selective_attn_mlp",
+      "directory": "round2/window-008-interleaved_arrival_selective_attn_mlp",
+      "rank_elapsed_seconds": [
+        25.82433528266847,
+        25.82419271953404,
+        25.82430610526353,
+        25.824274736456573,
+        25.824236450716853,
+        25.824335114099085,
+        25.82434012275189,
+        25.824233440682292
+      ],
+      "ms_per_step": 516.4868024550378,
+      "tokens_per_second": 15861.00547208686,
+      "mean_loss": 3.793363792030723,
+      "final_loss": 0.00030573460389859974
+    },
+    {
+      "round": 2,
+      "block": 1,
+      "index": 9,
+      "policy": "interleaved_arrival_all_attn_mlp",
+      "directory": "round2/window-009-interleaved_arrival_all_attn_mlp",
+      "rank_elapsed_seconds": [
+        26.896070761606097,
+        26.895889466628432,
+        26.89599039591849,
+        26.89596811775118,
+        26.895947384648025,
+        26.89597898721695,
+        26.895999271422625,
+        26.895915993489325
+      ],
+      "ms_per_step": 537.921415232122,
+      "tokens_per_second": 15228.990272612622,
+      "mean_loss": 3.8210143247736412,
+      "final_loss": 3.2611555070616305e-05
+    },
+    {
+      "round": 2,
+      "block": 2,
+      "index": 10,
+      "policy": "flux_tensor_taco_attn_mlp",
+      "directory": "round2/window-010-flux_tensor_taco_attn_mlp",
+      "rank_elapsed_seconds": [
+        49.76976893097162,
+        49.76963263377547,
+        49.76961646322161,
+        49.76961439661682,
+        49.769502370618284,
+        49.76953652780503,
+        49.76960278861225,
+        49.76949289161712
+      ],
+      "ms_per_step": 995.3953786194324,
+      "tokens_per_second": 8229.895553023289,
+      "mean_loss": 2.8346267302524213,
+      "final_loss": 4.73859254270792e-05
+    },
+    {
+      "round": 2,
+      "block": 2,
+      "index": 11,
+      "policy": "interleaved_all_attn_mlp",
+      "directory": "round2/window-011-interleaved_all_attn_mlp",
+      "rank_elapsed_seconds": [
+        26.743860417045653,
+        26.743774275295436,
+        26.743755674920976,
+        26.74380884785205,
+        26.743863036856055,
+        26.74378214031458,
+        26.743791991844773,
+        26.74375746678561
+      ],
+      "ms_per_step": 534.8772607371211,
+      "tokens_per_second": 15315.663239657079,
+      "mean_loss": 3.8210143247736412,
+      "final_loss": 3.2611555070616305e-05
+    },
+    {
+      "round": 2,
+      "block": 2,
+      "index": 12,
+      "policy": "interleaved_arrival_selective_attn_mlp",
+      "directory": "round2/window-012-interleaved_arrival_selective_attn_mlp",
+      "rank_elapsed_seconds": [
+        25.821614271961153,
+        25.8214387986809,
+        25.82150698825717,
+        25.821439484134316,
+        25.8214511256665,
+        25.821467285975814,
+        25.821547602303326,
+        25.8214358901605
+      ],
+      "ms_per_step": 516.432285439223,
+      "tokens_per_second": 15862.679834264709,
+      "mean_loss": 3.793363792030723,
+      "final_loss": 0.00030573460389859974
+    },
+    {
+      "round": 2,
+      "block": 2,
+      "index": 13,
+      "policy": "interleaved_arrival_all_attn_mlp",
+      "directory": "round2/window-013-interleaved_arrival_all_attn_mlp",
+      "rank_elapsed_seconds": [
+        26.630199778825045,
+        26.630015735514462,
+        26.630137055180967,
+        26.63006987888366,
+        26.629993984475732,
+        26.630028639920056,
+        26.630068209953606,
+        26.630064256489277
+      ],
+      "ms_per_step": 532.6039955765009,
+      "tokens_per_second": 15381.033691143868,
+      "mean_loss": 3.8210143247736412,
+      "final_loss": 3.2611555070616305e-05
+    },
+    {
+      "round": 2,
+      "block": 2,
+      "index": 14,
+      "policy": "native_taco_attn_mlp",
+      "directory": "round2/window-014-native_taco_attn_mlp",
+      "rank_elapsed_seconds": [
+        50.57553909998387,
+        50.575477661564946,
+        50.57555781584233,
+        50.57539059780538,
+        50.575517158955336,
+        50.57545531634241,
+        50.575574999675155,
+        50.575437656603754
+      ],
+      "ms_per_step": 1011.5114999935031,
+      "tokens_per_second": 8098.7709977124505,
+      "mean_loss": 2.8346267302524213,
+      "final_loss": 4.73859254270792e-05
+    },
+    {
+      "round": 2,
+      "block": 3,
+      "index": 15,
+      "policy": "interleaved_all_attn_mlp",
+      "directory": "round2/window-015-interleaved_all_attn_mlp",
+      "rank_elapsed_seconds": [
+        26.83240163885057,
+        26.832331771962345,
+        26.83229214604944,
+        26.832253982312977,
+        26.832382177002728,
+        26.832269829697907,
+        26.832373352721334,
+        26.832306576892734
+      ],
+      "ms_per_step": 536.6480327770114,
+      "tokens_per_second": 15265.12630188649,
+      "mean_loss": 3.8210143247736412,
+      "final_loss": 3.2611555070616305e-05
+    },
+    {
+      "round": 2,
+      "block": 3,
+      "index": 16,
+      "policy": "interleaved_arrival_selective_attn_mlp",
+      "directory": "round2/window-016-interleaved_arrival_selective_attn_mlp",
+      "rank_elapsed_seconds": [
+        25.6743694068864,
+        25.674220125190914,
+        25.674231046810746,
+        25.67414343263954,
+        25.674237531609833,
+        25.67415263224393,
+        25.674191036261618,
+        25.674120874144137
+      ],
+      "ms_per_step": 513.487388137728,
+      "tokens_per_second": 15953.65375907292,
+      "mean_loss": 3.793363792030723,
+      "final_loss": 0.00030573460389859974
+    },
+    {
+      "round": 2,
+      "block": 3,
+      "index": 17,
+      "policy": "interleaved_arrival_all_attn_mlp",
+      "directory": "round2/window-017-interleaved_arrival_all_attn_mlp",
+      "rank_elapsed_seconds": [
+        26.79749902151525,
+        26.797394869849086,
+        26.797403572127223,
+        26.79733141604811,
+        26.797383069992065,
+        26.797304972074926,
+        26.7974448595196,
+        26.79736242070794
+      ],
+      "ms_per_step": 535.949980430305,
+      "tokens_per_second": 15285.008487961479,
+      "mean_loss": 3.8210143247736412,
+      "final_loss": 3.2611555070616305e-05
+    },
+    {
+      "round": 2,
+      "block": 3,
+      "index": 18,
+      "policy": "native_taco_attn_mlp",
+      "directory": "round2/window-018-native_taco_attn_mlp",
+      "rank_elapsed_seconds": [
+        50.36427560634911,
+        50.36406496260315,
+        50.36413824278861,
+        50.36407068371773,
+        50.36414296925068,
+        50.364140718244016,
+        50.36414508987218,
+        50.36406670883298
+      ],
+      "ms_per_step": 1007.2855121269822,
+      "tokens_per_second": 8132.748760281272,
+      "mean_loss": 2.8346267302524213,
+      "final_loss": 4.73859254270792e-05
+    },
+    {
+      "round": 2,
+      "block": 3,
+      "index": 19,
+      "policy": "flux_tensor_taco_attn_mlp",
+      "directory": "round2/window-019-flux_tensor_taco_attn_mlp",
+      "rank_elapsed_seconds": [
+        49.5007468611002,
+        49.500514728948474,
+        49.50063094403595,
+        49.50060281995684,
+        49.50056911353022,
+        49.50059946253896,
+        49.50068258214742,
+        49.500570823438466
+      ],
+      "ms_per_step": 990.0149372220039,
+      "tokens_per_second": 8274.622626388718,
+      "mean_loss": 2.8346267302524213,
+      "final_loss": 4.73859254270792e-05
+    },
+    {
+      "round": 2,
+      "block": 4,
+      "index": 20,
+      "policy": "interleaved_arrival_selective_attn_mlp",
+      "directory": "round2/window-020-interleaved_arrival_selective_attn_mlp",
+      "rank_elapsed_seconds": [
+        25.679122588597238,
+        25.678949860855937,
+        25.67911447957158,
+        25.67908380739391,
+        25.679129442200065,
+        25.679029379040003,
+        25.67907095141709,
+        25.678932847455144
+      ],
+      "ms_per_step": 513.5825888440013,
+      "tokens_per_second": 15950.696495453603,
+      "mean_loss": 3.793363792030723,
+      "final_loss": 0.00030573460389859974
+    },
+    {
+      "round": 2,
+      "block": 4,
+      "index": 21,
+      "policy": "interleaved_arrival_all_attn_mlp",
+      "directory": "round2/window-021-interleaved_arrival_all_attn_mlp",
+      "rank_elapsed_seconds": [
+        26.64495093282312,
+        26.644569030031562,
+        26.64472209662199,
+        26.64463183656335,
+        26.644596243277192,
+        26.644735388457775,
+        26.644735421985388,
+        26.644695334136486
+      ],
+      "ms_per_step": 532.8990186564624,
+      "tokens_per_second": 15372.518456974374,
+      "mean_loss": 3.8210143247736412,
+      "final_loss": 3.2611555070616305e-05
+    },
+    {
+      "round": 2,
+      "block": 4,
+      "index": 22,
+      "policy": "native_taco_attn_mlp",
+      "directory": "round2/window-022-native_taco_attn_mlp",
+      "rank_elapsed_seconds": [
+        50.667023764923215,
+        50.666962346062064,
+        50.66696835961193,
+        50.66687917429954,
+        50.66681845486164,
+        50.666831200011075,
+        50.66697101481259,
+        50.66683084331453
+      ],
+      "ms_per_step": 1013.3404752984643,
+      "tokens_per_second": 8084.153549267011,
+      "mean_loss": 2.8346267302524213,
+      "final_loss": 4.73859254270792e-05
+    },
+    {
+      "round": 2,
+      "block": 4,
+      "index": 23,
+      "policy": "flux_tensor_taco_attn_mlp",
+      "directory": "round2/window-023-flux_tensor_taco_attn_mlp",
+      "rank_elapsed_seconds": [
+        49.84658761974424,
+        49.84644525125623,
+        49.8466361341998,
+        49.84638185147196,
+        49.84648196119815,
+        49.84637143742293,
+        49.84639934170991,
+        49.84645368810743
+      ],
+      "ms_per_step": 996.932722683996,
+      "tokens_per_second": 8217.204444794486,
+      "mean_loss": 2.8346267302524213,
+      "final_loss": 4.73859254270792e-05
+    },
+    {
+      "round": 2,
+      "block": 4,
+      "index": 24,
+      "policy": "interleaved_all_attn_mlp",
+      "directory": "round2/window-024-interleaved_all_attn_mlp",
+      "rank_elapsed_seconds": [
+        26.731595968827605,
+        26.731575451791286,
+        26.731594372540712,
+        26.731614402495325,
+        26.731531027704477,
+        26.731597437523305,
+        26.73154262639582,
+        26.731729043647647
+      ],
+      "ms_per_step": 534.6345808729529,
+      "tokens_per_second": 15322.61528355326,
+      "mean_loss": 3.8210143247736412,
+      "final_loss": 3.2611555070616305e-05
+    }
+  ],
+  "rounds": {
+    "1": {
+      "status": "ok",
+      "blocks": 5,
+      "block_ids": [
+        {
+          "round": 1,
+          "block": 0
+        },
+        {
+          "round": 1,
+          "block": 1
+        },
+        {
+          "round": 1,
+          "block": 2
+        },
+        {
+          "round": 1,
+          "block": 3
+        },
+        {
+          "round": 1,
+          "block": 4
+        }
+      ],
+      "ms_per_step": {
+        "native_taco_attn_mlp": [
+          1009.1624959558249,
+          1008.2878552749753,
+          1012.9312178865075,
+          1006.6700176894665,
+          1005.1642534695566
+        ],
+        "flux_tensor_taco_attn_mlp": [
+          990.5321759916842,
+          989.0875233337283,
+          988.1164573132992,
+          985.9052436240017,
+          988.649037219584
+        ],
+        "interleaved_all_attn_mlp": [
+          536.3021733798087,
+          535.8893813192844,
+          536.9006730243564,
+          534.135229177773,
+          536.042207814753
+        ],
+        "interleaved_arrival_all_attn_mlp": [
+          532.7420793287456,
+          535.0558475591242,
+          534.1401616856456,
+          533.1634850800037,
+          534.6831220947206
+        ],
+        "interleaved_arrival_selective_attn_mlp": [
+          513.4773251973093,
+          518.004147335887,
+          514.7254431992769,
+          518.5043116100132,
+          516.1997156217694
+        ]
+      },
+      "comparisons": {
+        "flux_tensor_taco_attn_mlp/native_taco_attn_mlp": {
+          "percent": 1.9815567145098578,
+          "ci95": [
+            1.7677316041329938,
+            2.231943758193433
+          ],
+          "blocks": 5,
+          "log_ratios": [
+            -0.018633703717667014,
+            -0.019226154067447532,
+            -0.024803039946263733,
+            -0.02084290234251476,
+            -0.016566841094097964
+          ]
+        },
+        "interleaved_all_attn_mlp/native_taco_attn_mlp": {
+          "percent": 46.863148139367496,
+          "ci95": [
+            46.76121789042262,
+            46.951382558077995
+          ],
+          "blocks": 5,
+          "log_ratios": [
+            -0.632178295398471,
+            -0.6320812169368203,
+            -0.6347904915570208,
+            -0.633754105464413,
+            -0.6286933395334857
+          ]
+        },
+        "interleaved_all_attn_mlp/flux_tensor_taco_attn_mlp": {
+          "percent": 45.788924941538575,
+          "ci95": [
+            45.72609736247203,
+            45.83597972248097
+          ],
+          "blocks": 5,
+          "log_ratios": [
+            -0.6135445916808041,
+            -0.6128550628693727,
+            -0.6099874516107571,
+            -0.6129112031218985,
+            -0.6121264984393878
+          ]
+        },
+        "interleaved_arrival_all_attn_mlp/native_taco_attn_mlp": {
+          "percent": 47.051252435806056,
+          "ci95": [
+            46.90369978462085,
+            47.198395043640154
+          ],
+          "blocks": 5,
+          "log_ratios": [
+            -0.6388386505757476,
+            -0.6336378491641186,
+            -0.6399453229360011,
+            -0.6355750471619891,
+            -0.6312319671571502
+          ]
+        },
+        "interleaved_arrival_all_attn_mlp/flux_tensor_taco_attn_mlp": {
+          "percent": 45.98083198488009,
+          "ci95": [
+            45.9130450364881,
+            46.09967959906728
+          ],
+          "blocks": 5,
+          "log_ratios": [
+            -0.6202049468580806,
+            -0.6144116950966709,
+            -0.6151422829897374,
+            -0.6147321448194745,
+            -0.6146651260630522
+          ]
+        },
+        "interleaved_arrival_all_attn_mlp/interleaved_all_attn_mlp": {
+          "percent": 0.35399970049395657,
+          "ci95": [
+            0.19097910126899542,
+            0.5376860381898996
+          ],
+          "blocks": 5,
+          "log_ratios": [
+            -0.006660355177276544,
+            -0.0015566322272983532,
+            -0.005154831378980475,
+            -0.0018209416975760197,
+            -0.0025386276236645426
+          ]
+        },
+        "interleaved_arrival_selective_attn_mlp/native_taco_attn_mlp": {
+          "percent": 48.81412844639868,
+          "ci95": [
+            48.576489547857115,
+            49.05997170451399
+          ],
+          "blocks": 5,
+          "log_ratios": [
+            -0.6756701828871007,
+            -0.666025729905693,
+            -0.6769699640190574,
+            -0.6634548073459863,
+            -0.6664125070497472
+          ]
+        },
+        "interleaved_arrival_selective_attn_mlp/flux_tensor_taco_attn_mlp": {
+          "percent": 47.779346582238105,
+          "ci95": [
+            47.5602560267544,
+            48.00461323936811
+          ],
+          "blocks": 5,
+          "log_ratios": [
+            -0.6570364791694335,
+            -0.6467995758382454,
+            -0.6521669240727938,
+            -0.6426119050034718,
+            -0.6498456659556494
+          ]
+        },
+        "interleaved_arrival_selective_attn_mlp/interleaved_all_attn_mlp": {
+          "percent": 3.6716144045345844,
+          "ci95": [
+            3.2463297544717884,
+            4.095029698808405
+          ],
+          "blocks": 5,
+          "log_ratios": [
+            -0.04349188748862958,
+            -0.033944512968872825,
+            -0.04217947246203661,
+            -0.029700701881573244,
+            -0.037719167516261504
+          ]
+        },
+        "interleaved_arrival_selective_attn_mlp/interleaved_arrival_all_attn_mlp": {
+          "percent": 3.3294007728045916,
+          "ci95": [
+            3.0146607320550856,
+            3.5917664101980273
+          ],
+          "blocks": 5,
+          "log_ratios": [
+            -0.03683153231135297,
+            -0.032387880741574414,
+            -0.03702464108305616,
+            -0.027879760183997206,
+            -0.03518053989259699
+          ]
+        }
+      },
+      "speedups": {
+        "flux_tensor_taco_attn_mlp/native_taco_attn_mlp": {
+          "candidate": "flux_tensor_taco_attn_mlp",
+          "reference": "native_taco_attn_mlp",
+          "median": 1.0194121667580358,
+          "ratios": [
+            1.0188083945334625,
+            1.0194121667580358,
+            1.0251131942895475,
+            1.0210616326464979,
+            1.0167048321782814
+          ],
+          "best": {
+            "ratio": 1.0251131942895475,
+            "round": 1,
+            "block": 2,
+            "reference_ms": 1012.9312178865075,
+            "candidate_ms": 988.1164573132992
+          }
+        },
+        "interleaved_all_attn_mlp/native_taco_attn_mlp": {
+          "candidate": "interleaved_all_attn_mlp",
+          "reference": "native_taco_attn_mlp",
+          "median": 1.8817050275892448,
+          "ratios": [
+            1.8817050275892448,
+            1.8815223634264073,
+            1.8866268357993958,
+            1.8846725748441928,
+            1.875158781931075
+          ],
+          "best": {
+            "ratio": 1.8866268357993958,
+            "round": 1,
+            "block": 2,
+            "reference_ms": 1012.9312178865075,
+            "candidate_ms": 536.9006730243564
+          }
+        },
+        "interleaved_all_attn_mlp/flux_tensor_taco_attn_mlp": {
+          "candidate": "interleaved_all_attn_mlp",
+          "reference": "flux_tensor_taco_attn_mlp",
+          "median": 1.8456934543071812,
+          "ratios": [
+            1.846966551989321,
+            1.8456934543071812,
+            1.840408304476969,
+            1.8457970749124073,
+            1.844349237441474
+          ],
+          "best": {
+            "ratio": 1.846966551989321,
+            "round": 1,
+            "block": 0,
+            "reference_ms": 990.5321759916842,
+            "candidate_ms": 536.3021733798087
+          }
+        },
+        "interleaved_arrival_all_attn_mlp/native_taco_attn_mlp": {
+          "candidate": "interleaved_arrival_all_attn_mlp",
+          "reference": "native_taco_attn_mlp",
+          "median": 1.8881075802451304,
+          "ratios": [
+            1.8942796807554012,
+            1.884453482519053,
+            1.8963771881333313,
+            1.8881075802451304,
+            1.8799251592824524
+          ],
+          "best": {
+            "ratio": 1.8963771881333313,
+            "round": 1,
+            "block": 2,
+            "reference_ms": 1012.9312178865075,
+            "candidate_ms": 534.1401616856456
+          }
+        },
+        "interleaved_arrival_all_attn_mlp/flux_tensor_taco_attn_mlp": {
+          "candidate": "interleaved_arrival_all_attn_mlp",
+          "reference": "flux_tensor_taco_attn_mlp",
+          "median": 1.8491612258031174,
+          "ratios": [
+            1.8593090623510604,
+            1.848568757534106,
+            1.8499197929528273,
+            1.8491612258031174,
+            1.8490373014700137
+          ],
+          "best": {
+            "ratio": 1.8593090623510604,
+            "round": 1,
+            "block": 0,
+            "reference_ms": 990.5321759916842,
+            "candidate_ms": 532.7420793287456
+          }
+        },
+        "interleaved_arrival_all_attn_mlp/interleaved_all_attn_mlp": {
+          "candidate": "interleaved_arrival_all_attn_mlp",
+          "reference": "interleaved_all_attn_mlp",
+          "median": 1.0025418526672545,
+          "ratios": [
+            1.0066825846675163,
+            1.0015578444081354,
+            1.00516814038098,
+            1.0018226006186892,
+            1.0025418526672545
+          ],
+          "best": {
+            "ratio": 1.0066825846675163,
+            "round": 1,
+            "block": 0,
+            "reference_ms": 536.3021733798087,
+            "candidate_ms": 532.7420793287456
+          }
+        },
+        "interleaved_arrival_selective_attn_mlp/native_taco_attn_mlp": {
+          "candidate": "interleaved_arrival_selective_attn_mlp",
+          "reference": "native_taco_attn_mlp",
+          "median": 1.9472390686206071,
+          "ratios": [
+            1.965349678426488,
+            1.9464860666862114,
+            1.9679058637370472,
+            1.9414882290248363,
+            1.9472390686206071
+          ],
+          "best": {
+            "ratio": 1.9679058637370472,
+            "round": 1,
+            "block": 2,
+            "reference_ms": 1012.9312178865075,
+            "candidate_ms": 514.7254431992769
+          }
+        },
+        "interleaved_arrival_selective_attn_mlp/flux_tensor_taco_attn_mlp": {
+          "candidate": "interleaved_arrival_selective_attn_mlp",
+          "reference": "flux_tensor_taco_attn_mlp",
+          "median": 1.9152452186625928,
+          "ratios": [
+            1.9290670247436172,
+            1.9094200855739076,
+            1.9196961610672663,
+            1.901440781779918,
+            1.9152452186625928
+          ],
+          "best": {
+            "ratio": 1.9290670247436172,
+            "round": 1,
+            "block": 0,
+            "reference_ms": 990.5321759916842,
+            "candidate_ms": 513.4773251973093
+          }
+        },
+        "interleaved_arrival_selective_attn_mlp/interleaved_all_attn_mlp": {
+          "candidate": "interleaved_arrival_selective_attn_mlp",
+          "reference": "interleaved_all_attn_mlp",
+          "median": 1.0384395643633455,
+          "ratios": [
+            1.0444515211528156,
+            1.0345272022924563,
+            1.0430816663875195,
+            1.0301461669995067,
+            1.0384395643633455
+          ],
+          "best": {
+            "ratio": 1.0444515211528156,
+            "round": 1,
+            "block": 0,
+            "reference_ms": 536.3021733798087,
+            "candidate_ms": 513.4773251973093
+          }
+        },
+        "interleaved_arrival_selective_attn_mlp/interleaved_arrival_all_attn_mlp": {
+          "candidate": "interleaved_arrival_selective_attn_mlp",
+          "reference": "interleaved_arrival_all_attn_mlp",
+          "median": 1.0358066963494694,
+          "ratios": [
+            1.0375182178181552,
+            1.0329180766426964,
+            1.0377185910331077,
+            1.0282720377473278,
+            1.0358066963494694
+          ],
+          "best": {
+            "ratio": 1.0377185910331077,
+            "round": 1,
+            "block": 2,
+            "reference_ms": 534.1401616856456,
+            "candidate_ms": 514.7254431992769
+          }
+        }
+      },
+      "median_ms": {
+        "native_taco_attn_mlp": 1008.2878552749753,
+        "flux_tensor_taco_attn_mlp": 988.649037219584,
+        "interleaved_all_attn_mlp": 536.042207814753,
+        "interleaved_arrival_all_attn_mlp": 534.1401616856456,
+        "interleaved_arrival_selective_attn_mlp": 516.1997156217694
+      },
+      "median_tokens_per_second": {
+        "native_taco_attn_mlp": 8124.663960933972,
+        "flux_tensor_taco_attn_mlp": 8286.054698478925,
+        "interleaved_all_attn_mlp": 15282.37866453795,
+        "interleaved_arrival_all_attn_mlp": 15336.798442842406,
+        "interleaved_arrival_selective_attn_mlp": 15869.826642838474
+      },
+      "mean_ms": {
+        "native_taco_attn_mlp": 1008.4431680552661,
+        "flux_tensor_taco_attn_mlp": 988.4580874964595,
+        "interleaved_all_attn_mlp": 535.8539329431951,
+        "interleaved_arrival_all_attn_mlp": 533.956939149648,
+        "interleaved_arrival_selective_attn_mlp": 516.1821885928512
+      },
+      "tokens_per_second": {
+        "native_taco_attn_mlp": 8123.412661714865,
+        "flux_tensor_taco_attn_mlp": 8287.655393410236,
+        "interleaved_all_attn_mlp": 15287.748202210954,
+        "interleaved_arrival_all_attn_mlp": 15342.061127712195,
+        "interleaved_arrival_selective_attn_mlp": 15870.36550472996
+      },
+      "mean_loss": {
+        "native_taco_attn_mlp": 2.8346267302524213,
+        "flux_tensor_taco_attn_mlp": 2.8346267302524213,
+        "interleaved_all_attn_mlp": 3.8210143247736412,
+        "interleaved_arrival_all_attn_mlp": 3.8210143247736412,
+        "interleaved_arrival_selective_attn_mlp": 3.793363792030723
+      },
+      "mean_final_loss": {
+        "native_taco_attn_mlp": 4.73859254270792e-05,
+        "flux_tensor_taco_attn_mlp": 4.73859254270792e-05,
+        "interleaved_all_attn_mlp": 3.2611555070616305e-05,
+        "interleaved_arrival_all_attn_mlp": 3.2611555070616305e-05,
+        "interleaved_arrival_selective_attn_mlp": 0.00030573460389859974
+      }
+    },
+    "2": {
+      "status": "ok",
+      "blocks": 5,
+      "block_ids": [
+        {
+          "round": 2,
+          "block": 0
+        },
+        {
+          "round": 2,
+          "block": 1
+        },
+        {
+          "round": 2,
+          "block": 2
+        },
+        {
+          "round": 2,
+          "block": 3
+        },
+        {
+          "round": 2,
+          "block": 4
+        }
+      ],
+      "ms_per_step": {
+        "native_taco_attn_mlp": [
+          1008.3210763707757,
+          1012.8987128287554,
+          1011.5114999935031,
+          1007.2855121269822,
+          1013.3404752984643
+        ],
+        "flux_tensor_taco_attn_mlp": [
+          990.8620417863131,
+          989.9570810981095,
+          995.3953786194324,
+          990.0149372220039,
+          996.932722683996
+        ],
+        "interleaved_all_attn_mlp": [
+          536.3442786410451,
+          535.6489897146821,
+          534.8772607371211,
+          536.6480327770114,
+          534.6345808729529
+        ],
+        "interleaved_arrival_all_attn_mlp": [
+          535.5910089984536,
+          537.921415232122,
+          532.6039955765009,
+          535.949980430305,
+          532.8990186564624
+        ],
+        "interleaved_arrival_selective_attn_mlp": [
+          511.1333684809506,
+          516.4868024550378,
+          516.432285439223,
+          513.487388137728,
+          513.5825888440013
+        ]
+      },
+      "comparisons": {
+        "flux_tensor_taco_attn_mlp/native_taco_attn_mlp": {
+          "percent": 1.7849997526261374,
+          "ci95": [
+            1.6261114028036316,
+            2.0295348686256154
+          ],
+          "blocks": 5,
+          "log_ratios": [
+            -0.017466612532093855,
+            -0.022909922150998262,
+            -0.016061002113813724,
+            -0.01729434884934689,
+            -0.016324265769518866
+          ]
+        },
+        "interleaved_all_attn_mlp/native_taco_attn_mlp": {
+          "percent": 47.00240039165116,
+          "ci95": [
+            46.82006575377301,
+            47.168025634064826
+          ],
+          "blocks": 5,
+          "log_ratios": [
+            -0.6312656602826866,
+            -0.6370924352992077,
+            -0.6371637243978827,
+            -0.6296719327931191,
+            -0.6394240665777213
+          ]
+        },
+        "interleaved_all_attn_mlp/flux_tensor_taco_attn_mlp": {
+          "percent": 46.039200249591275,
+          "ci95": [
+            45.84431085195708,
+            46.250737203689404
+          ],
+          "blocks": 5,
+          "log_ratios": [
+            -0.6137990477505927,
+            -0.6141825131482093,
+            -0.6211027222840688,
+            -0.6123775839437722,
+            -0.6230998008082025
+          ]
+        },
+        "interleaved_arrival_all_attn_mlp/native_taco_attn_mlp": {
+          "percent": 47.06579326355974,
+          "ci95": [
+            46.848808467611725,
+            47.293118144065986
+          ],
+          "blocks": 5,
+          "log_ratios": [
+            -0.6326710991655544,
+            -0.6328590307627538,
+            -0.6414228504174214,
+            -0.6309735433436958,
+            -0.6426756059135496
+          ]
+        },
+        "interleaved_arrival_all_attn_mlp/flux_tensor_taco_attn_mlp": {
+          "percent": 46.10374524959017,
+          "ci95": [
+            45.800159403409644,
+            46.40563064121239
+          ],
+          "blocks": 5,
+          "log_ratios": [
+            -0.6152044866334605,
+            -0.6099491086117556,
+            -0.6253618483036075,
+            -0.6136791944943489,
+            -0.6263513401440306
+          ]
+        },
+        "interleaved_arrival_all_attn_mlp/interleaved_all_attn_mlp": {
+          "percent": 0.11961460967486737,
+          "ci95": [
+            -0.16307409588425248,
+            0.3447101728603075
+          ],
+          "blocks": 5,
+          "log_ratios": [
+            -0.001405438882867858,
+            0.004233404536453823,
+            -0.004259126019538742,
+            -0.00130161055057682,
+            -0.003251539335828064
+          ]
+        },
+        "interleaved_arrival_selective_attn_mlp/native_taco_attn_mlp": {
+          "percent": 49.12075584511302,
+          "ci95": [
+            48.98595667956066,
+            49.255198818255394
+          ],
+          "blocks": 5,
+          "log_ratios": [
+            -0.6794113748368356,
+            -0.6735217755584517,
+            -0.6722568485567698,
+            -0.6737889114888463,
+            -0.6795967021239546
+          ]
+        },
+        "interleaved_arrival_selective_attn_mlp/flux_tensor_taco_attn_mlp": {
+          "percent": 48.19605556509947,
+          "ci95": [
+            48.00357572919568,
+            48.38644178919661
+          ],
+          "blocks": 5,
+          "log_ratios": [
+            -0.6619447623047416,
+            -0.6506118534074534,
+            -0.656195846442956,
+            -0.6564945626394993,
+            -0.6632724363544358
+          ]
+        },
+        "interleaved_arrival_selective_attn_mlp/interleaved_all_attn_mlp": {
+          "percent": 3.997078111304031,
+          "ci95": [
+            3.5980265276732037,
+            4.399935622245021
+          ],
+          "blocks": 5,
+          "log_ratios": [
+            -0.0481457145541489,
+            -0.036429340259244186,
+            -0.03509312415888708,
+            -0.04411697869572722,
+            -0.04017263554623328
+          ]
+        },
+        "interleaved_arrival_selective_attn_mlp/interleaved_arrival_all_attn_mlp": {
+          "percent": 3.8821070688467185,
+          "ci95": [
+            3.3898383252816244,
+            4.303786845342861
+          ],
+          "blocks": 5,
+          "log_ratios": [
+            -0.0467402756712811,
+            -0.040662744795697925,
+            -0.03083399813934832,
+            -0.042815368145150454,
+            -0.036921096210405166
+          ]
+        }
+      },
+      "speedups": {
+        "flux_tensor_taco_attn_mlp/native_taco_attn_mlp": {
+          "candidate": "flux_tensor_taco_attn_mlp",
+          "reference": "native_taco_attn_mlp",
+          "median": 1.0174447619481781,
+          "ratios": [
+            1.0176200458269526,
+            1.023174370049657,
+            1.0161906732944883,
+            1.0174447619481781,
+            1.0164582345840696
+          ],
+          "best": {
+            "ratio": 1.023174370049657,
+            "round": 2,
+            "block": 1,
+            "reference_ms": 1012.8987128287554,
+            "candidate_ms": 989.9570810981095
+          }
+        },
+        "interleaved_all_attn_mlp/native_taco_attn_mlp": {
+          "candidate": "interleaved_all_attn_mlp",
+          "reference": "native_taco_attn_mlp",
+          "median": 1.8909747470414988,
+          "ratios": [
+            1.8799885009039254,
+            1.8909747470414988,
+            1.8911095577320418,
+            1.8769946978367675,
+            1.8953889470521696
+          ],
+          "best": {
+            "ratio": 1.8953889470521696,
+            "round": 2,
+            "block": 4,
+            "reference_ms": 1013.3404752984643,
+            "candidate_ms": 534.6345808729529
+          }
+        },
+        "interleaved_all_attn_mlp/flux_tensor_taco_attn_mlp": {
+          "candidate": "interleaved_all_attn_mlp",
+          "reference": "flux_tensor_taco_attn_mlp",
+          "median": 1.848145147488131,
+          "ratios": [
+            1.8474365836378381,
+            1.848145147488131,
+            1.8609790538630593,
+            1.8448123849423967,
+            1.8646992887295117
+          ],
+          "best": {
+            "ratio": 1.8646992887295117,
+            "round": 2,
+            "block": 4,
+            "reference_ms": 996.932722683996,
+            "candidate_ms": 534.6345808729529
+          }
+        },
+        "interleaved_arrival_all_attn_mlp/native_taco_attn_mlp": {
+          "candidate": "interleaved_arrival_all_attn_mlp",
+          "reference": "native_taco_attn_mlp",
+          "median": 1.8829864068372755,
+          "ratios": [
+            1.8826325674441764,
+            1.8829864068372755,
+            1.8991812085424244,
+            1.8794394046217708,
+            1.9015619091460971
+          ],
+          "best": {
+            "ratio": 1.9015619091460971,
+            "round": 2,
+            "block": 4,
+            "reference_ms": 1013.3404752984643,
+            "candidate_ms": 532.8990186564624
+          }
+        },
+        "interleaved_arrival_all_attn_mlp/flux_tensor_taco_attn_mlp": {
+          "candidate": "interleaved_arrival_all_attn_mlp",
+          "reference": "flux_tensor_taco_attn_mlp",
+          "median": 1.85003486828356,
+          "ratios": [
+            1.85003486828356,
+            1.8403377390560416,
+            1.8689221013860349,
+            1.8472151756160864,
+            1.870772299782891
+          ],
+          "best": {
+            "ratio": 1.870772299782891,
+            "round": 2,
+            "block": 4,
+            "reference_ms": 996.932722683996,
+            "candidate_ms": 532.8990186564624
+          }
+        },
+        "interleaved_arrival_all_attn_mlp/interleaved_all_attn_mlp": {
+          "candidate": "interleaved_arrival_all_attn_mlp",
+          "reference": "interleaved_all_attn_mlp",
+          "median": 1.0014064269749414,
+          "ratios": [
+            1.0014064269749414,
+            0.9957755436889248,
+            1.0042682089873538,
+            1.0013024580132384,
+            1.0032568313240025
+          ],
+          "best": {
+            "ratio": 1.0042682089873538,
+            "round": 2,
+            "block": 2,
+            "reference_ms": 534.8772607371211,
+            "candidate_ms": 532.6039955765009
+          }
+        },
+        "interleaved_arrival_selective_attn_mlp/native_taco_attn_mlp": {
+          "candidate": "interleaved_arrival_selective_attn_mlp",
+          "reference": "native_taco_attn_mlp",
+          "median": 1.9616557979741605,
+          "ratios": [
+            1.9727162000153289,
+            1.961131839214676,
+            1.9586527188810778,
+            1.9616557979741605,
+            1.9730818320366825
+          ],
+          "best": {
+            "ratio": 1.9730818320366825,
+            "round": 2,
+            "block": 4,
+            "reference_ms": 1013.3404752984643,
+            "candidate_ms": 513.5825888440013
+          }
+        },
+        "interleaved_arrival_selective_attn_mlp/flux_tensor_taco_attn_mlp": {
+          "candidate": "interleaved_arrival_selective_attn_mlp",
+          "reference": "flux_tensor_taco_attn_mlp",
+          "median": 1.928021914642354,
+          "ratios": [
+            1.9385587067639107,
+            1.916713217825714,
+            1.92744606928061,
+            1.928021914642354,
+            1.9411341901756143
+          ],
+          "best": {
+            "ratio": 1.9411341901756143,
+            "round": 2,
+            "block": 4,
+            "reference_ms": 996.932722683996,
+            "candidate_ms": 513.5825888440013
+          }
+        },
+        "interleaved_arrival_selective_attn_mlp/interleaved_all_attn_mlp": {
+          "candidate": "interleaved_arrival_selective_attn_mlp",
+          "reference": "interleaved_all_attn_mlp",
+          "median": 1.0409904706394673,
+          "ratios": [
+            1.0493235458976575,
+            1.0371010201394495,
+            1.035716154504575,
+            1.0451046027114326,
+            1.0409904706394673
+          ],
+          "best": {
+            "ratio": 1.0493235458976575,
+            "round": 2,
+            "block": 0,
+            "reference_ms": 536.3442786410451,
+            "candidate_ms": 511.1333684809506
+          }
+        },
+        "interleaved_arrival_selective_attn_mlp/interleaved_arrival_all_attn_mlp": {
+          "candidate": "interleaved_arrival_selective_attn_mlp",
+          "reference": "interleaved_arrival_all_attn_mlp",
+          "median": 1.0415007947447992,
+          "ratios": [
+            1.0478498216428116,
+            1.0415007947447992,
+            1.0313142895849818,
+            1.0437451684530021,
+            1.0376111461565307
+          ],
+          "best": {
+            "ratio": 1.0478498216428116,
+            "round": 2,
+            "block": 0,
+            "reference_ms": 535.5910089984536,
+            "candidate_ms": 511.1333684809506
+          }
+        }
+      },
+      "median_ms": {
+        "native_taco_attn_mlp": 1011.5114999935031,
+        "flux_tensor_taco_attn_mlp": 990.8620417863131,
+        "interleaved_all_attn_mlp": 535.6489897146821,
+        "interleaved_arrival_all_attn_mlp": 535.5910089984536,
+        "interleaved_arrival_selective_attn_mlp": 513.5825888440013
+      },
+      "median_tokens_per_second": {
+        "native_taco_attn_mlp": 8098.7709977124505,
+        "flux_tensor_taco_attn_mlp": 8267.548512839961,
+        "interleaved_all_attn_mlp": 15293.597406696383,
+        "interleaved_arrival_all_attn_mlp": 15295.253023979818,
+        "interleaved_arrival_selective_attn_mlp": 15950.696495453603
+      },
+      "mean_ms": {
+        "native_taco_attn_mlp": 1010.6714553236961,
+        "flux_tensor_taco_attn_mlp": 992.632432281971,
+        "interleaved_all_attn_mlp": 535.6306285485625,
+        "interleaved_arrival_all_attn_mlp": 534.9930837787688,
+        "interleaved_arrival_selective_attn_mlp": 514.2244866713881
+      },
+      "tokens_per_second": {
+        "native_taco_attn_mlp": 8105.502492277553,
+        "flux_tensor_taco_attn_mlp": 8252.803085596692,
+        "interleaved_all_attn_mlp": 15294.121664025191,
+        "interleaved_arrival_all_attn_mlp": 15312.347483332269,
+        "interleaved_arrival_selective_attn_mlp": 15930.785507760242
+      },
+      "mean_loss": {
+        "native_taco_attn_mlp": 2.8346267302524213,
+        "flux_tensor_taco_attn_mlp": 2.8346267302524213,
+        "interleaved_all_attn_mlp": 3.8210143247736412,
+        "interleaved_arrival_all_attn_mlp": 3.8210143247736412,
+        "interleaved_arrival_selective_attn_mlp": 3.793363792030723
+      },
+      "mean_final_loss": {
+        "native_taco_attn_mlp": 4.73859254270792e-05,
+        "flux_tensor_taco_attn_mlp": 4.73859254270792e-05,
+        "interleaved_all_attn_mlp": 3.2611555070616305e-05,
+        "interleaved_arrival_all_attn_mlp": 3.2611555070616305e-05,
+        "interleaved_arrival_selective_attn_mlp": 0.00030573460389859974
+      }
+    },
+    "combined": {
+      "status": "ok",
+      "blocks": 10,
+      "block_ids": [
+        {
+          "round": 1,
+          "block": 0
+        },
+        {
+          "round": 1,
+          "block": 1
+        },
+        {
+          "round": 1,
+          "block": 2
+        },
+        {
+          "round": 1,
+          "block": 3
+        },
+        {
+          "round": 1,
+          "block": 4
+        },
+        {
+          "round": 2,
+          "block": 0
+        },
+        {
+          "round": 2,
+          "block": 1
+        },
+        {
+          "round": 2,
+          "block": 2
+        },
+        {
+          "round": 2,
+          "block": 3
+        },
+        {
+          "round": 2,
+          "block": 4
+        }
+      ],
+      "ms_per_step": {
+        "native_taco_attn_mlp": [
+          1009.1624959558249,
+          1008.2878552749753,
+          1012.9312178865075,
+          1006.6700176894665,
+          1005.1642534695566,
+          1008.3210763707757,
+          1012.8987128287554,
+          1011.5114999935031,
+          1007.2855121269822,
+          1013.3404752984643
+        ],
+        "flux_tensor_taco_attn_mlp": [
+          990.5321759916842,
+          989.0875233337283,
+          988.1164573132992,
+          985.9052436240017,
+          988.649037219584,
+          990.8620417863131,
+          989.9570810981095,
+          995.3953786194324,
+          990.0149372220039,
+          996.932722683996
+        ],
+        "interleaved_all_attn_mlp": [
+          536.3021733798087,
+          535.8893813192844,
+          536.9006730243564,
+          534.135229177773,
+          536.042207814753,
+          536.3442786410451,
+          535.6489897146821,
+          534.8772607371211,
+          536.6480327770114,
+          534.6345808729529
+        ],
+        "interleaved_arrival_all_attn_mlp": [
+          532.7420793287456,
+          535.0558475591242,
+          534.1401616856456,
+          533.1634850800037,
+          534.6831220947206,
+          535.5910089984536,
+          537.921415232122,
+          532.6039955765009,
+          535.949980430305,
+          532.8990186564624
+        ],
+        "interleaved_arrival_selective_attn_mlp": [
+          513.4773251973093,
+          518.004147335887,
+          514.7254431992769,
+          518.5043116100132,
+          516.1997156217694,
+          511.1333684809506,
+          516.4868024550378,
+          516.432285439223,
+          513.487388137728,
+          513.5825888440013
+        ]
+      },
+      "comparisons": {
+        "flux_tensor_taco_attn_mlp/native_taco_attn_mlp": {
+          "percent": 1.8833274538337386,
+          "ci95": [
+            1.7237365262903093,
+            2.0636923724965173
+          ],
+          "blocks": 10,
+          "log_ratios": [
+            -0.018633703717667014,
+            -0.019226154067447532,
+            -0.024803039946263733,
+            -0.02084290234251476,
+            -0.016566841094097964,
+            -0.017466612532093855,
+            -0.022909922150998262,
+            -0.016061002113813724,
+            -0.01729434884934689,
+            -0.016324265769518866
+          ]
+        },
+        "interleaved_all_attn_mlp/native_taco_attn_mlp": {
+          "percent": 46.932819941531214,
+          "ci95": [
+            46.82639547042429,
+            47.04172181239088
+          ],
+          "blocks": 10,
+          "log_ratios": [
+            -0.632178295398471,
+            -0.6320812169368203,
+            -0.6347904915570208,
+            -0.633754105464413,
+            -0.6286933395334857,
+            -0.6312656602826866,
+            -0.6370924352992077,
+            -0.6371637243978827,
+            -0.6296719327931191,
+            -0.6394240665777213
+          ]
+        },
+        "interleaved_all_attn_mlp/flux_tensor_taco_attn_mlp": {
+          "percent": 45.91420736012077,
+          "ci95": [
+            45.797347759811316,
+            46.05570856288751
+          ],
+          "blocks": 10,
+          "log_ratios": [
+            -0.6135445916808041,
+            -0.6128550628693727,
+            -0.6099874516107571,
+            -0.6129112031218985,
+            -0.6121264984393878,
+            -0.6137990477505927,
+            -0.6141825131482093,
+            -0.6211027222840688,
+            -0.6123775839437722,
+            -0.6230998008082025
+          ]
+        },
+        "interleaved_arrival_all_attn_mlp/native_taco_attn_mlp": {
+          "percent": 47.05852334890317,
+          "ci95": [
+            46.92874678650445,
+            47.199418989591024
+          ],
+          "blocks": 10,
+          "log_ratios": [
+            -0.6388386505757476,
+            -0.6336378491641186,
+            -0.6399453229360011,
+            -0.6355750471619891,
+            -0.6312319671571502,
+            -0.6326710991655544,
+            -0.6328590307627538,
+            -0.6414228504174214,
+            -0.6309735433436958,
+            -0.6426756059135496
+          ]
+        },
+        "interleaved_arrival_all_attn_mlp/flux_tensor_taco_attn_mlp": {
+          "percent": 46.0423236161147,
+          "ci95": [
+            45.89043970339575,
+            46.22101458097438
+          ],
+          "blocks": 10,
+          "log_ratios": [
+            -0.6202049468580806,
+            -0.6144116950966709,
+            -0.6151422829897374,
+            -0.6147321448194745,
+            -0.6146651260630522,
+            -0.6152044866334605,
+            -0.6099491086117556,
+            -0.6253618483036075,
+            -0.6136791944943489,
+            -0.6263513401440306
+          ]
+        },
+        "interleaved_arrival_all_attn_mlp/interleaved_all_attn_mlp": {
+          "percent": 0.23687598857423664,
+          "ci95": [
+            0.05768143476732046,
+            0.39405904791848245
+          ],
+          "blocks": 10,
+          "log_ratios": [
+            -0.006660355177276544,
+            -0.0015566322272983532,
+            -0.005154831378980475,
+            -0.0018209416975760197,
+            -0.0025386276236645426,
+            -0.001405438882867858,
+            0.004233404536453823,
+            -0.004259126019538742,
+            -0.00130161055057682,
+            -0.003251539335828064
+          ]
+        },
+        "interleaved_arrival_selective_attn_mlp/native_taco_attn_mlp": {
+          "percent": 48.967672441320445,
+          "ci95": [
+            48.79524515576406,
+            49.1301407780632
+          ],
+          "blocks": 10,
+          "log_ratios": [
+            -0.6756701828871007,
+            -0.666025729905693,
+            -0.6769699640190574,
+            -0.6634548073459863,
+            -0.6664125070497472,
+            -0.6794113748368356,
+            -0.6735217755584517,
+            -0.6722568485567698,
+            -0.6737889114888463,
+            -0.6795967021239546
+          ]
+        },
+        "interleaved_arrival_selective_attn_mlp/flux_tensor_taco_attn_mlp": {
+          "percent": 47.98811839581328,
+          "ci95": [
+            47.786147100763046,
+            48.18149975434639
+          ],
+          "blocks": 10,
+          "log_ratios": [
+            -0.6570364791694335,
+            -0.6467995758382454,
+            -0.6521669240727938,
+            -0.6426119050034718,
+            -0.6498456659556494,
+            -0.6619447623047416,
+            -0.6506118534074534,
+            -0.656195846442956,
+            -0.6564945626394993,
+            -0.6632724363544358
+          ]
+        },
+        "interleaved_arrival_selective_attn_mlp/interleaved_all_attn_mlp": {
+          "percent": 3.834483945721723,
+          "ci95": [
+            3.5234880340322294,
+            4.143562454928473
+          ],
+          "blocks": 10,
+          "log_ratios": [
+            -0.04349188748862958,
+            -0.033944512968872825,
+            -0.04217947246203661,
+            -0.029700701881573244,
+            -0.037719167516261504,
+            -0.0481457145541489,
+            -0.036429340259244186,
+            -0.03509312415888708,
+            -0.04411697869572722,
+            -0.04017263554623328
+          ]
+        },
+        "interleaved_arrival_selective_attn_mlp/interleaved_arrival_all_attn_mlp": {
+          "percent": 3.606150060753377,
+          "ci95": [
+            3.2945482007942672,
+            3.930275632932867
+          ],
+          "blocks": 10,
+          "log_ratios": [
+            -0.03683153231135297,
+            -0.032387880741574414,
+            -0.03702464108305616,
+            -0.027879760183997206,
+            -0.03518053989259699,
+            -0.0467402756712811,
+            -0.040662744795697925,
+            -0.03083399813934832,
+            -0.042815368145150454,
+            -0.036921096210405166
+          ]
+        }
+      },
+      "speedups": {
+        "flux_tensor_taco_attn_mlp/native_taco_attn_mlp": {
+          "candidate": "flux_tensor_taco_attn_mlp",
+          "reference": "native_taco_attn_mlp",
+          "median": 1.0182142201802076,
+          "ratios": [
+            1.0188083945334625,
+            1.0194121667580358,
+            1.0251131942895475,
+            1.0210616326464979,
+            1.0167048321782814,
+            1.0176200458269526,
+            1.023174370049657,
+            1.0161906732944883,
+            1.0174447619481781,
+            1.0164582345840696
+          ],
+          "best": {
+            "ratio": 1.0251131942895475,
+            "round": 1,
+            "block": 2,
+            "reference_ms": 1012.9312178865075,
+            "candidate_ms": 988.1164573132992
+          }
+        },
+        "interleaved_all_attn_mlp/native_taco_attn_mlp": {
+          "candidate": "interleaved_all_attn_mlp",
+          "reference": "native_taco_attn_mlp",
+          "median": 1.8831888012167188,
+          "ratios": [
+            1.8817050275892448,
+            1.8815223634264073,
+            1.8866268357993958,
+            1.8846725748441928,
+            1.875158781931075,
+            1.8799885009039254,
+            1.8909747470414988,
+            1.8911095577320418,
+            1.8769946978367675,
+            1.8953889470521696
+          ],
+          "best": {
+            "ratio": 1.8953889470521696,
+            "round": 2,
+            "block": 4,
+            "reference_ms": 1013.3404752984643,
+            "candidate_ms": 534.6345808729529
+          }
+        },
+        "interleaved_all_attn_mlp/flux_tensor_taco_attn_mlp": {
+          "candidate": "interleaved_all_attn_mlp",
+          "reference": "flux_tensor_taco_attn_mlp",
+          "median": 1.846381813450864,
+          "ratios": [
+            1.846966551989321,
+            1.8456934543071812,
+            1.840408304476969,
+            1.8457970749124073,
+            1.844349237441474,
+            1.8474365836378381,
+            1.848145147488131,
+            1.8609790538630593,
+            1.8448123849423967,
+            1.8646992887295117
+          ],
+          "best": {
+            "ratio": 1.8646992887295117,
+            "round": 2,
+            "block": 4,
+            "reference_ms": 996.932722683996,
+            "candidate_ms": 534.6345808729529
+          }
+        },
+        "interleaved_arrival_all_attn_mlp/native_taco_attn_mlp": {
+          "candidate": "interleaved_arrival_all_attn_mlp",
+          "reference": "native_taco_attn_mlp",
+          "median": 1.8862805313820918,
+          "ratios": [
+            1.8942796807554012,
+            1.884453482519053,
+            1.8963771881333313,
+            1.8881075802451304,
+            1.8799251592824524,
+            1.8826325674441764,
+            1.8829864068372755,
+            1.8991812085424244,
+            1.8794394046217708,
+            1.9015619091460971
+          ],
+          "best": {
+            "ratio": 1.9015619091460971,
+            "round": 2,
+            "block": 4,
+            "reference_ms": 1013.3404752984643,
+            "candidate_ms": 532.8990186564624
+          }
+        },
+        "interleaved_arrival_all_attn_mlp/flux_tensor_taco_attn_mlp": {
+          "candidate": "interleaved_arrival_all_attn_mlp",
+          "reference": "flux_tensor_taco_attn_mlp",
+          "median": 1.8495405093779724,
+          "ratios": [
+            1.8593090623510604,
+            1.848568757534106,
+            1.8499197929528273,
+            1.8491612258031174,
+            1.8490373014700137,
+            1.85003486828356,
+            1.8403377390560416,
+            1.8689221013860349,
+            1.8472151756160864,
+            1.870772299782891
+          ],
+          "best": {
+            "ratio": 1.870772299782891,
+            "round": 2,
+            "block": 4,
+            "reference_ms": 996.932722683996,
+            "candidate_ms": 532.8990186564624
+          }
+        },
+        "interleaved_arrival_all_attn_mlp/interleaved_all_attn_mlp": {
+          "candidate": "interleaved_arrival_all_attn_mlp",
+          "reference": "interleaved_all_attn_mlp",
+          "median": 1.0021822266429719,
+          "ratios": [
+            1.0066825846675163,
+            1.0015578444081354,
+            1.00516814038098,
+            1.0018226006186892,
+            1.0025418526672545,
+            1.0014064269749414,
+            0.9957755436889248,
+            1.0042682089873538,
+            1.0013024580132384,
+            1.0032568313240025
+          ],
+          "best": {
+            "ratio": 1.0066825846675163,
+            "round": 1,
+            "block": 0,
+            "reference_ms": 536.3021733798087,
+            "candidate_ms": 532.7420793287456
+          }
+        },
+        "interleaved_arrival_selective_attn_mlp/native_taco_attn_mlp": {
+          "candidate": "interleaved_arrival_selective_attn_mlp",
+          "reference": "native_taco_attn_mlp",
+          "median": 1.9613938185944182,
+          "ratios": [
+            1.965349678426488,
+            1.9464860666862114,
+            1.9679058637370472,
+            1.9414882290248363,
+            1.9472390686206071,
+            1.9727162000153289,
+            1.961131839214676,
+            1.9586527188810778,
+            1.9616557979741605,
+            1.9730818320366825
+          ],
+          "best": {
+            "ratio": 1.9730818320366825,
+            "round": 2,
+            "block": 4,
+            "reference_ms": 1013.3404752984643,
+            "candidate_ms": 513.5825888440013
+          }
+        },
+        "interleaved_arrival_selective_attn_mlp/flux_tensor_taco_attn_mlp": {
+          "candidate": "interleaved_arrival_selective_attn_mlp",
+          "reference": "flux_tensor_taco_attn_mlp",
+          "median": 1.923571115173938,
+          "ratios": [
+            1.9290670247436172,
+            1.9094200855739076,
+            1.9196961610672663,
+            1.901440781779918,
+            1.9152452186625928,
+            1.9385587067639107,
+            1.916713217825714,
+            1.92744606928061,
+            1.928021914642354,
+            1.9411341901756143
+          ],
+          "best": {
+            "ratio": 1.9411341901756143,
+            "round": 2,
+            "block": 4,
+            "reference_ms": 996.932722683996,
+            "candidate_ms": 513.5825888440013
+          }
+        },
+        "interleaved_arrival_selective_attn_mlp/interleaved_all_attn_mlp": {
+          "candidate": "interleaved_arrival_selective_attn_mlp",
+          "reference": "interleaved_all_attn_mlp",
+          "median": 1.0397150175014063,
+          "ratios": [
+            1.0444515211528156,
+            1.0345272022924563,
+            1.0430816663875195,
+            1.0301461669995067,
+            1.0384395643633455,
+            1.0493235458976575,
+            1.0371010201394495,
+            1.035716154504575,
+            1.0451046027114326,
+            1.0409904706394673
+          ],
+          "best": {
+            "ratio": 1.0493235458976575,
+            "round": 2,
+            "block": 0,
+            "reference_ms": 536.3442786410451,
+            "candidate_ms": 511.1333684809506
+          }
+        },
+        "interleaved_arrival_selective_attn_mlp/interleaved_arrival_all_attn_mlp": {
+          "candidate": "interleaved_arrival_selective_attn_mlp",
+          "reference": "interleaved_arrival_all_attn_mlp",
+          "median": 1.037564681987343,
+          "ratios": [
+            1.0375182178181552,
+            1.0329180766426964,
+            1.0377185910331077,
+            1.0282720377473278,
+            1.0358066963494694,
+            1.0478498216428116,
+            1.0415007947447992,
+            1.0313142895849818,
+            1.0437451684530021,
+            1.0376111461565307
+          ],
+          "best": {
+            "ratio": 1.0478498216428116,
+            "round": 2,
+            "block": 0,
+            "reference_ms": 535.5910089984536,
+            "candidate_ms": 511.1333684809506
+          }
+        }
+      },
+      "median_ms": {
+        "native_taco_attn_mlp": 1008.7417861633003,
+        "flux_tensor_taco_attn_mlp": 989.9860091600567,
+        "interleaved_all_attn_mlp": 535.9657945670187,
+        "interleaved_arrival_all_attn_mlp": 534.4116418901831,
+        "interleaved_arrival_selective_attn_mlp": 515.4625794105232
+      },
+      "median_tokens_per_second": {
+        "native_taco_attn_mlp": 8121.009298220388,
+        "flux_tensor_taco_attn_mlp": 8274.864423533763,
+        "interleaved_all_attn_mlp": 15284.557801179897,
+        "interleaved_arrival_all_attn_mlp": 15329.011331175403,
+        "interleaved_arrival_selective_attn_mlp": 15892.553756951827
+      },
+      "mean_ms": {
+        "native_taco_attn_mlp": 1009.5573116894811,
+        "flux_tensor_taco_attn_mlp": 990.5452598892152,
+        "interleaved_all_attn_mlp": 535.7422807458788,
+        "interleaved_arrival_all_attn_mlp": 534.4750114642084,
+        "interleaved_arrival_selective_attn_mlp": 515.2033376321197
+      },
+      "tokens_per_second": {
+        "native_taco_attn_mlp": 8114.447694198553,
+        "flux_tensor_taco_attn_mlp": 8270.192520951754,
+        "interleaved_all_attn_mlp": 15290.934268982497,
+        "interleaved_arrival_all_attn_mlp": 15327.189904646431,
+        "interleaved_arrival_selective_attn_mlp": 15900.518109316847
+      },
+      "mean_loss": {
+        "native_taco_attn_mlp": 2.8346267302524213,
+        "flux_tensor_taco_attn_mlp": 2.8346267302524213,
+        "interleaved_all_attn_mlp": 3.8210143247736412,
+        "interleaved_arrival_all_attn_mlp": 3.8210143247736412,
+        "interleaved_arrival_selective_attn_mlp": 3.793363792030723
+      },
+      "mean_final_loss": {
+        "native_taco_attn_mlp": 4.73859254270792e-05,
+        "flux_tensor_taco_attn_mlp": 4.73859254270792e-05,
+        "interleaved_all_attn_mlp": 3.2611555070616305e-05,
+        "interleaved_arrival_all_attn_mlp": 3.2611555070616305e-05,
+        "interleaved_arrival_selective_attn_mlp": 0.00030573460389859974
+      }
+    }
+  },
+  "sensitivity": {
+    "1": {
+      "original_median_ms": {
+        "native_taco_attn_mlp": 1008.2878552749753,
+        "flux_tensor_taco_attn_mlp": 988.649037219584,
+        "interleaved_all_attn_mlp": 536.042207814753,
+        "interleaved_arrival_all_attn_mlp": 534.1401616856456,
+        "interleaved_arrival_selective_attn_mlp": 516.1997156217694
+      },
+      "excluded": [],
+      "remaining_blocks": 5,
+      "summary": {
+        "status": "ok",
+        "blocks": 5,
+        "block_ids": [
+          {
+            "round": 1,
+            "block": 0
+          },
+          {
+            "round": 1,
+            "block": 1
+          },
+          {
+            "round": 1,
+            "block": 2
+          },
+          {
+            "round": 1,
+            "block": 3
+          },
+          {
+            "round": 1,
+            "block": 4
+          }
+        ],
+        "ms_per_step": {
+          "native_taco_attn_mlp": [
+            1009.1624959558249,
+            1008.2878552749753,
+            1012.9312178865075,
+            1006.6700176894665,
+            1005.1642534695566
+          ],
+          "flux_tensor_taco_attn_mlp": [
+            990.5321759916842,
+            989.0875233337283,
+            988.1164573132992,
+            985.9052436240017,
+            988.649037219584
+          ],
+          "interleaved_all_attn_mlp": [
+            536.3021733798087,
+            535.8893813192844,
+            536.9006730243564,
+            534.135229177773,
+            536.042207814753
+          ],
+          "interleaved_arrival_all_attn_mlp": [
+            532.7420793287456,
+            535.0558475591242,
+            534.1401616856456,
+            533.1634850800037,
+            534.6831220947206
+          ],
+          "interleaved_arrival_selective_attn_mlp": [
+            513.4773251973093,
+            518.004147335887,
+            514.7254431992769,
+            518.5043116100132,
+            516.1997156217694
+          ]
+        },
+        "comparisons": {
+          "flux_tensor_taco_attn_mlp/native_taco_attn_mlp": {
+            "percent": 1.9815567145098578,
+            "ci95": [
+              1.7677316041329938,
+              2.231943758193433
+            ],
+            "blocks": 5,
+            "log_ratios": [
+              -0.018633703717667014,
+              -0.019226154067447532,
+              -0.024803039946263733,
+              -0.02084290234251476,
+              -0.016566841094097964
+            ]
+          },
+          "interleaved_all_attn_mlp/native_taco_attn_mlp": {
+            "percent": 46.863148139367496,
+            "ci95": [
+              46.76121789042262,
+              46.951382558077995
+            ],
+            "blocks": 5,
+            "log_ratios": [
+              -0.632178295398471,
+              -0.6320812169368203,
+              -0.6347904915570208,
+              -0.633754105464413,
+              -0.6286933395334857
+            ]
+          },
+          "interleaved_all_attn_mlp/flux_tensor_taco_attn_mlp": {
+            "percent": 45.788924941538575,
+            "ci95": [
+              45.72609736247203,
+              45.83597972248097
+            ],
+            "blocks": 5,
+            "log_ratios": [
+              -0.6135445916808041,
+              -0.6128550628693727,
+              -0.6099874516107571,
+              -0.6129112031218985,
+              -0.6121264984393878
+            ]
+          },
+          "interleaved_arrival_all_attn_mlp/native_taco_attn_mlp": {
+            "percent": 47.051252435806056,
+            "ci95": [
+              46.90369978462085,
+              47.198395043640154
+            ],
+            "blocks": 5,
+            "log_ratios": [
+              -0.6388386505757476,
+              -0.6336378491641186,
+              -0.6399453229360011,
+              -0.6355750471619891,
+              -0.6312319671571502
+            ]
+          },
+          "interleaved_arrival_all_attn_mlp/flux_tensor_taco_attn_mlp": {
+            "percent": 45.98083198488009,
+            "ci95": [
+              45.9130450364881,
+              46.09967959906728
+            ],
+            "blocks": 5,
+            "log_ratios": [
+              -0.6202049468580806,
+              -0.6144116950966709,
+              -0.6151422829897374,
+              -0.6147321448194745,
+              -0.6146651260630522
+            ]
+          },
+          "interleaved_arrival_all_attn_mlp/interleaved_all_attn_mlp": {
+            "percent": 0.35399970049395657,
+            "ci95": [
+              0.19097910126899542,
+              0.5376860381898996
+            ],
+            "blocks": 5,
+            "log_ratios": [
+              -0.006660355177276544,
+              -0.0015566322272983532,
+              -0.005154831378980475,
+              -0.0018209416975760197,
+              -0.0025386276236645426
+            ]
+          },
+          "interleaved_arrival_selective_attn_mlp/native_taco_attn_mlp": {
+            "percent": 48.81412844639868,
+            "ci95": [
+              48.576489547857115,
+              49.05997170451399
+            ],
+            "blocks": 5,
+            "log_ratios": [
+              -0.6756701828871007,
+              -0.666025729905693,
+              -0.6769699640190574,
+              -0.6634548073459863,
+              -0.6664125070497472
+            ]
+          },
+          "interleaved_arrival_selective_attn_mlp/flux_tensor_taco_attn_mlp": {
+            "percent": 47.779346582238105,
+            "ci95": [
+              47.5602560267544,
+              48.00461323936811
+            ],
+            "blocks": 5,
+            "log_ratios": [
+              -0.6570364791694335,
+              -0.6467995758382454,
+              -0.6521669240727938,
+              -0.6426119050034718,
+              -0.6498456659556494
+            ]
+          },
+          "interleaved_arrival_selective_attn_mlp/interleaved_all_attn_mlp": {
+            "percent": 3.6716144045345844,
+            "ci95": [
+              3.2463297544717884,
+              4.095029698808405
+            ],
+            "blocks": 5,
+            "log_ratios": [
+              -0.04349188748862958,
+              -0.033944512968872825,
+              -0.04217947246203661,
+              -0.029700701881573244,
+              -0.037719167516261504
+            ]
+          },
+          "interleaved_arrival_selective_attn_mlp/interleaved_arrival_all_attn_mlp": {
+            "percent": 3.3294007728045916,
+            "ci95": [
+              3.0146607320550856,
+              3.5917664101980273
+            ],
+            "blocks": 5,
+            "log_ratios": [
+              -0.03683153231135297,
+              -0.032387880741574414,
+              -0.03702464108305616,
+              -0.027879760183997206,
+              -0.03518053989259699
+            ]
+          }
+        },
+        "speedups": {
+          "flux_tensor_taco_attn_mlp/native_taco_attn_mlp": {
+            "candidate": "flux_tensor_taco_attn_mlp",
+            "reference": "native_taco_attn_mlp",
+            "median": 1.0194121667580358,
+            "ratios": [
+              1.0188083945334625,
+              1.0194121667580358,
+              1.0251131942895475,
+              1.0210616326464979,
+              1.0167048321782814
+            ],
+            "best": {
+              "ratio": 1.0251131942895475,
+              "round": 1,
+              "block": 2,
+              "reference_ms": 1012.9312178865075,
+              "candidate_ms": 988.1164573132992
+            }
+          },
+          "interleaved_all_attn_mlp/native_taco_attn_mlp": {
+            "candidate": "interleaved_all_attn_mlp",
+            "reference": "native_taco_attn_mlp",
+            "median": 1.8817050275892448,
+            "ratios": [
+              1.8817050275892448,
+              1.8815223634264073,
+              1.8866268357993958,
+              1.8846725748441928,
+              1.875158781931075
+            ],
+            "best": {
+              "ratio": 1.8866268357993958,
+              "round": 1,
+              "block": 2,
+              "reference_ms": 1012.9312178865075,
+              "candidate_ms": 536.9006730243564
+            }
+          },
+          "interleaved_all_attn_mlp/flux_tensor_taco_attn_mlp": {
+            "candidate": "interleaved_all_attn_mlp",
+            "reference": "flux_tensor_taco_attn_mlp",
+            "median": 1.8456934543071812,
+            "ratios": [
+              1.846966551989321,
+              1.8456934543071812,
+              1.840408304476969,
+              1.8457970749124073,
+              1.844349237441474
+            ],
+            "best": {
+              "ratio": 1.846966551989321,
+              "round": 1,
+              "block": 0,
+              "reference_ms": 990.5321759916842,
+              "candidate_ms": 536.3021733798087
+            }
+          },
+          "interleaved_arrival_all_attn_mlp/native_taco_attn_mlp": {
+            "candidate": "interleaved_arrival_all_attn_mlp",
+            "reference": "native_taco_attn_mlp",
+            "median": 1.8881075802451304,
+            "ratios": [
+              1.8942796807554012,
+              1.884453482519053,
+              1.8963771881333313,
+              1.8881075802451304,
+              1.8799251592824524
+            ],
+            "best": {
+              "ratio": 1.8963771881333313,
+              "round": 1,
+              "block": 2,
+              "reference_ms": 1012.9312178865075,
+              "candidate_ms": 534.1401616856456
+            }
+          },
+          "interleaved_arrival_all_attn_mlp/flux_tensor_taco_attn_mlp": {
+            "candidate": "interleaved_arrival_all_attn_mlp",
+            "reference": "flux_tensor_taco_attn_mlp",
+            "median": 1.8491612258031174,
+            "ratios": [
+              1.8593090623510604,
+              1.848568757534106,
+              1.8499197929528273,
+              1.8491612258031174,
+              1.8490373014700137
+            ],
+            "best": {
+              "ratio": 1.8593090623510604,
+              "round": 1,
+              "block": 0,
+              "reference_ms": 990.5321759916842,
+              "candidate_ms": 532.7420793287456
+            }
+          },
+          "interleaved_arrival_all_attn_mlp/interleaved_all_attn_mlp": {
+            "candidate": "interleaved_arrival_all_attn_mlp",
+            "reference": "interleaved_all_attn_mlp",
+            "median": 1.0025418526672545,
+            "ratios": [
+              1.0066825846675163,
+              1.0015578444081354,
+              1.00516814038098,
+              1.0018226006186892,
+              1.0025418526672545
+            ],
+            "best": {
+              "ratio": 1.0066825846675163,
+              "round": 1,
+              "block": 0,
+              "reference_ms": 536.3021733798087,
+              "candidate_ms": 532.7420793287456
+            }
+          },
+          "interleaved_arrival_selective_attn_mlp/native_taco_attn_mlp": {
+            "candidate": "interleaved_arrival_selective_attn_mlp",
+            "reference": "native_taco_attn_mlp",
+            "median": 1.9472390686206071,
+            "ratios": [
+              1.965349678426488,
+              1.9464860666862114,
+              1.9679058637370472,
+              1.9414882290248363,
+              1.9472390686206071
+            ],
+            "best": {
+              "ratio": 1.9679058637370472,
+              "round": 1,
+              "block": 2,
+              "reference_ms": 1012.9312178865075,
+              "candidate_ms": 514.7254431992769
+            }
+          },
+          "interleaved_arrival_selective_attn_mlp/flux_tensor_taco_attn_mlp": {
+            "candidate": "interleaved_arrival_selective_attn_mlp",
+            "reference": "flux_tensor_taco_attn_mlp",
+            "median": 1.9152452186625928,
+            "ratios": [
+              1.9290670247436172,
+              1.9094200855739076,
+              1.9196961610672663,
+              1.901440781779918,
+              1.9152452186625928
+            ],
+            "best": {
+              "ratio": 1.9290670247436172,
+              "round": 1,
+              "block": 0,
+              "reference_ms": 990.5321759916842,
+              "candidate_ms": 513.4773251973093
+            }
+          },
+          "interleaved_arrival_selective_attn_mlp/interleaved_all_attn_mlp": {
+            "candidate": "interleaved_arrival_selective_attn_mlp",
+            "reference": "interleaved_all_attn_mlp",
+            "median": 1.0384395643633455,
+            "ratios": [
+              1.0444515211528156,
+              1.0345272022924563,
+              1.0430816663875195,
+              1.0301461669995067,
+              1.0384395643633455
+            ],
+            "best": {
+              "ratio": 1.0444515211528156,
+              "round": 1,
+              "block": 0,
+              "reference_ms": 536.3021733798087,
+              "candidate_ms": 513.4773251973093
+            }
+          },
+          "interleaved_arrival_selective_attn_mlp/interleaved_arrival_all_attn_mlp": {
+            "candidate": "interleaved_arrival_selective_attn_mlp",
+            "reference": "interleaved_arrival_all_attn_mlp",
+            "median": 1.0358066963494694,
+            "ratios": [
+              1.0375182178181552,
+              1.0329180766426964,
+              1.0377185910331077,
+              1.0282720377473278,
+              1.0358066963494694
+            ],
+            "best": {
+              "ratio": 1.0377185910331077,
+              "round": 1,
+              "block": 2,
+              "reference_ms": 534.1401616856456,
+              "candidate_ms": 514.7254431992769
+            }
+          }
+        },
+        "median_ms": {
+          "native_taco_attn_mlp": 1008.2878552749753,
+          "flux_tensor_taco_attn_mlp": 988.649037219584,
+          "interleaved_all_attn_mlp": 536.042207814753,
+          "interleaved_arrival_all_attn_mlp": 534.1401616856456,
+          "interleaved_arrival_selective_attn_mlp": 516.1997156217694
+        },
+        "median_tokens_per_second": {
+          "native_taco_attn_mlp": 8124.663960933972,
+          "flux_tensor_taco_attn_mlp": 8286.054698478925,
+          "interleaved_all_attn_mlp": 15282.37866453795,
+          "interleaved_arrival_all_attn_mlp": 15336.798442842406,
+          "interleaved_arrival_selective_attn_mlp": 15869.826642838474
+        }
+      }
+    },
+    "2": {
+      "original_median_ms": {
+        "native_taco_attn_mlp": 1011.5114999935031,
+        "flux_tensor_taco_attn_mlp": 990.8620417863131,
+        "interleaved_all_attn_mlp": 535.6489897146821,
+        "interleaved_arrival_all_attn_mlp": 535.5910089984536,
+        "interleaved_arrival_selective_attn_mlp": 513.5825888440013
+      },
+      "excluded": [],
+      "remaining_blocks": 5,
+      "summary": {
+        "status": "ok",
+        "blocks": 5,
+        "block_ids": [
+          {
+            "round": 2,
+            "block": 0
+          },
+          {
+            "round": 2,
+            "block": 1
+          },
+          {
+            "round": 2,
+            "block": 2
+          },
+          {
+            "round": 2,
+            "block": 3
+          },
+          {
+            "round": 2,
+            "block": 4
+          }
+        ],
+        "ms_per_step": {
+          "native_taco_attn_mlp": [
+            1008.3210763707757,
+            1012.8987128287554,
+            1011.5114999935031,
+            1007.2855121269822,
+            1013.3404752984643
+          ],
+          "flux_tensor_taco_attn_mlp": [
+            990.8620417863131,
+            989.9570810981095,
+            995.3953786194324,
+            990.0149372220039,
+            996.932722683996
+          ],
+          "interleaved_all_attn_mlp": [
+            536.3442786410451,
+            535.6489897146821,
+            534.8772607371211,
+            536.6480327770114,
+            534.6345808729529
+          ],
+          "interleaved_arrival_all_attn_mlp": [
+            535.5910089984536,
+            537.921415232122,
+            532.6039955765009,
+            535.949980430305,
+            532.8990186564624
+          ],
+          "interleaved_arrival_selective_attn_mlp": [
+            511.1333684809506,
+            516.4868024550378,
+            516.432285439223,
+            513.487388137728,
+            513.5825888440013
+          ]
+        },
+        "comparisons": {
+          "flux_tensor_taco_attn_mlp/native_taco_attn_mlp": {
+            "percent": 1.7849997526261374,
+            "ci95": [
+              1.6261114028036316,
+              2.0295348686256154
+            ],
+            "blocks": 5,
+            "log_ratios": [
+              -0.017466612532093855,
+              -0.022909922150998262,
+              -0.016061002113813724,
+              -0.01729434884934689,
+              -0.016324265769518866
+            ]
+          },
+          "interleaved_all_attn_mlp/native_taco_attn_mlp": {
+            "percent": 47.00240039165116,
+            "ci95": [
+              46.82006575377301,
+              47.168025634064826
+            ],
+            "blocks": 5,
+            "log_ratios": [
+              -0.6312656602826866,
+              -0.6370924352992077,
+              -0.6371637243978827,
+              -0.6296719327931191,
+              -0.6394240665777213
+            ]
+          },
+          "interleaved_all_attn_mlp/flux_tensor_taco_attn_mlp": {
+            "percent": 46.039200249591275,
+            "ci95": [
+              45.84431085195708,
+              46.250737203689404
+            ],
+            "blocks": 5,
+            "log_ratios": [
+              -0.6137990477505927,
+              -0.6141825131482093,
+              -0.6211027222840688,
+              -0.6123775839437722,
+              -0.6230998008082025
+            ]
+          },
+          "interleaved_arrival_all_attn_mlp/native_taco_attn_mlp": {
+            "percent": 47.06579326355974,
+            "ci95": [
+              46.848808467611725,
+              47.293118144065986
+            ],
+            "blocks": 5,
+            "log_ratios": [
+              -0.6326710991655544,
+              -0.6328590307627538,
+              -0.6414228504174214,
+              -0.6309735433436958,
+              -0.6426756059135496
+            ]
+          },
+          "interleaved_arrival_all_attn_mlp/flux_tensor_taco_attn_mlp": {
+            "percent": 46.10374524959017,
+            "ci95": [
+              45.800159403409644,
+              46.40563064121239
+            ],
+            "blocks": 5,
+            "log_ratios": [
+              -0.6152044866334605,
+              -0.6099491086117556,
+              -0.6253618483036075,
+              -0.6136791944943489,
+              -0.6263513401440306
+            ]
+          },
+          "interleaved_arrival_all_attn_mlp/interleaved_all_attn_mlp": {
+            "percent": 0.11961460967486737,
+            "ci95": [
+              -0.16307409588425248,
+              0.3447101728603075
+            ],
+            "blocks": 5,
+            "log_ratios": [
+              -0.001405438882867858,
+              0.004233404536453823,
+              -0.004259126019538742,
+              -0.00130161055057682,
+              -0.003251539335828064
+            ]
+          },
+          "interleaved_arrival_selective_attn_mlp/native_taco_attn_mlp": {
+            "percent": 49.12075584511302,
+            "ci95": [
+              48.98595667956066,
+              49.255198818255394
+            ],
+            "blocks": 5,
+            "log_ratios": [
+              -0.6794113748368356,
+              -0.6735217755584517,
+              -0.6722568485567698,
+              -0.6737889114888463,
+              -0.6795967021239546
+            ]
+          },
+          "interleaved_arrival_selective_attn_mlp/flux_tensor_taco_attn_mlp": {
+            "percent": 48.19605556509947,
+            "ci95": [
+              48.00357572919568,
+              48.38644178919661
+            ],
+            "blocks": 5,
+            "log_ratios": [
+              -0.6619447623047416,
+              -0.6506118534074534,
+              -0.656195846442956,
+              -0.6564945626394993,
+              -0.6632724363544358
+            ]
+          },
+          "interleaved_arrival_selective_attn_mlp/interleaved_all_attn_mlp": {
+            "percent": 3.997078111304031,
+            "ci95": [
+              3.5980265276732037,
+              4.399935622245021
+            ],
+            "blocks": 5,
+            "log_ratios": [
+              -0.0481457145541489,
+              -0.036429340259244186,
+              -0.03509312415888708,
+              -0.04411697869572722,
+              -0.04017263554623328
+            ]
+          },
+          "interleaved_arrival_selective_attn_mlp/interleaved_arrival_all_attn_mlp": {
+            "percent": 3.8821070688467185,
+            "ci95": [
+              3.3898383252816244,
+              4.303786845342861
+            ],
+            "blocks": 5,
+            "log_ratios": [
+              -0.0467402756712811,
+              -0.040662744795697925,
+              -0.03083399813934832,
+              -0.042815368145150454,
+              -0.036921096210405166
+            ]
+          }
+        },
+        "speedups": {
+          "flux_tensor_taco_attn_mlp/native_taco_attn_mlp": {
+            "candidate": "flux_tensor_taco_attn_mlp",
+            "reference": "native_taco_attn_mlp",
+            "median": 1.0174447619481781,
+            "ratios": [
+              1.0176200458269526,
+              1.023174370049657,
+              1.0161906732944883,
+              1.0174447619481781,
+              1.0164582345840696
+            ],
+            "best": {
+              "ratio": 1.023174370049657,
+              "round": 2,
+              "block": 1,
+              "reference_ms": 1012.8987128287554,
+              "candidate_ms": 989.9570810981095
+            }
+          },
+          "interleaved_all_attn_mlp/native_taco_attn_mlp": {
+            "candidate": "interleaved_all_attn_mlp",
+            "reference": "native_taco_attn_mlp",
+            "median": 1.8909747470414988,
+            "ratios": [
+              1.8799885009039254,
+              1.8909747470414988,
+              1.8911095577320418,
+              1.8769946978367675,
+              1.8953889470521696
+            ],
+            "best": {
+              "ratio": 1.8953889470521696,
+              "round": 2,
+              "block": 4,
+              "reference_ms": 1013.3404752984643,
+              "candidate_ms": 534.6345808729529
+            }
+          },
+          "interleaved_all_attn_mlp/flux_tensor_taco_attn_mlp": {
+            "candidate": "interleaved_all_attn_mlp",
+            "reference": "flux_tensor_taco_attn_mlp",
+            "median": 1.848145147488131,
+            "ratios": [
+              1.8474365836378381,
+              1.848145147488131,
+              1.8609790538630593,
+              1.8448123849423967,
+              1.8646992887295117
+            ],
+            "best": {
+              "ratio": 1.8646992887295117,
+              "round": 2,
+              "block": 4,
+              "reference_ms": 996.932722683996,
+              "candidate_ms": 534.6345808729529
+            }
+          },
+          "interleaved_arrival_all_attn_mlp/native_taco_attn_mlp": {
+            "candidate": "interleaved_arrival_all_attn_mlp",
+            "reference": "native_taco_attn_mlp",
+            "median": 1.8829864068372755,
+            "ratios": [
+              1.8826325674441764,
+              1.8829864068372755,
+              1.8991812085424244,
+              1.8794394046217708,
+              1.9015619091460971
+            ],
+            "best": {
+              "ratio": 1.9015619091460971,
+              "round": 2,
+              "block": 4,
+              "reference_ms": 1013.3404752984643,
+              "candidate_ms": 532.8990186564624
+            }
+          },
+          "interleaved_arrival_all_attn_mlp/flux_tensor_taco_attn_mlp": {
+            "candidate": "interleaved_arrival_all_attn_mlp",
+            "reference": "flux_tensor_taco_attn_mlp",
+            "median": 1.85003486828356,
+            "ratios": [
+              1.85003486828356,
+              1.8403377390560416,
+              1.8689221013860349,
+              1.8472151756160864,
+              1.870772299782891
+            ],
+            "best": {
+              "ratio": 1.870772299782891,
+              "round": 2,
+              "block": 4,
+              "reference_ms": 996.932722683996,
+              "candidate_ms": 532.8990186564624
+            }
+          },
+          "interleaved_arrival_all_attn_mlp/interleaved_all_attn_mlp": {
+            "candidate": "interleaved_arrival_all_attn_mlp",
+            "reference": "interleaved_all_attn_mlp",
+            "median": 1.0014064269749414,
+            "ratios": [
+              1.0014064269749414,
+              0.9957755436889248,
+              1.0042682089873538,
+              1.0013024580132384,
+              1.0032568313240025
+            ],
+            "best": {
+              "ratio": 1.0042682089873538,
+              "round": 2,
+              "block": 2,
+              "reference_ms": 534.8772607371211,
+              "candidate_ms": 532.6039955765009
+            }
+          },
+          "interleaved_arrival_selective_attn_mlp/native_taco_attn_mlp": {
+            "candidate": "interleaved_arrival_selective_attn_mlp",
+            "reference": "native_taco_attn_mlp",
+            "median": 1.9616557979741605,
+            "ratios": [
+              1.9727162000153289,
+              1.961131839214676,
+              1.9586527188810778,
+              1.9616557979741605,
+              1.9730818320366825
+            ],
+            "best": {
+              "ratio": 1.9730818320366825,
+              "round": 2,
+              "block": 4,
+              "reference_ms": 1013.3404752984643,
+              "candidate_ms": 513.5825888440013
+            }
+          },
+          "interleaved_arrival_selective_attn_mlp/flux_tensor_taco_attn_mlp": {
+            "candidate": "interleaved_arrival_selective_attn_mlp",
+            "reference": "flux_tensor_taco_attn_mlp",
+            "median": 1.928021914642354,
+            "ratios": [
+              1.9385587067639107,
+              1.916713217825714,
+              1.92744606928061,
+              1.928021914642354,
+              1.9411341901756143
+            ],
+            "best": {
+              "ratio": 1.9411341901756143,
+              "round": 2,
+              "block": 4,
+              "reference_ms": 996.932722683996,
+              "candidate_ms": 513.5825888440013
+            }
+          },
+          "interleaved_arrival_selective_attn_mlp/interleaved_all_attn_mlp": {
+            "candidate": "interleaved_arrival_selective_attn_mlp",
+            "reference": "interleaved_all_attn_mlp",
+            "median": 1.0409904706394673,
+            "ratios": [
+              1.0493235458976575,
+              1.0371010201394495,
+              1.035716154504575,
+              1.0451046027114326,
+              1.0409904706394673
+            ],
+            "best": {
+              "ratio": 1.0493235458976575,
+              "round": 2,
+              "block": 0,
+              "reference_ms": 536.3442786410451,
+              "candidate_ms": 511.1333684809506
+            }
+          },
+          "interleaved_arrival_selective_attn_mlp/interleaved_arrival_all_attn_mlp": {
+            "candidate": "interleaved_arrival_selective_attn_mlp",
+            "reference": "interleaved_arrival_all_attn_mlp",
+            "median": 1.0415007947447992,
+            "ratios": [
+              1.0478498216428116,
+              1.0415007947447992,
+              1.0313142895849818,
+              1.0437451684530021,
+              1.0376111461565307
+            ],
+            "best": {
+              "ratio": 1.0478498216428116,
+              "round": 2,
+              "block": 0,
+              "reference_ms": 535.5910089984536,
+              "candidate_ms": 511.1333684809506
+            }
+          }
+        },
+        "median_ms": {
+          "native_taco_attn_mlp": 1011.5114999935031,
+          "flux_tensor_taco_attn_mlp": 990.8620417863131,
+          "interleaved_all_attn_mlp": 535.6489897146821,
+          "interleaved_arrival_all_attn_mlp": 535.5910089984536,
+          "interleaved_arrival_selective_attn_mlp": 513.5825888440013
+        },
+        "median_tokens_per_second": {
+          "native_taco_attn_mlp": 8098.7709977124505,
+          "flux_tensor_taco_attn_mlp": 8267.548512839961,
+          "interleaved_all_attn_mlp": 15293.597406696383,
+          "interleaved_arrival_all_attn_mlp": 15295.253023979818,
+          "interleaved_arrival_selective_attn_mlp": 15950.696495453603
+        }
+      }
+    }
+  },
+  "candidate_source_commit": "ff38f5b1ff1c80cb831f58c64b95f42b0379879a",
+  "role_plan_sha256": {
+    "native_taco_attn_mlp": {},
+    "flux_tensor_taco_attn_mlp": {},
+    "interleaved_all_attn_mlp": {
+      "attn": "90551069e99c067387b1aa9c9635fc6a2e72e07016e92820bd17e96835ade76f",
+      "mlp": "06a5cdf2c2a56b799e51fc9c3905c6b93ac3b51dc3ed26836f188bb31bd5c6e8"
+    },
+    "interleaved_arrival_all_attn_mlp": {
+      "attn": "8714b5e1f5bb46b7311769eb6422972c9056ac0a5c33323c75bab9f289710851",
+      "mlp": "9ffc1bc8c0b445f029dacf9979fc5c8a146e45a6c44a1f35bc98a296f06ea1b7"
+    },
+    "interleaved_arrival_selective_attn_mlp": {
+      "attn": "bc0fa4d67217f12d9ede83e4ce1cf4f5b65695d2ee327788012c003d23a1419a",
+      "mlp": "608ecfbe3f2ccd136a5a026c7aba0697939b44cec37a2253e9aebebf221dd3cd"
+    }
+  },
+  "primary_comparisons": [
+    [
+      "flux_tensor_taco_attn_mlp",
+      "native_taco_attn_mlp"
+    ],
+    [
+      "interleaved_all_attn_mlp",
+      "flux_tensor_taco_attn_mlp"
+    ],
+    [
+      "interleaved_arrival_all_attn_mlp",
+      "interleaved_all_attn_mlp"
+    ],
+    [
+      "interleaved_arrival_selective_attn_mlp",
+      "interleaved_arrival_all_attn_mlp"
+    ]
+  ],
+  "comparisons": [
+    [
+      "flux_tensor_taco_attn_mlp",
+      "native_taco_attn_mlp"
+    ],
+    [
+      "interleaved_all_attn_mlp",
+      "native_taco_attn_mlp"
+    ],
+    [
+      "interleaved_all_attn_mlp",
+      "flux_tensor_taco_attn_mlp"
+    ],
+    [
+      "interleaved_arrival_all_attn_mlp",
+      "native_taco_attn_mlp"
+    ],
+    [
+      "interleaved_arrival_all_attn_mlp",
+      "flux_tensor_taco_attn_mlp"
+    ],
+    [
+      "interleaved_arrival_all_attn_mlp",
+      "interleaved_all_attn_mlp"
+    ],
+    [
+      "interleaved_arrival_selective_attn_mlp",
+      "native_taco_attn_mlp"
+    ],
+    [
+      "interleaved_arrival_selective_attn_mlp",
+      "flux_tensor_taco_attn_mlp"
+    ],
+    [
+      "interleaved_arrival_selective_attn_mlp",
+      "interleaved_all_attn_mlp"
+    ],
+    [
+      "interleaved_arrival_selective_attn_mlp",
+      "interleaved_arrival_all_attn_mlp"
+    ]
+  ],
+  "acceptance_threshold": null,
+  "measurement_identity": {
+    "fingerprints": [
+      [
+        "975b4a8dbe535374becfea2d39fd691c347f8cfcc61c3b2d47a05ac289d4f9fe",
+        "dd05b32d5eff4cc063a1e1032ed7f912fffd5feef5094a5aefbcd7e124e9e236",
+        "76bccbfe59a3a7e94f23af97e92c0803b36a1deeeabc796fdebd0ccbb2d1f114",
+        849207296,
+        33792,
+        "1706d57e-5c35-8a8e-3e54-162cd2813cd1",
+        "2.6.0+cu124",
+        "12.4",
+        "[2, 21, 5]",
+        "/workspace/conda-envs/flux-h100-ablation3-20261017/bin/python3.10"
+      ],
+      [
+        "0fabd43d03a7ef7890e6aceb6359ae650664bd41805b1126ba6fa42504a4f8d1",
+        "3fb18e2b6d8b68ba12f95c6d3165e45e395a259e29de6c75eef80f5e820a8dd6",
+        "76bccbfe59a3a7e94f23af97e92c0803b36a1deeeabc796fdebd0ccbb2d1f114",
+        849207296,
+        33792,
+        "f5a032d7-653f-36c5-d45f-6b7fee264e5a",
+        "2.6.0+cu124",
+        "12.4",
+        "[2, 21, 5]",
+        "/workspace/conda-envs/flux-h100-ablation3-20261017/bin/python3.10"
+      ],
+      [
+        "280a74554c814072ee9307073b4c9970cd2b09d8c14e304afec57fda077dc401",
+        "38c3cb573d464853a5bad59524131695ba5aed411568238c0fc26505e8a7a817",
+        "76bccbfe59a3a7e94f23af97e92c0803b36a1deeeabc796fdebd0ccbb2d1f114",
+        849207296,
+        33792,
+        "aaa779c1-00d2-231c-584b-73505b36ca09",
+        "2.6.0+cu124",
+        "12.4",
+        "[2, 21, 5]",
+        "/workspace/conda-envs/flux-h100-ablation3-20261017/bin/python3.10"
+      ],
+      [
+        "d4fcf2ebd835a4da92305aa0299baab68ce0f54e12e29832413323501e96f94a",
+        "3f5aa95913eff14cc922509876b371be3a7c763376cfa834a0019e8583bf9714",
+        "76bccbfe59a3a7e94f23af97e92c0803b36a1deeeabc796fdebd0ccbb2d1f114",
+        849207296,
+        33792,
+        "3d4c9ce1-d3f4-deb1-2583-54edf8a7828a",
+        "2.6.0+cu124",
+        "12.4",
+        "[2, 21, 5]",
+        "/workspace/conda-envs/flux-h100-ablation3-20261017/bin/python3.10"
+      ],
+      [
+        "aa9c3c033206694c2bdd90afc21e1c893cc543e3c1eb877de9aa452b62413ff0",
+        "3f650fd1a9619edd0245269fe42b9bc220bbe3ad675522c35d9c50b911013c24",
+        "76bccbfe59a3a7e94f23af97e92c0803b36a1deeeabc796fdebd0ccbb2d1f114",
+        849207296,
+        33792,
+        "47f842a7-68bd-1e86-5dc3-65c9db5ec042",
+        "2.6.0+cu124",
+        "12.4",
+        "[2, 21, 5]",
+        "/workspace/conda-envs/flux-h100-ablation3-20261017/bin/python3.10"
+      ],
+      [
+        "c7049a00afa0156962af2d6886f0863d0f0a9fc4393927bcce26478032bfc2f2",
+        "ead0461a0ef2ac3d371e278e0e9e5857a3a0a60d5da3f63aedc8e39d89544fd2",
+        "76bccbfe59a3a7e94f23af97e92c0803b36a1deeeabc796fdebd0ccbb2d1f114",
+        849207296,
+        33792,
+        "0f4d8136-f3b3-6fb0-e8f4-9491251b829e",
+        "2.6.0+cu124",
+        "12.4",
+        "[2, 21, 5]",
+        "/workspace/conda-envs/flux-h100-ablation3-20261017/bin/python3.10"
+      ],
+      [
+        "c3aa37b7e10bc44e0e9330e9bbe542baf91c4ea6b38abf580d22cd27a3114ecd",
+        "3354e964b28f2c3951a481253061bc9da93f0b639f030aa77efcbb05ce243e40",
+        "76bccbfe59a3a7e94f23af97e92c0803b36a1deeeabc796fdebd0ccbb2d1f114",
+        849207296,
+        33792,
+        "93b43235-1c0c-7b47-4c95-f3f677600bd8",
+        "2.6.0+cu124",
+        "12.4",
+        "[2, 21, 5]",
+        "/workspace/conda-envs/flux-h100-ablation3-20261017/bin/python3.10"
+      ],
+      [
+        "4f2adbf1ecd24d298053b40fe47532097e449681233663934dff60aab29fcc23",
+        "f640050bd6686e49d57d7c0d58e09253258cfda2d4cee4f6b7b1c0413161be96",
+        "76bccbfe59a3a7e94f23af97e92c0803b36a1deeeabc796fdebd0ccbb2d1f114",
+        849207296,
+        33792,
+        "d45e5e56-238c-7cf7-c09f-45e539028049",
+        "2.6.0+cu124",
+        "12.4",
+        "[2, 21, 5]",
+        "/workspace/conda-envs/flux-h100-ablation3-20261017/bin/python3.10"
+      ]
+    ],
+    "worker_files": {
+      "scripts/ablation4_protocol.py": "49096ce304742939908eb7ada80b37f75179b59478e14ddb4119b4055833e473",
+      "scripts/routing.py": "86ddf0cb8ec32c08bfc956cd92c986d3bef4441781a0a859f76a41e6deb34e63",
+      "scripts/runtime.py": "88dae92616bb4689f979e0ff3414abe7ea37ae28c9203fe5e4e80a85d33766d2",
+      "scripts/config.json": "ec71306dd63b7f87ba4e66646c1935e55f07898d2859b88f9284644d2fda170e",
+      "scripts/selection-plan.json": "2d8f0dc9a77a037282e8ff9355f0b40cc3354b973b1a8c677bb7d6872af5c57c",
+      "scripts/communication.py": "b9fa09b17f66fe89fbe7d894959a90ccff9dc4a9e04eb1364f35509d069ab330",
+      "scripts/adapter.py": "76fff4570ab98e81490d65f1899a2d8860bfe39c79906478238ac29486622315",
+      "scripts/flux_tensor_taco.py": "13c60ba8459eff6a98d411b5f5df78574b900345240819cb8ab1676de7ace4fb",
+      "scripts/reference.py": "1a6f8e4ef7a7a20b1709d2a91eeed55832c0cf7d73f351b4dc6e8f152be60b5b",
+      "scripts/worker.py": "6df29404d7534b849327773c7b68791c9b40dc5d373559f2bedb3d835d90f472",
+      "scripts/megatron_taco.py": "0f5813bccacbbc5700b571337a73aad8a421d3292a85e6f80804c8cb898f602e",
+      "scripts/taco_support.py": "30c5c162045dc96d3e6673de58f5383673cd844c1bdaf0dc5a32a3cc16103127"
+    },
+    "libraries": {
+      "native_taco_attn_mlp": {},
+      "flux_tensor_taco_attn_mlp": {
+        "libflux_cuda.so": "fdb43f991e8e02e9d0088c1acc1a0d35875ce7e178d2203f161118c6f216d777",
+        "libflux_cuda_ths_op.so": "6c240a9e153c95bd4c3727af531426df9652fa726152d714cfcd6719fb855761"
+      },
+      "interleaved_all_attn_mlp": {
+        "libflux_cuda.so": "014d083fe2d58d59dad86f3493330a64b04c6cf107a9221581ed904d80043019",
+        "libflux_cuda_ths_op.so": "e881b975860a67459facb892558912100be07e8aef183b2908a87a65d86feae7"
+      },
+      "interleaved_arrival_all_attn_mlp": {
+        "libflux_cuda.so": "86bf7429a0b2623c499e5191f6952a8300ef05b19bba25029dc6f2a5fcf36c0c",
+        "libflux_cuda_ths_op.so": "109fb1fc93b848458812a00039844f9511493d76efe03c0aef391d4b0f0ac3f9"
+      },
+      "interleaved_arrival_selective_attn_mlp": {
+        "libflux_cuda.so": "b45d80ebeadf613a7525533e7852c1ffa89f640bd3c0071eb415bf8d132696db",
+        "libflux_cuda_ths_op.so": "eec181ec5b09b5a0a658175fc60e1bf962022bb314b8f2fb61ee969d8c085afb"
+      }
+    },
+    "controllers": {
+      "prepare.py": "e72b6860a7d9629a56f09407c5a72d9d0136d8c44ae92c465019341bb9e38580",
+      "ablation_run.py": "153a192f2a8d4d3dc398ab3913c817637d5e181b6f5acf42d4b2145dfbd67d30",
+      "detach_ablation5_then4.py": "5185302191ab0e91ee5dfd423d06cc6932d577aed09105e12eb208819114d27b",
+      "scope_build.py": "c0b80d29fcedab17112e01d3a6b3782e8658851e9a6b31eadf4a895f0f8257ea",
+      "arrival_tail.py": "2016ecf1c09e857d68088dbfb82e3ff20bf1c3fbdb286470fc0b536220718953",
+      "ablation2_report.py": "602f500b2398ceb44495430a59c3ce68bc9897d0a44398d6b54efb4b350b0afd",
+      "ablation_timing.py": "8cd966490123f6a5fe2a2c4c8274a701b8c0d83e609309d6ced21e994b22191f",
+      "execute_queued.py": "4fe90aaec7238ca2f5423d2b8a019d3c95008ea4e3eaf4ac9095546296827a3a",
+      "ablation5_prepare.py": "f3eca1dd14cae9ce9041b02f70ee3d2bdbbb7a64424557b5f0032812dea9f32b",
+      "ablation6.py": "53e9df6e431f77512f43141fd6471cf6b721ab3e3c6864003f81fa95e0f04c22",
+      "ablation6_sources.py": "f635dad5ceb0af914a0ca424df827e8635e2709be0c540991732ceac7544b18f",
+      "detach_ablation6_then7.py": "ee0f00b53e9e0a659d73ad605a00108c5ae9a2fd3b5387db6ae1ccf11fbaf623",
+      "ablation4_protocol.py": "49096ce304742939908eb7ada80b37f75179b59478e14ddb4119b4055833e473",
+      "scope_calibrate.py": "6a5b5b166bbf2a2681fa9d18a3ea02513720886b2e642b7dfa19acb1f69f5b8b",
+      "ablation_compile_check.py": "8e15576526417c07266693564edb5ce7aaded3d721920c429c52be713eaa1cc1",
+      "ablation_routing.py": "bfa63d80b3d53e338823f3922483fd39b93eb75db61f627a6d944e1b28663671",
+      "runtime.py": "88dae92616bb4689f979e0ff3414abe7ea37ae28c9203fe5e4e80a85d33766d2",
+      "calibrate.py": "ee0f3c6f00fdc400a246ebfbfe83e7ea80149a7939ab6b401b22c89e62f8cf96",
+      "ablation6_prepare.py": "e53173447cec7610dc27e95fbbaa128f8014ce3e4c5337792db8d34f9266f9aa",
+      "plan.py": "e74c72f4ece526c491b7e96efbec345da86072814242f4375a24abe3b63d8279",
+      "build.py": "4899dd019be406b1e72080d255f98c9375802e4f5e26cd0aa2dffb9f70e062c0",
+      "detach_ablation5_run_two.py": "98eddeb05c18b7af4bb4882443257a7699153a8e5ef6ad63128817dc796daafe",
+      "scope_plan.py": "b7c98f9fa7a5f017a8d3b7dc4668f4fe3bcd0fd7789786b713c5abdc7a67d613",
+      "arrival_replay.py": "9b78df77852bdc0d3361a5eaa2fc936ca89de547eafd20ecca511b5e37981954",
+      "ablation7.py": "3651e2baeb424632bade4490ef0e1c0c029f28860fee220fc1e20aafed282e2f",
+      "ablation7_prepare.py": "6cdec2f953580afe6d421461f6b2916de192888b6c118952ffa113da13d36a10",
+      "ablation3_sources.py": "dda4b55eb04820a509c006afa0ecac3767cceefa4f704ce359f34ee5bc503667",
+      "candidate.py": "ab6521a11f54029656ddcf1281b9a07f3ddb145155461bae266bd55778d02b32",
+      "ablation2_guard.py": "7ea2c9b5af36e207ddc8537a544080d15d676ed793ec617d16fc606f9a56be51",
+      "ablation6_build.py": "e5e04fc6e78ff4f859de1b74de18dacb95875edc4fef9335da9e4bf1b18a1e67",
+      "ablation5_plan.py": "f448a6444997bcb13f004b6e7cd6fc62d1898298827e6c9c8b8f3a3aa49f8aea",
+      "ablation5.py": "ceb192b4035cf9cc92ad4ec0e09a33e9a6de4b630caaa2c9dd30115b55bc350f",
+      "ablation3_protocol.py": "8638e0cbdc76df47e0bf18cd744125090a0b97208e6365ef622286a33138c869",
+      "ablation2_plan.py": "25e9fa81e8cc1edf628e25f9d4019953285a311739ccfd797e0cf943c6239152",
+      "ablation_plan.py": "67a0de1124d88a09cda5845144b67f36e7c6ecb049344498e500f0e97fe06281",
+      "scope_prepare.py": "04ad46ef779d258f979369d2219f86f4cfda230fae2d9288008d41aa4cc212c7",
+      "ablation3_plan.py": "644ebe6b6e9209f472ab9a9265a3331f6c60b2344056d0f81e1f5d2c1763ed07",
+      "ablation4_prepare.py": "7ecf9a9c0c7315d6b47985b20a1623a97896c569d039235646dac7e37b886360",
+      "mlp_attention.py": "5b0560cc46ff81ed15390a22462f88eb80111e3c9de261adfe086ac5a89177ab",
+      "ablation7_build.py": "dd7c4e6954964eaf038facfe153b93275ae5347b1e5509a59752425d487fb07d",
+      "ablation3_prepare.py": "71cca6f90155436fcd3ae09cf9e2fea0a97d07ccf2e21e837b13efe67e03b6a7",
+      "ablation2.py": "deb67e79ca5ad7ff50f7c6127623dcad8616f117a1a816fa98e3b002d37b0cd1",
+      "ablation4_run.py": "4a365f7cff827b747ff5da88c29b9ff37cd9f014c8e94b8437a7f8a034dabd2d",
+      "detach_ablation6_run_two.py": "5fd0088c886e93c0a0b1f02135c51be2112f2a99cf76349d4ba01c9a7e0e9769",
+      "run.py": "2a7f68f5d1730a89af9b4d5dd4f3000e4ac8d95d6490acb0e48e4fba4113c09d",
+      "ablation5_protocol.py": "b2bd5ee8a8d5bed0722e745b3f6f73a30f1605246f4f03f00918801ec493d71d",
+      "ablation4_build.py": "18cc7fef5156ea7877f8cff1fd87e2ec09c1ada9cfcf0299b96ec844ca0a52eb",
+      "ablation7_protocol.py": "e15dde06ebb3f38fd3c4556dab9ab0f364d506622e3111e4990354a271abcf97",
+      "ablation4_report.py": "99f8e8089249fe38e3c19a8b74e84eed495faf1d6beb01b0101c84fed752386e",
+      "ablation_prepare.py": "6e6d753060b3bfbd187633b508c31a6e71aaa309d450952da3e48f7dce9293bd",
+      "common.py": "71b2f27e1926ec7c6e1d1397d01de62ff57c743db2b0b4e9948e3f06fc6b402a",
+      "ablation3.py": "020ae51922f67a87b40c56b5777581024caf0c33873d3097c6cd0a8ef6bca513",
+      "ablation5_report.py": "999cb36f64ba9fb10bb73a16a6149400e7e4ec92e586f018f300a3bf48ac275c",
+      "ablation7_sources.py": "709112c440406c8b01e0a2225ed12138ef917b1987196f3b6f18704713414e43",
+      "ablation3_report.py": "f679fdd0909d68b54b9af50e83b79ae22d9424e5051d2f0d97f77d58812cd8e7",
+      "ablation6_protocol.py": "86ddf0cb8ec32c08bfc956cd92c986d3bef4441781a0a859f76a41e6deb34e63",
+      "scope_report.py": "d724c681d2537c49d96501d974859f180ad095c0de8c205e3066efdba9e180e1",
+      "report.py": "1725ce74ac2dfac0b3484da83f0f009bc05c672ffd449edf84094cb29083d611",
+      "ablation4.py": "1f08e14403007db6d8134bd34df130b9d5dbe48a9003ae53809fe618fff00aa1",
+      "ablation3_run.py": "3ace56f16aab23c8f1982cb051fa7990482e12b713b2d9621bd3b958a7539d49",
+      "ablation6_flux_tensor.py": "13c60ba8459eff6a98d411b5f5df78574b900345240819cb8ab1676de7ace4fb",
+      "scope_run.py": "092bcb490499f5e17cac6ee9f84a2c59ff0b3338dfd6c45f256ea9965115c05b",
+      "ablation4_runtime.py": "b9fa09b17f66fe89fbe7d894959a90ccff9dc4a9e04eb1364f35509d069ab330",
+      "ablation4_repeat.py": "5c16d8666d04159eef1fff1e2bb495831f8c226c4490bce54726e5c7aef2f59e",
+      "scope_sources.py": "f6be8de81a98b60393beceb0cd2a388607c919e3e175d40e0708152b324c9aae",
+      "ablation_report.py": "7170c0d09ec273874c5f139d34c80bc2316e5799d1bc4c47dc82a0b8d08731ca",
+      "ablation7_report.py": "4a3942175bed8a29fe78a0b1f5220b2229084ca8c3d4fb7d961c8cc9fea4e962",
+      "arrival_profile_audit.py": "b86107d016dbd1d406e4d5940d8308a55d20f891cdb5cc95847b27010e1fbb54",
+      "ablation6_report.py": "340a41c8ce207391e4b231bdfbed7655bbbae1c03046dfb737c85fc65ed029a9",
+      "scope_protocol.py": "812fba20debcd84ef66566c83478feb4677eda8c699783c2bd5e9d2f5d5ca27a",
+      "ablation4_sources.py": "2123b7de28fad8a1a01c9ec0eac081c738129ad67cefe575adf12f7972b8de53",
+      "ablation3_build.py": "3db823819fad495d35c8423b298d78f792921ee01ae3ace3c625aa3b386c5a5e",
+      "ablation7_plan.py": "047ea1d26851a8b2c47c910d4da67356656e911b73fcf976ee810b85792ee8e3"
+    },
+    "communication": {
+      "environment": {
+        "NCCL_VERSION": "2.21.5-1",
+        "NCCL_NVLS_ENABLE": "0",
+        "NCCL_DEBUG": "WARN",
+        "TORCH_NCCL_ASYNC_ERROR_HANDLING": "1"
+      },
+      "config_files": {
+        "/etc/nccl.conf": null,
+        "/root/.nccl.conf": null
+      },
+      "nvls_request": "0"
+    },
+    "naive_codec_identity": {
+      "implementation": "shared-tensor-taco-h128-e4m3-v1",
+      "source_sha256": "0f5813bccacbbc5700b571337a73aad8a421d3292a85e6f80804c8cb898f602e",
+      "reference_sha256": "1a6f8e4ef7a7a20b1709d2a91eeed55832c0cf7d73f351b4dc6e8f152be60b5b"
+    }
+  },
+  "bootstrap": {
+    "resamples": 10000,
+    "seed": 20261009,
+    "unit": "complete five-policy block",
+    "multiple_comparison_correction": null
+  },
+  "timing_windows": 50,
+  "formal_optimizer_steps": 2500,
+  "timing_rank_records": 400,
+  "preflight_rank_records": 80,
+  "profile_traces": 40,
+  "candidate_shape_mappings": 6,
+  "evidence": {
+    "preflight_sha256": "e81d4b7f0554f6f3f5bd8d6c61b37adf03766402f0f881a9889ba754772ca02d",
+    "timing_files": {
+      "results/round1/window-000-interleaved_all_attn_mlp/process.log": "95db5c9e22ca2d5908a181817c615891b5e55db9f03a8183dcfbfc3c8d2f88e7",
+      "results/round1/window-000-interleaved_all_attn_mlp/rank7.json": "b6cae4208dd9cb6a76e34c032712f43b41cb25ec24eb0fc6a77b1c8dddb4ff71",
+      "results/round1/window-000-interleaved_all_attn_mlp/rank5.json": "d03b9a313f1736e4393eed1be347057aae95c2f7c0e00ebd660e0ec4818df376",
+      "results/round1/window-000-interleaved_all_attn_mlp/rank3.json": "d4b36e6526d2ea06c53b14d150c587ff33423aef9ee1ea958f9b8132a07d8f38",
+      "results/round1/window-000-interleaved_all_attn_mlp/rank2.json": "bf84336224559b28737f0c9596a11a16528c28640742d7418470640ea933d7d4",
+      "results/round1/window-000-interleaved_all_attn_mlp/rank1.json": "fa5c412fb6932a595ee9324b055a9ceb3fc92db7e812f8c14f61be568059eb3b",
+      "results/round1/window-000-interleaved_all_attn_mlp/rank6.json": "ac73ece5b470288f3ca1cffc9c488ec8bc96ba85ec514248d480e7520fd8b2f7",
+      "results/round1/window-000-interleaved_all_attn_mlp/rank0.json": "78ab99352c60030f33f7344bd640e39a3f645a426cf20e78de1d0aacc708b42a",
+      "results/round1/window-000-interleaved_all_attn_mlp/command.json": "bd626ba30a39ebf748036b1ca27213059d1bf7fa26c17e68bae38196c80dd618",
+      "results/round1/window-000-interleaved_all_attn_mlp/rank4.json": "5596b392cdee2966c195e27cbae9f0b6df2f9b6c6a7e1dba5bc8f1400d0c9bee",
+      "results/round1/window-001-flux_tensor_taco_attn_mlp/process.log": "083c664ba343398ec1c4dd560f36032e66d74ce522a46d31140ddcbee138fc54",
+      "results/round1/window-001-flux_tensor_taco_attn_mlp/rank7.json": "384fcae1301ebe82eedf6fa77011f4aed4fa4febb3db728196510761a7a6d023",
+      "results/round1/window-001-flux_tensor_taco_attn_mlp/rank5.json": "c0bc25329110600993ec2e929e564c6fc293d9acd20a177416e5d573ed1cad1d",
+      "results/round1/window-001-flux_tensor_taco_attn_mlp/rank3.json": "b6c599adea4dc6550f45c71814d4347eb127db813c42ab2510196eeb74fd98eb",
+      "results/round1/window-001-flux_tensor_taco_attn_mlp/rank2.json": "dfb6f2536bc3b934134f18d40a2962904f9b692a8433ad59b8134255bee95882",
+      "results/round1/window-001-flux_tensor_taco_attn_mlp/rank1.json": "b17760abef96d08c55d4c202ba356062c5bd0976d8bba33f022edc9f34bfefff",
+      "results/round1/window-001-flux_tensor_taco_attn_mlp/rank6.json": "a72322a7a1b1814d320487ab4a7321c539011714e5eabd6c8fd7d9a10eeff9a7",
+      "results/round1/window-001-flux_tensor_taco_attn_mlp/rank0.json": "fdf288b04ee52a1a77bf46a1f50d42240f74164f3c38988ca9d1e19131b328a0",
+      "results/round1/window-001-flux_tensor_taco_attn_mlp/command.json": "07acbca8d88ef73808aa74ca2397223fe2db5a2341df4e86e170a752d4de02da",
+      "results/round1/window-001-flux_tensor_taco_attn_mlp/rank4.json": "98d56178ae2805de5e41b3eac8045adca1453301685ff1219f30a8a2dbecb09c",
+      "results/round1/window-002-native_taco_attn_mlp/process.log": "ace1bfba9510aeafc5a4859969772d6da6337ef3ba5b61a127419ae322d9c749",
+      "results/round1/window-002-native_taco_attn_mlp/rank7.json": "fdad957269406108916a93399fc45a156ee1e6710009a4d6d813057fbaeb1c83",
+      "results/round1/window-002-native_taco_attn_mlp/rank5.json": "a7812add9a25e5719b33acdd647caa0917306dff9f6cadeac5d1c70b3eaa5bc9",
+      "results/round1/window-002-native_taco_attn_mlp/rank3.json": "653ba90c2468f12145fd63cf6a6c633fa23f31e6e57a8dcc0beade43551e4af8",
+      "results/round1/window-002-native_taco_attn_mlp/rank2.json": "86e313992c7f5adbcf0c307da773579a769d03a5313820a5cf26cba8c8d061d2",
+      "results/round1/window-002-native_taco_attn_mlp/rank1.json": "488bab50e6e02b961106b3b0369175d8600e37c93f287c42515a56a70a1b4306",
+      "results/round1/window-002-native_taco_attn_mlp/rank6.json": "70d2416606f59be90de7b1eff04f4f835d4740b346e3a375ddf5ca6b4f62e207",
+      "results/round1/window-002-native_taco_attn_mlp/rank0.json": "83186f7d7d38a8b70ec22c35c310aa4f8366627a8ba66df9ee31ccbd1185411e",
+      "results/round1/window-002-native_taco_attn_mlp/command.json": "bd06442c15bdb440bb54304670693e5d8b76fed427071acee6cdd8f3e84604d2",
+      "results/round1/window-002-native_taco_attn_mlp/rank4.json": "e5079f5a169f0265b68699c0673e8806f04cfbe8fec6ee3b010c65ce10c91bed",
+      "results/round1/window-003-interleaved_arrival_all_attn_mlp/process.log": "5ef7aaa39dbcb7f9dcb7ccf74acbb4b08b836e7e53bcf610a9424f8907c82dcc",
+      "results/round1/window-003-interleaved_arrival_all_attn_mlp/rank7.json": "12930c85044184128e9ce1ae0381d006ea90438e570aec27201cd1caca5065d4",
+      "results/round1/window-003-interleaved_arrival_all_attn_mlp/rank5.json": "4e9fe0ee16402f3268e715a738be8de5e1811165e8a7e946cc199404f3c8fc17",
+      "results/round1/window-003-interleaved_arrival_all_attn_mlp/rank3.json": "2b738369551468057ef9699818f14341e126c75545a0fa0e846dd376f854847b",
+      "results/round1/window-003-interleaved_arrival_all_attn_mlp/rank2.json": "f9049f0734e67a01636dcaff0c3ac0dacfef5d9095d1bfb65d865ad67bf6965b",
+      "results/round1/window-003-interleaved_arrival_all_attn_mlp/rank1.json": "cda524138b8757bedf6b81adb453029542e5d6843e1a59b7b797af5fa688cb4f",
+      "results/round1/window-003-interleaved_arrival_all_attn_mlp/rank6.json": "7caabc4370ca0d235bc4407eae776191671ff0c6ea91bbe36300114859a8537d",
+      "results/round1/window-003-interleaved_arrival_all_attn_mlp/rank0.json": "d8b40855af8e868d2daa38c0683eb416596d9e42c9c8225876c910433f0a179e",
+      "results/round1/window-003-interleaved_arrival_all_attn_mlp/command.json": "61d6e890646d4c8c8d71bf56092abd252da257a3fd9180d42308755b4d2c8466",
+      "results/round1/window-003-interleaved_arrival_all_attn_mlp/rank4.json": "6c18f695001b5fdc99e5af73b5bee0da4bf715e5bb1b46016513accbc6948911",
+      "results/round1/window-004-interleaved_arrival_selective_attn_mlp/process.log": "0fdc08283364c720d7183ca0eaa2c1cbc37ee0b71876604e52e6d7a6d884a47e",
+      "results/round1/window-004-interleaved_arrival_selective_attn_mlp/rank7.json": "d926e2f260b7c32c86ccc8070af7486d11f78c713d51ee4f54e9647236f0912d",
+      "results/round1/window-004-interleaved_arrival_selective_attn_mlp/rank5.json": "0d8de19ab93010abd5825478947328019a86d58f599c2ffda654fbbf888c6641",
+      "results/round1/window-004-interleaved_arrival_selective_attn_mlp/rank3.json": "8d09e55187cc1123938b00dc587ecd08948667d681f67c4f2c4dbe0576ab044a",
+      "results/round1/window-004-interleaved_arrival_selective_attn_mlp/rank2.json": "d52f560ac0018c88c57806d1b401d10b0c6510df4516ccd6550f061cb3846d16",
+      "results/round1/window-004-interleaved_arrival_selective_attn_mlp/rank1.json": "e8c8c80b52dcc225d695ccfb38537e3a9eca43ede0fa01935a471d9bbb1869ab",
+      "results/round1/window-004-interleaved_arrival_selective_attn_mlp/rank6.json": "2f776225389b7d82cc4a6ddf660a86a807fd476178b226fdefb8b8d29116f379",
+      "results/round1/window-004-interleaved_arrival_selective_attn_mlp/rank0.json": "ff78634b8a40b6c2a717d76e8d79ac0816500bd4c69869507dcf66b9bfdb84c9",
+      "results/round1/window-004-interleaved_arrival_selective_attn_mlp/command.json": "78acec45a8ad7b89e10ddeb63015b8ec381524e347e749a7a1d6dc8a3a48de78",
+      "results/round1/window-004-interleaved_arrival_selective_attn_mlp/rank4.json": "75ac45576ab9481e3dcdb97ffe5fe5741183c33553f455fb85e60c3229a4d5a2",
+      "results/round1/window-005-flux_tensor_taco_attn_mlp/process.log": "f7d1208c487ff1ae79099a8846ee0ac2f33e21b07839c74fcc36b85322bd21d4",
+      "results/round1/window-005-flux_tensor_taco_attn_mlp/rank7.json": "4d0e53ba76eb1fb0039e0ddd8c8cf10340d7792ba1465389fa619395d22a1897",
+      "results/round1/window-005-flux_tensor_taco_attn_mlp/rank5.json": "c234d873f5ba37a99276aca3b347b70fbbc8f1de5544d562fa4cc2a8af2aecc9",
+      "results/round1/window-005-flux_tensor_taco_attn_mlp/rank3.json": "426853489cd972dc2d1d202e4360367d1c93dcc35cd90889d5eed2776c083b5e",
+      "results/round1/window-005-flux_tensor_taco_attn_mlp/rank2.json": "a248f43f6230694d7c7049cdc923d5f0263a1e85d0dcdb5bac6989ab5eeef313",
+      "results/round1/window-005-flux_tensor_taco_attn_mlp/rank1.json": "2425a4c2e3febfbc88b6faef5072fb4bc61efc66f928e4a1128b9034f44b59f5",
+      "results/round1/window-005-flux_tensor_taco_attn_mlp/rank6.json": "9c693520fa6c07462e24cdf3f31cdd5392873f7495b4d85dd5cfb1af5c95cced",
+      "results/round1/window-005-flux_tensor_taco_attn_mlp/rank0.json": "884f7bfdab6da4a07fc1f0c31db03b3f258662761be0dbce534c0caf8de66b50",
+      "results/round1/window-005-flux_tensor_taco_attn_mlp/command.json": "c11a7c1e86c51079b6032ceec02591f63b3435e0d93b496d93c15c4ebdf1478d",
+      "results/round1/window-005-flux_tensor_taco_attn_mlp/rank4.json": "3f756ca31fe77827eda52f50cb14c45b2ad3ba646e197cd6a9625f4a907db214",
+      "results/round1/window-006-native_taco_attn_mlp/process.log": "9109e8623b6f94cda6f5ecafc2ba273f3157c59078242b90a80bcef2e399facc",
+      "results/round1/window-006-native_taco_attn_mlp/rank7.json": "61d9583818a938b4949d33c48fa934182c68b74e3dcf9ff6322ead4f9ae599a8",
+      "results/round1/window-006-native_taco_attn_mlp/rank5.json": "bb6be7781639aed45fba28fc7c20514d7a5ca17c5b93b89755ae5d1e3d752dc1",
+      "results/round1/window-006-native_taco_attn_mlp/rank3.json": "8c019ee27bce645e8c7fcfc829debcd0d65f3fa5da16557f9f3c424c437d3a15",
+      "results/round1/window-006-native_taco_attn_mlp/rank2.json": "03bab30dbceae6999300ea98dc5cd66707d6a234a31731671603cf22378c95cf",
+      "results/round1/window-006-native_taco_attn_mlp/rank1.json": "86bac37a524cded5403a6cb4fbd08c6e2d164c2e028e463fc52b74b480e8ab19",
+      "results/round1/window-006-native_taco_attn_mlp/rank6.json": "d711a29b2859cf3dd59b5efc84da44aeeed0c16d8c2c5943be9f157c1966f407",
+      "results/round1/window-006-native_taco_attn_mlp/rank0.json": "a6c3db1eeffde36939103de6ce71d138756a6d2c5f1a776d6f5af0ca3b8db3b3",
+      "results/round1/window-006-native_taco_attn_mlp/command.json": "b1be0e215ab327d9c9a38645c3a4d53a9b690d27c2af293b94a140ee161e4ed6",
+      "results/round1/window-006-native_taco_attn_mlp/rank4.json": "6ae97558cb96d106aa243e24bff8ae9537d198bbd58f8a87786b9a369bb7f745",
+      "results/round1/window-007-interleaved_arrival_all_attn_mlp/process.log": "71cec7c8568e6a1f42125c73030161717d0ff47a1a80d5a1ebaecccf8929dfac",
+      "results/round1/window-007-interleaved_arrival_all_attn_mlp/rank7.json": "918bded0fc8e63d5af077b5db2afc434bab4d30c6c6b4f113976dd1d979946d2",
+      "results/round1/window-007-interleaved_arrival_all_attn_mlp/rank5.json": "1ed5f75168b146abcb3c2f82fff051835532c3c55168708660ecd7d3d2ae7054",
+      "results/round1/window-007-interleaved_arrival_all_attn_mlp/rank3.json": "511a06fed5dd4a94a9efd15f36d83838e059f2bf39be794922b10fd922d6ad9c",
+      "results/round1/window-007-interleaved_arrival_all_attn_mlp/rank2.json": "4d465e818673dbd011a3c4af2eb6d9c667f10f1829d4ff8b542f179e9ff811eb",
+      "results/round1/window-007-interleaved_arrival_all_attn_mlp/rank1.json": "6a7e2af0082cedea949befb990683f82434fe04627aba089e4cb3808378740df",
+      "results/round1/window-007-interleaved_arrival_all_attn_mlp/rank6.json": "8c71ce082c94f2bb8f2505a61c5353dbf8162fb6c11ebf8c3270accd0e9b3e28",
+      "results/round1/window-007-interleaved_arrival_all_attn_mlp/rank0.json": "53019e3b8e3e210f58734071b22304a12477731f8c4a682e9f15177d25a95815",
+      "results/round1/window-007-interleaved_arrival_all_attn_mlp/command.json": "227b76c5d1834ca3534408eff96a7a6f0a305ce17e2d70002be68f0e185107bf",
+      "results/round1/window-007-interleaved_arrival_all_attn_mlp/rank4.json": "3e73cec955c049f2f589bd8452d6a722f6b2217a971cd6ea2f4866a9365974d9",
+      "results/round1/window-008-interleaved_arrival_selective_attn_mlp/process.log": "055802bcc018fc831fd4b10b6010733ee4b40b5c9606366c1c11eec6f202ebe2",
+      "results/round1/window-008-interleaved_arrival_selective_attn_mlp/rank7.json": "8d6d4cafff1b10a461de69fcac63c687d5ed6773831c83db8793fd32adb5d5ba",
+      "results/round1/window-008-interleaved_arrival_selective_attn_mlp/rank5.json": "3ab7741b532a758bfce3252fadfca6917402e4cbd00b82292107095c64d3e0a4",
+      "results/round1/window-008-interleaved_arrival_selective_attn_mlp/rank3.json": "a800c4ed7295adc71019090ff1af065bdb00b645781c74aa42892f4234a75548",
+      "results/round1/window-008-interleaved_arrival_selective_attn_mlp/rank2.json": "062707ac37d3128fd6bf1de9e09124cc1033f711ff1aa9860ea6729bae62161e",
+      "results/round1/window-008-interleaved_arrival_selective_attn_mlp/rank1.json": "2dbc2b53e5d75dd21466bfccbc3e876252f440a5905489f3c146a730d396f8d2",
+      "results/round1/window-008-interleaved_arrival_selective_attn_mlp/rank6.json": "c114baa65095f8f3558d693ff3f74f7cdb72603238e7b9734442e9ae9d4f99f2",
+      "results/round1/window-008-interleaved_arrival_selective_attn_mlp/rank0.json": "ee5c544d7934073833769a176a4885cd2db610030ad1f89b649ad15cafc98894",
+      "results/round1/window-008-interleaved_arrival_selective_attn_mlp/command.json": "efbd25f6cde00d6a2f593a1cd0f0619c5adf63b7ff2a84c436066aa2e290bec9",
+      "results/round1/window-008-interleaved_arrival_selective_attn_mlp/rank4.json": "25b1900a8d591810d56a2d684c246bb26f0eb883a79d9678c519a9c863aeddf6",
+      "results/round1/window-009-interleaved_all_attn_mlp/process.log": "67f78b0c57bcae17b285574f3088645a1bce5bff203fa080cebc9beb8fea5cc9",
+      "results/round1/window-009-interleaved_all_attn_mlp/rank7.json": "45e15f4bbe91004eb1293afbbd9c49a016c06aa45749af3f80f82ee072d7c4f9",
+      "results/round1/window-009-interleaved_all_attn_mlp/rank5.json": "dc87ba35ab06b97d87d1c339d8291a7753714bc18794506a4f6e8acadb402bcc",
+      "results/round1/window-009-interleaved_all_attn_mlp/rank3.json": "98043a82cea64c824c77b5b55fa28222911e4d411c7f3fbb333f3d04d90ba53c",
+      "results/round1/window-009-interleaved_all_attn_mlp/rank2.json": "e1cb721a1f7f22d1d35387762f7dd012f3061bc75bcf821791faa33c6b9a8627",
+      "results/round1/window-009-interleaved_all_attn_mlp/rank1.json": "cb7418d9bf58cea6016e678e1a8dd8e9aafbf1775f352e702b7b97297d9a2578",
+      "results/round1/window-009-interleaved_all_attn_mlp/rank6.json": "d7affaf85b25e34218d2dbbc678d1502af6236fa76501eea7faa8199b3829506",
+      "results/round1/window-009-interleaved_all_attn_mlp/rank0.json": "26aefb63f60c8402df72f785d6a4cd0d2d5e37c7016b8d1425605a57056dbd0a",
+      "results/round1/window-009-interleaved_all_attn_mlp/command.json": "73659db50111a4b12f67526c28331da28db55d2cac554c535aa52b35c666594b",
+      "results/round1/window-009-interleaved_all_attn_mlp/rank4.json": "49e8c21d2b27d612c67d48a454913c9732b65757a90d7a634964e36de0235d54",
+      "results/round1/window-010-native_taco_attn_mlp/process.log": "b29fc504d8919b5138cce98492a213c7336f392fd35b1b5a28da55ddb0787a91",
+      "results/round1/window-010-native_taco_attn_mlp/rank7.json": "18e7a3a445076912c4bd5bb81b90f8e82d7c44caffb2f43dda434ef430175ac0",
+      "results/round1/window-010-native_taco_attn_mlp/rank5.json": "d248bcd45cb1ec2313c3a71a143b03cae658a5c4fc97b442947a7113929d24c4",
+      "results/round1/window-010-native_taco_attn_mlp/rank3.json": "83b9139c90f41a224257e392278fa921ad1b05ea23dfbee3c7efaca7a268be94",
+      "results/round1/window-010-native_taco_attn_mlp/rank2.json": "51a867513b90440a8a2a6a0aae2a31549946c781e6e6e8f32442a82cdc70e47e",
+      "results/round1/window-010-native_taco_attn_mlp/rank1.json": "a326b1c0e407c7b569fe1014735d6d304d6a8309897bbc7b64fe93bcfbfb7ee9",
+      "results/round1/window-010-native_taco_attn_mlp/rank6.json": "b65a555e06a39554fc25ef9e1937130b79e1437019965114b4ae03bee9715f16",
+      "results/round1/window-010-native_taco_attn_mlp/rank0.json": "60babc94d0b7484daea4a8de0eeb74d39b9a208c3be4326dcc96fea25d99a5d4",
+      "results/round1/window-010-native_taco_attn_mlp/command.json": "2a3a75b2968a3d95877b77a9661c33953c62b198f606bfab56d59edf3184275e",
+      "results/round1/window-010-native_taco_attn_mlp/rank4.json": "a280734585a42dd1f4b570e5170de9ab0a572a507c2bd890e1a25afacc0e3169",
+      "results/round1/window-011-interleaved_arrival_all_attn_mlp/process.log": "50e1e363da4cf0abb0fc530cc8eb5bb8855d412f8e3ce696e2ed7adfb50b01a4",
+      "results/round1/window-011-interleaved_arrival_all_attn_mlp/rank7.json": "590f74ee15e7039c9979536a79e59f99e7ab2147e02b5c0faaaf8ca05234169d",
+      "results/round1/window-011-interleaved_arrival_all_attn_mlp/rank5.json": "9ae9475e5c01f24b196a5d92f61f817229ea8977a3ab9253a3e76f97eb23b88f",
+      "results/round1/window-011-interleaved_arrival_all_attn_mlp/rank3.json": "d217cf0573ce854dc46d638851d2bce7500d08acee5cf0f960dab2cac46f22d7",
+      "results/round1/window-011-interleaved_arrival_all_attn_mlp/rank2.json": "3a05e89c85a440f6e49b6911c666d8d6fbc692e32fe60b8e40d2261a0158f4cc",
+      "results/round1/window-011-interleaved_arrival_all_attn_mlp/rank1.json": "86d08a4d89fb64a1664b66907fff2e168e17f569bb1cb4d4bf349dd3d7d6383f",
+      "results/round1/window-011-interleaved_arrival_all_attn_mlp/rank6.json": "f344e6e2e478477ef3d78b6babb130fd349ab7207bab327bbd004bb1297fe036",
+      "results/round1/window-011-interleaved_arrival_all_attn_mlp/rank0.json": "157062e90fcb009f786b133f1d2a7c4d6423aff4b04089082c68ff258162ab70",
+      "results/round1/window-011-interleaved_arrival_all_attn_mlp/command.json": "d86d28a346e4a6cc78d65d3e731c1f2dfe566175e44ee727b60aa30ca44b362f",
+      "results/round1/window-011-interleaved_arrival_all_attn_mlp/rank4.json": "c78a021aacb85d3a8059082f78fafa0c9e21ac2109500f9f4db5c43bbe60b658",
+      "results/round1/window-012-interleaved_arrival_selective_attn_mlp/process.log": "af9723c28ea0dd0a62b4b7d33a19fc5ed4661c32a4cf03ffcf759642099df233",
+      "results/round1/window-012-interleaved_arrival_selective_attn_mlp/rank7.json": "d82ad26ed95d06e7ce997970d889e0be90eddd6ed49b22c1bed1a12a3c7aef5a",
+      "results/round1/window-012-interleaved_arrival_selective_attn_mlp/rank5.json": "fad703896ec2cc8c01798f30d7430c90dc1e7f8a3dc803f68597eec5db6b8e08",
+      "results/round1/window-012-interleaved_arrival_selective_attn_mlp/rank3.json": "a647288586d9cb2078467c10cfcc217da489de8ccbb40c098dd3d027c63ab714",
+      "results/round1/window-012-interleaved_arrival_selective_attn_mlp/rank2.json": "154178d6b7a31f8bfadc7fad661ec9bd5d764a4f44bb36c2d8aa58d0cd70a00c",
+      "results/round1/window-012-interleaved_arrival_selective_attn_mlp/rank1.json": "bf783489424602069b9fd8b8097c83da3145673ae840f358240c0eee5fcae2e8",
+      "results/round1/window-012-interleaved_arrival_selective_attn_mlp/rank6.json": "ec89f657babd021a2da562a961b7706e689500687d900d828690446a8fb5afd4",
+      "results/round1/window-012-interleaved_arrival_selective_attn_mlp/rank0.json": "665397fc89e9261ceef771980b4e862077c16614f7d1325449de270057ff8d71",
+      "results/round1/window-012-interleaved_arrival_selective_attn_mlp/command.json": "a565e3545b5b1c59654838f0b452dcec31a6d4de6e151cb0fea4e98d9cb0fd93",
+      "results/round1/window-012-interleaved_arrival_selective_attn_mlp/rank4.json": "6f87c31dd3b8344cf40e1d8003efe0517785b5b62557403b1a11292b081b6e45",
+      "results/round1/window-013-interleaved_all_attn_mlp/process.log": "00ac23832fdc7ecbaf01863f8455cab9f35632c681c372f1ac804396935a92be",
+      "results/round1/window-013-interleaved_all_attn_mlp/rank7.json": "481c694e96855d85d99e62001b19018b3419a409fd68723f7e9a9b6ef04371b3",
+      "results/round1/window-013-interleaved_all_attn_mlp/rank5.json": "06961d9d660f4dcf6a548d9aeb371c5a1b373edc518971a54dde9312de161096",
+      "results/round1/window-013-interleaved_all_attn_mlp/rank3.json": "0c9242baa50839030700e895812877b84e088f7eb686dcfbbd81683cf33e71a0",
+      "results/round1/window-013-interleaved_all_attn_mlp/rank2.json": "555ce446e34b22037f476a08aaeaf3ad772e7eb1ff5054b02a975e02d0a243f2",
+      "results/round1/window-013-interleaved_all_attn_mlp/rank1.json": "0496841f2e24b85cec2a9a28b48dfabe3ea8f8cb8b9f32b88ca51a3d05a91869",
+      "results/round1/window-013-interleaved_all_attn_mlp/rank6.json": "2ea09f1e80c67adec4feb2012c4ddde195948c907f61295e03da702257a8c1d1",
+      "results/round1/window-013-interleaved_all_attn_mlp/rank0.json": "6939f95b4adadef80aabe41f8c1f2f0ee46dd7d413fc8716385332425d26f453",
+      "results/round1/window-013-interleaved_all_attn_mlp/command.json": "8ad0f528c7f7c2c66fdd5e6ceecbea61b072c788a37ccb3f28bd16a835e0e4f8",
+      "results/round1/window-013-interleaved_all_attn_mlp/rank4.json": "da06d1e466447eb98e3a1b9aa0802af92451d075e27da152a7f2b15949b12122",
+      "results/round1/window-014-flux_tensor_taco_attn_mlp/process.log": "e873aca246e5cd29d3efafe850866b58a286e5633e4abc62672a032fda4e251d",
+      "results/round1/window-014-flux_tensor_taco_attn_mlp/rank7.json": "dcea881c2bf6b84196bf128b6793e366e64fb419d40dc31c8444c8e899d174c1",
+      "results/round1/window-014-flux_tensor_taco_attn_mlp/rank5.json": "766eb23ad4aa3da19ecf1acf8f42106a24188694c35cd4db1cf727b99dc1590b",
+      "results/round1/window-014-flux_tensor_taco_attn_mlp/rank3.json": "05514f20d24ddc6758ebe64e9a08696cd30fe9e3ceb7948e541b5b8c336776f2",
+      "results/round1/window-014-flux_tensor_taco_attn_mlp/rank2.json": "47fa15ddcc6f8edf2f21c03bd267994af82e65b5ee322eb62e65589edb337e11",
+      "results/round1/window-014-flux_tensor_taco_attn_mlp/rank1.json": "1e18bf6160a03e5d7d3a3608faf1988afed057222451589d882c196f022775fe",
+      "results/round1/window-014-flux_tensor_taco_attn_mlp/rank6.json": "894a8af7565967d691f9495d22563b071a1e45aa7f95b9ec1cb774f0c62a86cc",
+      "results/round1/window-014-flux_tensor_taco_attn_mlp/rank0.json": "e951a378fe087c27cc36cdb3c0cc6cf389293bcdde80f408cad185bbdade00ff",
+      "results/round1/window-014-flux_tensor_taco_attn_mlp/command.json": "9b947d5caf13a129ace1a55a44f51248d474ca0050452e8d7b725de79f515c93",
+      "results/round1/window-014-flux_tensor_taco_attn_mlp/rank4.json": "d587cfae92164accaa6d607bd2d8bc32cfa66bd465bd62fc562d6a595fef8a71",
+      "results/round1/window-015-interleaved_arrival_all_attn_mlp/process.log": "9abb8d2b6391bef5fa8ea8b44e98057bcdd47a4cd29a53b1b035847b6c07d1dd",
+      "results/round1/window-015-interleaved_arrival_all_attn_mlp/rank7.json": "f11822dd7e7def8655edb091493ee1107e63e97b3df5f4305b88ee96dbddae7c",
+      "results/round1/window-015-interleaved_arrival_all_attn_mlp/rank5.json": "19f9a5e940c3d6a456f22e1dc3a9baffd7eca45b511c63b1f2ea5cd45c13ff94",
+      "results/round1/window-015-interleaved_arrival_all_attn_mlp/rank3.json": "fa8f10c784ec2691c79a1b7ba2be7ed4f4786f9eebb00df9132f6bd0d2bf87c8",
+      "results/round1/window-015-interleaved_arrival_all_attn_mlp/rank2.json": "e85384b8e9d4508cf9ae1a205e78bf2c758aecd1b5aec5d0e2825260c12e1792",
+      "results/round1/window-015-interleaved_arrival_all_attn_mlp/rank1.json": "0c9637458b5e499f3b26404b2f0000f82819328627c80a7f6ca8057340b3d453",
+      "results/round1/window-015-interleaved_arrival_all_attn_mlp/rank6.json": "1fedea3c7cf6db222e6065429a925e0aeaa92d0f29e822802597d39b250fabb6",
+      "results/round1/window-015-interleaved_arrival_all_attn_mlp/rank0.json": "ac33652f174b07bc773eb0407ba3c8e5f3ffc7b9af61dca86073356551d4624f",
+      "results/round1/window-015-interleaved_arrival_all_attn_mlp/command.json": "dd2d988628b59ea062c563e67dadb8f69a0351e3e64830d9ea00ce1e318348d7",
+      "results/round1/window-015-interleaved_arrival_all_attn_mlp/rank4.json": "5b8a7c0d3ff1f04372cc7876716e875ee0ffffc16191780beec0f1293b296f53",
+      "results/round1/window-016-interleaved_arrival_selective_attn_mlp/process.log": "8d8cc3c6c7711284d6e1794b5613dce9f94ade20055ba7cc6700336ae6f465a8",
+      "results/round1/window-016-interleaved_arrival_selective_attn_mlp/rank7.json": "9689027f22b4ba4e815768302b9d8808e890642819569c563355c95859c87c4a",
+      "results/round1/window-016-interleaved_arrival_selective_attn_mlp/rank5.json": "f29b739451006c6903cc1bc4a4aa6835b2209aeec541e8ca579a1aeb6d20c7a2",
+      "results/round1/window-016-interleaved_arrival_selective_attn_mlp/rank3.json": "f3ea51ef4efc6c551cbeb741b2d51312f9d7fa471f7717cc477f468cf5311ea2",
+      "results/round1/window-016-interleaved_arrival_selective_attn_mlp/rank2.json": "79a5f03c6713e5678c87dab063e93a0ba5734f1483c6b3a43323111ff712959e",
+      "results/round1/window-016-interleaved_arrival_selective_attn_mlp/rank1.json": "7a4e85c1a5ec87709688f5513d44b1172cfaca5b99761a601438d8fdd0d3c897",
+      "results/round1/window-016-interleaved_arrival_selective_attn_mlp/rank6.json": "3d6b9ea5ed2c9bd5bef92db89766bc507879af2a275db64996e78f6bd7801f50",
+      "results/round1/window-016-interleaved_arrival_selective_attn_mlp/rank0.json": "dc8cc70ff28318d9cf61d7c546068657225334d5984b580bf6f22f909d558cd4",
+      "results/round1/window-016-interleaved_arrival_selective_attn_mlp/command.json": "c3d46decaf3a98a250cf59e7629827053f0793cb1d040572142a57d917caec73",
+      "results/round1/window-016-interleaved_arrival_selective_attn_mlp/rank4.json": "21360c5a26eab6aafc26e52a522bb9a1568ecf7226ef2e465abc50ecd59758fb",
+      "results/round1/window-017-interleaved_all_attn_mlp/process.log": "762aafe66c4b1eca929fd2e0e22b92c6937be3f97d24a592d566eff7ee10c518",
+      "results/round1/window-017-interleaved_all_attn_mlp/rank7.json": "1a27bdf9ae89c518d0dc640d364423a0b2f3e85a9b6930e7fe7a4c381586c866",
+      "results/round1/window-017-interleaved_all_attn_mlp/rank5.json": "d51ff23cce3d13df7bb62e42faece38c656c97aa01a1e2976895776add9f692f",
+      "results/round1/window-017-interleaved_all_attn_mlp/rank3.json": "46317677accb437ae8277db5603126cd8d92ab7c683d8ae450b792bef818c585",
+      "results/round1/window-017-interleaved_all_attn_mlp/rank2.json": "268e0229edc9a87a34e9d93e5c9fed2d1c6a438d8fa86029b0d4c8e60a8f9f5c",
+      "results/round1/window-017-interleaved_all_attn_mlp/rank1.json": "78b2d8e49edc368287d984eb1ba5f84425109343977141cf21e74cf7ee143682",
+      "results/round1/window-017-interleaved_all_attn_mlp/rank6.json": "98005d0161acd478e018c6cde0c6bef684684402773fd0122d9dc8ba105a3c33",
+      "results/round1/window-017-interleaved_all_attn_mlp/rank0.json": "4ecb0f7c6be262c57ae567f1e83306ac75507ed82378e8e55f4b96f10f11329e",
+      "results/round1/window-017-interleaved_all_attn_mlp/command.json": "e02d5eac9126915471ac05610730665930e3e8d77b1d1b9ab30a9ffef7bc67cf",
+      "results/round1/window-017-interleaved_all_attn_mlp/rank4.json": "e0935becbebb7d3b95f644c63610757b6453e24f2a92619b80944ebcf74a4b87",
+      "results/round1/window-018-flux_tensor_taco_attn_mlp/process.log": "6bf46b4a4bc432d2257b2a99b17dba926f572ed8fb5b19cfafe1ce9d75427e47",
+      "results/round1/window-018-flux_tensor_taco_attn_mlp/rank7.json": "8dc3d9183395685b83954d638dff5f7232e0a1f14954dbcb0167c4861de75b34",
+      "results/round1/window-018-flux_tensor_taco_attn_mlp/rank5.json": "388d9832fb873dd1f9748f72b387c2e1134a6ecc912f07fe73bd063accdd9b77",
+      "results/round1/window-018-flux_tensor_taco_attn_mlp/rank3.json": "0ad78a4d6a190e2970dbdc675bf6c7bfd9e1ce6a346214b2689b34943243a7da",
+      "results/round1/window-018-flux_tensor_taco_attn_mlp/rank2.json": "123d376efd30c1c1e02f4e21cdd7046dc57f99ba0d0ad2dd467c5098e2b93af2",
+      "results/round1/window-018-flux_tensor_taco_attn_mlp/rank1.json": "9f9b450104b359992ba769e8cc9de6a217a4c78e40eb2f7b8a5b555f7074a8ca",
+      "results/round1/window-018-flux_tensor_taco_attn_mlp/rank6.json": "5d343649a5cbdcbc665990d67fb4274e87cfa1de17b4400b662e76f9451033ce",
+      "results/round1/window-018-flux_tensor_taco_attn_mlp/rank0.json": "8554ed8e66ea82a957a89aa0e24ef0ad8b8736d25aa98125dab2fc67396565f1",
+      "results/round1/window-018-flux_tensor_taco_attn_mlp/command.json": "edf1fde24a0dd2e125fd1f81020565c7cf901de331bebaa9249b7168b9a151ea",
+      "results/round1/window-018-flux_tensor_taco_attn_mlp/rank4.json": "4a758190d6d52e41e19ce2bf078cfa1986c9d3a5e58ce9d746ca5df60eb7810b",
+      "results/round1/window-019-native_taco_attn_mlp/process.log": "d9b3f02c04646313164b56abc54381e9c78671a20ad14818198a6d958577c981",
+      "results/round1/window-019-native_taco_attn_mlp/rank7.json": "47cb9417324d131e809e003fd5f8c65dee419659ac0f78e903f20e89ad27dff9",
+      "results/round1/window-019-native_taco_attn_mlp/rank5.json": "bab691a7b95d2253a06617754c51e601bacca92bad955a4e6ce163d0e8266a9b",
+      "results/round1/window-019-native_taco_attn_mlp/rank3.json": "852089d019e77307308130497fccaa3d6725dd1c9700ba38c29364be29841703",
+      "results/round1/window-019-native_taco_attn_mlp/rank2.json": "b6872173d67d71533ba9464080872a968ac7c498bce94255beaa82dc0452b499",
+      "results/round1/window-019-native_taco_attn_mlp/rank1.json": "efc942d583275fa30c6b9b1e2622eb4201ace79d6b7c513d5f05048798a38bff",
+      "results/round1/window-019-native_taco_attn_mlp/rank6.json": "30589204512c0aa42ad7a1d1b91e661f4490a6008cb2bd059890dfb9791dd345",
+      "results/round1/window-019-native_taco_attn_mlp/rank0.json": "e10f26f20098360492488d20eab08f990c7302dca1044ab6dad46a39f41326cd",
+      "results/round1/window-019-native_taco_attn_mlp/command.json": "b7ee50b669e3b674cdbb784456af3b5b48f2945738b99fced7efc130e02daaac",
+      "results/round1/window-019-native_taco_attn_mlp/rank4.json": "8ff1a1f2a0ca6209ed9ebec8f851804c24ad1c274ac3d191bc20fd4fbc910122",
+      "results/round1/window-020-interleaved_arrival_selective_attn_mlp/process.log": "5cee420df4a849600f5e083f06ae2f832766f4b16b2cd9ee28928ad30ff97b7b",
+      "results/round1/window-020-interleaved_arrival_selective_attn_mlp/rank7.json": "b8da519e4123fe8f07c21aa7083d3390d6adde7e1c95d042dd0de79e35fa78ec",
+      "results/round1/window-020-interleaved_arrival_selective_attn_mlp/rank5.json": "84a4da88a7bfdf9c8c67a2c264a4e68f134c20642176ff1943291232d8380236",
+      "results/round1/window-020-interleaved_arrival_selective_attn_mlp/rank3.json": "3d61b07aee1f355072c25e739ba034f1f6696f79864f08084a21514d0a6c9699",
+      "results/round1/window-020-interleaved_arrival_selective_attn_mlp/rank2.json": "ce001a61af07f8448ab9b321c4cf0f1831316417f7f3c42d8abe57e7c92a12f7",
+      "results/round1/window-020-interleaved_arrival_selective_attn_mlp/rank1.json": "9a1a6bc12d5496805c39822f74c62eec540a8a239ead81464621925bff28e74a",
+      "results/round1/window-020-interleaved_arrival_selective_attn_mlp/rank6.json": "b3fce2fde6aee45a998c47f8e570cf2711fbea0b5fe8b34512d144de2f5d82f8",
+      "results/round1/window-020-interleaved_arrival_selective_attn_mlp/rank0.json": "1249f104f89292b7ab999e3eb979b18368f853e967671072568f46d4ecb9a329",
+      "results/round1/window-020-interleaved_arrival_selective_attn_mlp/command.json": "392584afd3cdd19e24b9e8c3423951435521cc1cd808c5587ecf9ad6f781c8f0",
+      "results/round1/window-020-interleaved_arrival_selective_attn_mlp/rank4.json": "2b23d036ff33f2a4bc97ff766ca37d4abbed3afa4f80ab5d875c72d268223a66",
+      "results/round1/window-021-interleaved_all_attn_mlp/process.log": "8777316b6b835a31eb73e030c52252f145a4241eef8ae9dcbd060bdbea3b2922",
+      "results/round1/window-021-interleaved_all_attn_mlp/rank7.json": "e719e1e661f35994a4b44c6311f4f90a413380bd3c4ced169caca841f0304dbd",
+      "results/round1/window-021-interleaved_all_attn_mlp/rank5.json": "ee10bf9a7be8b7a24330723ac2aa2cb696f39fc8e83b396288a9e787aac5982a",
+      "results/round1/window-021-interleaved_all_attn_mlp/rank3.json": "f190c07f8cf942e83bb72f8f7c7c493bf08d2879fc55de8aa713faa71966d2d6",
+      "results/round1/window-021-interleaved_all_attn_mlp/rank2.json": "dcfda6a90827f0c7f09bb4115240fb1098fde495f4563d5286f2e1f0c53fb5c1",
+      "results/round1/window-021-interleaved_all_attn_mlp/rank1.json": "603f8f4e74a76f2cd6352ef697a5de404bd4c51a8cf4603a92c9008b03ac9dd3",
+      "results/round1/window-021-interleaved_all_attn_mlp/rank6.json": "3f8a5ad20861c17dea39bcf9d5dfbc25dab0bcfdb0a912a5b8b3b1f1265b4df4",
+      "results/round1/window-021-interleaved_all_attn_mlp/rank0.json": "13a2f9d650fc85db5857507864b81d1bd0ca634ac2205f254c1f508694f5123e",
+      "results/round1/window-021-interleaved_all_attn_mlp/command.json": "58ef3a849db270567b424f2d73810bcea03f2b7b9db40f1255831779a923aae8",
+      "results/round1/window-021-interleaved_all_attn_mlp/rank4.json": "a33918953b71095e48ab1704d01320e025dd310ef82af7b2f01468d6fe9daf94",
+      "results/round1/window-022-flux_tensor_taco_attn_mlp/process.log": "bff4faac0ac9d239612e5c116c0296c85780812abb024d7193a8856ec065bfdc",
+      "results/round1/window-022-flux_tensor_taco_attn_mlp/rank7.json": "a863e8390ea66130df606ea7d313af5ec779f66eb202f4f800e74b17abd211c8",
+      "results/round1/window-022-flux_tensor_taco_attn_mlp/rank5.json": "1b12fa5f863be632c1292227911629ab0628ee4478d02d0e016be5750fd6e36c",
+      "results/round1/window-022-flux_tensor_taco_attn_mlp/rank3.json": "a320787987dab0936f2a8307955b88ffd9738e0106655db238a519e5ccf68065",
+      "results/round1/window-022-flux_tensor_taco_attn_mlp/rank2.json": "a13175dbe2a9a8ea73cf518569200648260197711a20f20852ace894e0581e10",
+      "results/round1/window-022-flux_tensor_taco_attn_mlp/rank1.json": "b1ad8ff7ae4dcbabbd198bf4f1ff9b03deaff9da141e81095551e5ec63eb4f55",
+      "results/round1/window-022-flux_tensor_taco_attn_mlp/rank6.json": "84ef26a3ef89f07d47745af3561f15a443a1f5bd8b08bde887e000b989bd08ac",
+      "results/round1/window-022-flux_tensor_taco_attn_mlp/rank0.json": "1506b935f1cb0deb3c6aca11d198ecf3b71efe001879f9b667af77bac742de41",
+      "results/round1/window-022-flux_tensor_taco_attn_mlp/command.json": "70db79051516a5c718e66ab5bc270ec435ca43e4be61528ec3d4f87a0fd3e52f",
+      "results/round1/window-022-flux_tensor_taco_attn_mlp/rank4.json": "13b3d0e21f0fc38ff3473bc598e028f5f7f62093818fe1b3cce384a25c659c26",
+      "results/round1/window-023-native_taco_attn_mlp/process.log": "20a588de4665b20339942dfb23a417b180ed370012e2b53b55fbd41b634702e6",
+      "results/round1/window-023-native_taco_attn_mlp/rank7.json": "8062a764e071312183fb63c81cb906d1a33d8d1ed7ee1b9f0187662d5370cca3",
+      "results/round1/window-023-native_taco_attn_mlp/rank5.json": "aab2ae7453fee78f41f9a564db44bdad5f383253dfb3b25ff9154d5b92bddec5",
+      "results/round1/window-023-native_taco_attn_mlp/rank3.json": "7b25bb479afc11a99dde666661434e6a04871fb928abfba4e94ea317bbb343f4",
+      "results/round1/window-023-native_taco_attn_mlp/rank2.json": "349df20104990bafb7765cb99b7e1bf77dea0109fc328b146e49f83e1967f7ac",
+      "results/round1/window-023-native_taco_attn_mlp/rank1.json": "dbface012a27cf2541b245abdefa7bc8c8ee38aee051235a14e57fe038a30d57",
+      "results/round1/window-023-native_taco_attn_mlp/rank6.json": "96c18586375f408526e857e67cbee56feb412eec0dc0c526546f2c7d7ec30835",
+      "results/round1/window-023-native_taco_attn_mlp/rank0.json": "40c4553563276c07a09ca809862f061759f17a8f0b0a15025f12e5577a8fae41",
+      "results/round1/window-023-native_taco_attn_mlp/command.json": "be49d21ef6ada66e9f28befb6aaa7574f1ccef3dc8ab08efb5e36ebe19f3c38b",
+      "results/round1/window-023-native_taco_attn_mlp/rank4.json": "73566e47ea2bc6a7847327c5dfc7c95a3834a988309c09057cff1b84123a5de4",
+      "results/round1/window-024-interleaved_arrival_all_attn_mlp/process.log": "149c7e9104f14cd4bc61d0834384dab8ebdab2b35458c91b2f1d4d12f10f78e9",
+      "results/round1/window-024-interleaved_arrival_all_attn_mlp/rank7.json": "bedb89f82224f5064b7ede2b423392a1c3978792cd8f5a25d1327173545437c9",
+      "results/round1/window-024-interleaved_arrival_all_attn_mlp/rank5.json": "29be716afbd099d5db8213c9e6436bfeb298ed277d489e16cb8fedfe14c452ed",
+      "results/round1/window-024-interleaved_arrival_all_attn_mlp/rank3.json": "d015fb454cb3602eabb6a246133d8a5ce7c9b72f887e9c80861437a5f64f5422",
+      "results/round1/window-024-interleaved_arrival_all_attn_mlp/rank2.json": "44674b3a414ccf6a83ac19f6f4054b2a4690a03430a7ea3c3cff25fd61f0ab62",
+      "results/round1/window-024-interleaved_arrival_all_attn_mlp/rank1.json": "7e360e6f5458613f59c29690a7a28c7654d5aa5da05fa661c8daf9c7cb55f741",
+      "results/round1/window-024-interleaved_arrival_all_attn_mlp/rank6.json": "45a2b803994c070d9e42f9b1fd04e016848876abd12b4b5bb34c99327f0a6e9d",
+      "results/round1/window-024-interleaved_arrival_all_attn_mlp/rank0.json": "0d2f783a3a84a736eb392fb3156f6cb50d313dc1ffa66936608aff5336f7b1e4",
+      "results/round1/window-024-interleaved_arrival_all_attn_mlp/command.json": "affadd7a17c0aecc2fdb8db94bf79850afa5d1d014c09e6049fcbd8881f5d283",
+      "results/round1/window-024-interleaved_arrival_all_attn_mlp/rank4.json": "9ba3997636ed7333b2d72bd45f46c29cc5c426830285298a2ad4e277412a4507",
+      "results/round2/window-000-interleaved_arrival_all_attn_mlp/process.log": "b16df475bb03c958f53ad3d41ae723298d1ddb98fcafaac54a331486d3f7da62",
+      "results/round2/window-000-interleaved_arrival_all_attn_mlp/rank7.json": "9976af48e6173befcea4e2767fbf058cb471f742221cb068871e10d88177151b",
+      "results/round2/window-000-interleaved_arrival_all_attn_mlp/rank5.json": "9905e64065b37815e3a4c1b5913f01d709f02273dd8bbf1c77f69f587e27805c",
+      "results/round2/window-000-interleaved_arrival_all_attn_mlp/rank3.json": "9eb41cb31d975805df508547c24b529ab6b0e4192fdb8e536a75fdad10dc8492",
+      "results/round2/window-000-interleaved_arrival_all_attn_mlp/rank2.json": "65d42bcbf342e226ff933dc418081535b6836e650a4f89e2b26baf3fc8a77ee0",
+      "results/round2/window-000-interleaved_arrival_all_attn_mlp/rank1.json": "c49893eb8373ee3aad7ee95b76de9a82789221cd2e7729b0fc77ede2149764c0",
+      "results/round2/window-000-interleaved_arrival_all_attn_mlp/rank6.json": "87a2bf4a92a8828112e95f07017546820635a3b5c38dee7b89023998ee8f8613",
+      "results/round2/window-000-interleaved_arrival_all_attn_mlp/rank0.json": "d3c0f8c1f58eb468eac014881eb67879f1632f747f4b4a71b809566169e38040",
+      "results/round2/window-000-interleaved_arrival_all_attn_mlp/command.json": "fff743d8c0f16400086feac749dd5b201147bc386c4ec0233483a9846c10d304",
+      "results/round2/window-000-interleaved_arrival_all_attn_mlp/rank4.json": "d180e674d36fbbd8e6171ea709b131b6b92e0f88e407abbbaa8eeb412380607a",
+      "results/round2/window-001-native_taco_attn_mlp/process.log": "36e5004d2869f11e9aa5c06dcb10ed39cc2cb0beda0472f3e5340b91a4388f63",
+      "results/round2/window-001-native_taco_attn_mlp/rank7.json": "a30833bcd9d195e803cb004ecb3165b7db6716a7caf9d9963dc5290da68147a5",
+      "results/round2/window-001-native_taco_attn_mlp/rank5.json": "f04aa37c2c0c65dab639c56e7f720857103297dbaca4b0964c15db130bb9a5e5",
+      "results/round2/window-001-native_taco_attn_mlp/rank3.json": "f43349c3c4f9aca4d0c4a8154f5b706384cf4f88fafe4f94e8452da2e4f91967",
+      "results/round2/window-001-native_taco_attn_mlp/rank2.json": "5b9bb77b1248d4951b991aec3474a89633cf30f175d0c5d93cffcd9e6d1297c5",
+      "results/round2/window-001-native_taco_attn_mlp/rank1.json": "b162408890404ca9294d00f90d813547322a993a77f5ba34ef8b5e1bcbbcfe03",
+      "results/round2/window-001-native_taco_attn_mlp/rank6.json": "0eac0476aeb061020a320d443b1cffb75879c1be0f037d04cb1fb8e4108c520c",
+      "results/round2/window-001-native_taco_attn_mlp/rank0.json": "083938343bc87faff3dac08f16e62444ebdec21862ac334c1d313b3226e36f24",
+      "results/round2/window-001-native_taco_attn_mlp/command.json": "43a61a9e24184d88aa365d6f3838c0684c7ea24168625ca091b00476a982319e",
+      "results/round2/window-001-native_taco_attn_mlp/rank4.json": "59e6b5d370496b18096c2d33528ea64f3b5a1f5ebdff58857df4a5f859d6c652",
+      "results/round2/window-002-flux_tensor_taco_attn_mlp/process.log": "9444c3b17b020cfdab564df6d9dc8c167a8eb29ce3cef20a8e130f11761e10d0",
+      "results/round2/window-002-flux_tensor_taco_attn_mlp/rank7.json": "5de1f6b661703fb16d87380f0912de12b6b0ed97567d7e9c89f26ff4ed84811c",
+      "results/round2/window-002-flux_tensor_taco_attn_mlp/rank5.json": "b2d0a5fe10a411ea9d5e5100e2de373e471ba2bfa6b05dd4ba962b6c1e36d41d",
+      "results/round2/window-002-flux_tensor_taco_attn_mlp/rank3.json": "4f96a6dbae2d45a48cbfa6eccf6758c378e83c7b707a153a2c1b5bd378e44a27",
+      "results/round2/window-002-flux_tensor_taco_attn_mlp/rank2.json": "1e6e2b38f8a6d097857d1e0f50269110d449a1d2a24209e36b2466cadac4831b",
+      "results/round2/window-002-flux_tensor_taco_attn_mlp/rank1.json": "ec4c78006491cb333b12785feb9b088c879e70b694177f06543c01acd07e2259",
+      "results/round2/window-002-flux_tensor_taco_attn_mlp/rank6.json": "ea8eddd68e2471dafeeb74d6f5f13b6becb99c894a56749faa772a8bb0debb42",
+      "results/round2/window-002-flux_tensor_taco_attn_mlp/rank0.json": "c7aaed99decb4c43ea61e51ffc6653334470e7a16b7bde44d9b2d23b60a5b792",
+      "results/round2/window-002-flux_tensor_taco_attn_mlp/command.json": "f13fad09e0d2998889b89e6da703b53c5038b97ce3832e37a8cf9d6193992ae3",
+      "results/round2/window-002-flux_tensor_taco_attn_mlp/rank4.json": "d61f48274c2ffd4c7068ef1f031f32709124190c761c3ea0c3d5210025c4d49a",
+      "results/round2/window-003-interleaved_all_attn_mlp/process.log": "21b2ece58bb72c0a2cae69480c8a8c5510f3db7f32ef295669a403a22c7d12c2",
+      "results/round2/window-003-interleaved_all_attn_mlp/rank7.json": "234bf61452a35a3965d866d58a096ce29d9994ceaee85769393f590fdedf0a54",
+      "results/round2/window-003-interleaved_all_attn_mlp/rank5.json": "d125c2744300601622528dc4c5723fd5c21225e13118537296db46bf4505844c",
+      "results/round2/window-003-interleaved_all_attn_mlp/rank3.json": "e50482962d32efd62e7135b9ac560073800a8387907b9c184814f934db7e17f9",
+      "results/round2/window-003-interleaved_all_attn_mlp/rank2.json": "acb703ba40f859494f6c40029d00f2aa3cc343fbd698dd3dc09ce52ac1e0439a",
+      "results/round2/window-003-interleaved_all_attn_mlp/rank1.json": "762a1262dcd163d82ed5d37edb04078f9ba7578f5eb23a62c01bbd8a7c0d6238",
+      "results/round2/window-003-interleaved_all_attn_mlp/rank6.json": "66524cf855c737d323deb15f58ed8578210c96b4de85abfdd00b4ab784de60bc",
+      "results/round2/window-003-interleaved_all_attn_mlp/rank0.json": "29a13594697c50de7ade237bb22f56d5506ca0a4d368c346182dcde31e7b9406",
+      "results/round2/window-003-interleaved_all_attn_mlp/command.json": "00f03d2ea43433ffdab4974b25a23e2df412454a84363f4bac56c14e7947af8a",
+      "results/round2/window-003-interleaved_all_attn_mlp/rank4.json": "95ccc2741c68e74d80f7d52453beb22c758baaa69a051e0117fe470e755b0070",
+      "results/round2/window-004-interleaved_arrival_selective_attn_mlp/process.log": "97c731d4e4b3d1b7b32659168ee28ca9dbcd9d5400e45cfe30a47a20d67cd140",
+      "results/round2/window-004-interleaved_arrival_selective_attn_mlp/rank7.json": "78bb20fff37e8a39f08a699760d93e0080f5f39a65220389a7c08b68740c9621",
+      "results/round2/window-004-interleaved_arrival_selective_attn_mlp/rank5.json": "b0de52091ede5c7621c691f147bb16f7f9e9fa066f50deaf437056d7cdd2abba",
+      "results/round2/window-004-interleaved_arrival_selective_attn_mlp/rank3.json": "7cefe053887c9b2b6874b98a9d1c7b394fe65ecb091ca22e1aab485c096d9c32",
+      "results/round2/window-004-interleaved_arrival_selective_attn_mlp/rank2.json": "3d570f32d7d102241a3ed78da5d4000ceeeaa719892c4803ca570f4f48c0c4e7",
+      "results/round2/window-004-interleaved_arrival_selective_attn_mlp/rank1.json": "d3c5a8ee3ac4d35e09896d0d0c994e725578925de939d96f8c838674e6af80c5",
+      "results/round2/window-004-interleaved_arrival_selective_attn_mlp/rank6.json": "5602e24c89428d69149e0bc51956608979c44ec6e048c36433874e8719166349",
+      "results/round2/window-004-interleaved_arrival_selective_attn_mlp/rank0.json": "c2c0da6142c11b7dd41025a429e06e7274ceb36880623b06402cff7b962627f8",
+      "results/round2/window-004-interleaved_arrival_selective_attn_mlp/command.json": "cab9ba6bc7759e070ff657d7c06716ad2c2e94f92325453fc52612784eb35026",
+      "results/round2/window-004-interleaved_arrival_selective_attn_mlp/rank4.json": "43115691e09456c1ed491c209da10b3a7607dbe0bf2013b883c9b52604191a68",
+      "results/round2/window-005-native_taco_attn_mlp/process.log": "d959c5dd53da69fd118a32bfb2b224eb29c323324468fb89ec40519e306a2979",
+      "results/round2/window-005-native_taco_attn_mlp/rank7.json": "e1b62d75e7d68219f00ddb77e1c109639b935e33cc5a6bf435a65581dccbcfde",
+      "results/round2/window-005-native_taco_attn_mlp/rank5.json": "187a5a6fed85944034c73123fc2c7e923fca33c98c9d012a3c17ba1594c560ab",
+      "results/round2/window-005-native_taco_attn_mlp/rank3.json": "7386c6013aeeec5ee94c13f67e23b8640faf8b549d9591973e51460c4acdfcc8",
+      "results/round2/window-005-native_taco_attn_mlp/rank2.json": "8208ea822aa1ffa8952626ab4018c6eaccf2d5cfc79c1c9a6b0ccf421e0f8f45",
+      "results/round2/window-005-native_taco_attn_mlp/rank1.json": "3257019a898566d3d670a47bda992cf8be49d1c2043e4f85dc26f56748e3afe4",
+      "results/round2/window-005-native_taco_attn_mlp/rank6.json": "c802f94bc2ad646b3acaee53a2ea2832c5f4ecd1d49e52c24be01cfd9d603225",
+      "results/round2/window-005-native_taco_attn_mlp/rank0.json": "7a41ad6297311bbffb9de56cc3e9e66c46361d13d306206b32f1d63112257165",
+      "results/round2/window-005-native_taco_attn_mlp/command.json": "6ed73a77e461f608fc014db79a4bbd9821967daf74dbdd6e67bba163b093d03e",
+      "results/round2/window-005-native_taco_attn_mlp/rank4.json": "8f4a99dc8a420886a9cc01603508936792c0f3bb18773baa8364f7500514e338",
+      "results/round2/window-006-flux_tensor_taco_attn_mlp/process.log": "4ba3d304ad50ef831f98637cfd2708977b22abd5918d4430115f6a5c15493752",
+      "results/round2/window-006-flux_tensor_taco_attn_mlp/rank7.json": "fe45e33466de2b068187f5bcd113acce74ec6d4e65cbb5bbd018599dbebe3090",
+      "results/round2/window-006-flux_tensor_taco_attn_mlp/rank5.json": "0b1682559b99bc6f2a18d42cd3fe9ad8526f1ee6ad9d91bad4b27a3296110c72",
+      "results/round2/window-006-flux_tensor_taco_attn_mlp/rank3.json": "7cc4c62e551ce85027c3f1fa12f3f95dba7ef8b94b025dbf1aa73c676ba1af17",
+      "results/round2/window-006-flux_tensor_taco_attn_mlp/rank2.json": "cf1b0aeea6a8d80be5121088f6000afe920d54b72bbd5f67a5ecaa8e53b31717",
+      "results/round2/window-006-flux_tensor_taco_attn_mlp/rank1.json": "e7b02018bf11edf0a4880cf280ee935a4b25ed71326fbb828fe40c4e25d40f20",
+      "results/round2/window-006-flux_tensor_taco_attn_mlp/rank6.json": "138262415a1227868430dd4cf8d6fdb2804d8fc4b90843b1ea6b05ef2931b5d2",
+      "results/round2/window-006-flux_tensor_taco_attn_mlp/rank0.json": "cb8e5adb0d871f5974c63d8c8c1e273fd736ff8c6cf14fff5796c219b2ee4a7d",
+      "results/round2/window-006-flux_tensor_taco_attn_mlp/command.json": "95ebf4c89f152d2367c79fe8ac5d8b710a1924c898702bbeef62fdc3851b09bd",
+      "results/round2/window-006-flux_tensor_taco_attn_mlp/rank4.json": "35d62686ef47561140f618cbe6bb16cb8568adae5e900667e7b66edfcc95869d",
+      "results/round2/window-007-interleaved_all_attn_mlp/process.log": "37b064ccb530fbb54811d69ffcc3970c06a8e48da97dc813c85722b965d8110e",
+      "results/round2/window-007-interleaved_all_attn_mlp/rank7.json": "5a063e8cade2bea0609a40f0f01be8a4ee25c651c6af5f01ad4a234388489fc0",
+      "results/round2/window-007-interleaved_all_attn_mlp/rank5.json": "1d4b35d76edb4e28a1fbf28ae021046cd154c55de356fdc7aa3d1978ebb64632",
+      "results/round2/window-007-interleaved_all_attn_mlp/rank3.json": "fb9d4973d3fa4feeb7992c86db4b6810e0d8183ecf68d1ca6e5951edf35a9b73",
+      "results/round2/window-007-interleaved_all_attn_mlp/rank2.json": "17c31ba608ff0383cd94ab72a12810ba74fbb2f58e307807f47c041d7406c9bc",
+      "results/round2/window-007-interleaved_all_attn_mlp/rank1.json": "38acfb3f7968f836236e7bcde14c7dbc10808e5ba005a0345d2fc61ec51a40f3",
+      "results/round2/window-007-interleaved_all_attn_mlp/rank6.json": "99055edf10907903e277f9f5ca96d6aa09a81f299da3dfe2651b6a1a8cfdbc63",
+      "results/round2/window-007-interleaved_all_attn_mlp/rank0.json": "9ad3b9edaaecd36000cdd2b4a2fc99eb2fcca6726aeb0b808cfd2190efc87e32",
+      "results/round2/window-007-interleaved_all_attn_mlp/command.json": "f4a108e63e97a8d1f33d53dc1018b5417dd09415d05bb1b751ecb00bffa7e19b",
+      "results/round2/window-007-interleaved_all_attn_mlp/rank4.json": "b2130dfe9163bbabc1cbb5e4aa14e1055667a6f6d945c28e16568b90c20168b1",
+      "results/round2/window-008-interleaved_arrival_selective_attn_mlp/process.log": "2263c4c3f7248133c8b61b1f3f08804dcdad1007dbf7bad83d624b568d1f7d6d",
+      "results/round2/window-008-interleaved_arrival_selective_attn_mlp/rank7.json": "5c44a96ae4843f6e4c5e3fe8f8383efb909239ff6cedb2bc6f72fc30164197bc",
+      "results/round2/window-008-interleaved_arrival_selective_attn_mlp/rank5.json": "0ba0537e093cd9e3375e177fb8e74bb47734ef1360376a6bfb667c75ec7d3117",
+      "results/round2/window-008-interleaved_arrival_selective_attn_mlp/rank3.json": "fb78567c75c085d6bfb5abd2d5b16cc2497830551cb5ce50d09d298bcdb2f471",
+      "results/round2/window-008-interleaved_arrival_selective_attn_mlp/rank2.json": "6ae8dccae4ffa7f92e8179de669ca4eb6cc77f079cef2bbcded291ad7d315a75",
+      "results/round2/window-008-interleaved_arrival_selective_attn_mlp/rank1.json": "cbe280bcae91c39dcd59a57ee6065681947b87acbaa2d2c0bcf5720d37740981",
+      "results/round2/window-008-interleaved_arrival_selective_attn_mlp/rank6.json": "2202033f1ece2c03ca458365c4f0b8dfc75d6a325f640c9b32fd482e0a998984",
+      "results/round2/window-008-interleaved_arrival_selective_attn_mlp/rank0.json": "eff8cabf8f191f29cdd0c70419029e94860ba0f2afdb5ca24f5818a8850b8e2e",
+      "results/round2/window-008-interleaved_arrival_selective_attn_mlp/command.json": "a72dcb13aafd54a18fec7846086d60c8cced18c8df1eb42c4b349e4f72172a77",
+      "results/round2/window-008-interleaved_arrival_selective_attn_mlp/rank4.json": "fff380d8f5adc5244539662f2f1ffc24572883eab4b6f3c009b5c190df06ac53",
+      "results/round2/window-009-interleaved_arrival_all_attn_mlp/process.log": "9edea4765f4c09c45d7a5c31260e6a1d94f9990d516fbfb3289f922bbb068cd7",
+      "results/round2/window-009-interleaved_arrival_all_attn_mlp/rank7.json": "d9840b9c9860dee7e503c34490a7443d0c72ff4bb16784477eb8ddb1da860646",
+      "results/round2/window-009-interleaved_arrival_all_attn_mlp/rank5.json": "48489a0462d717fb9bc3a5263610ec934a2c1e0458cd18e575d1dac8b4adc3e5",
+      "results/round2/window-009-interleaved_arrival_all_attn_mlp/rank3.json": "9ed104be8794f71b4e4621b63840431aec66b94c6a2a4f758fab84f309f4302d",
+      "results/round2/window-009-interleaved_arrival_all_attn_mlp/rank2.json": "033636cd495dee2b0d66301e5e915bff5cb24853792aca7c51565873c8ba08b1",
+      "results/round2/window-009-interleaved_arrival_all_attn_mlp/rank1.json": "960590fb855cb6745ec74110e3ff92f6a7645b7a4f13cbba19b781a40abda76f",
+      "results/round2/window-009-interleaved_arrival_all_attn_mlp/rank6.json": "40a239028f09bf5dc64bc0447e431ab2b19f2e4137c3304406c0df43a8504c97",
+      "results/round2/window-009-interleaved_arrival_all_attn_mlp/rank0.json": "33c5be7d4924d8cb0aba446f3b9c518af49c4abdbdd54454bc58a2e80c2bb6f9",
+      "results/round2/window-009-interleaved_arrival_all_attn_mlp/command.json": "78b19d2eae001cb00fde17412fedc5e266494739e3da34e3c9ae499f35af0a1c",
+      "results/round2/window-009-interleaved_arrival_all_attn_mlp/rank4.json": "52c9e57d9634b21a810fd694a6084d256c74eb734539799984e92e83c6b4d47c",
+      "results/round2/window-010-flux_tensor_taco_attn_mlp/process.log": "2f05a9c57e5a0f536a665f1c9977115139ee05ac4088d1b8a9b41dae26b0dfdd",
+      "results/round2/window-010-flux_tensor_taco_attn_mlp/rank7.json": "4b1e7b4f27c1b763a784af0e0019cdb665cbff5bb3682098ddd7a65eab4387ae",
+      "results/round2/window-010-flux_tensor_taco_attn_mlp/rank5.json": "760e82be1474d00bace0e002a3c9474e36a4fb6867215430251cb543afc63963",
+      "results/round2/window-010-flux_tensor_taco_attn_mlp/rank3.json": "8b86e5f1fc8f0890527faaa219a03691d21618186123114c1529f55ea219d41e",
+      "results/round2/window-010-flux_tensor_taco_attn_mlp/rank2.json": "bf345372b2ec44de49257a7747e66f4c4ddacd214c63513dac6829139e912204",
+      "results/round2/window-010-flux_tensor_taco_attn_mlp/rank1.json": "181ed400c7e02722ec052730b56fdb89bca5174755482174d0094f93644a8fd4",
+      "results/round2/window-010-flux_tensor_taco_attn_mlp/rank6.json": "34fe4a55a8d9a4465194e10d38d3d32d248f94a1a877be22f58fc02715de48e6",
+      "results/round2/window-010-flux_tensor_taco_attn_mlp/rank0.json": "b960a89aec3054d89d772388daacd762003e9b2bcd960389f9f9bc77b2eca564",
+      "results/round2/window-010-flux_tensor_taco_attn_mlp/command.json": "602c4b8d8cee40f3d55cde67db70285e95fe0cbb3fa21ed30d345664029aca01",
+      "results/round2/window-010-flux_tensor_taco_attn_mlp/rank4.json": "f0af0130b01daed78df061be38ce8a6f962c6d95f80569f2de7bd7acd6b994fb",
+      "results/round2/window-011-interleaved_all_attn_mlp/process.log": "d4657bf86874a53dddeddded27d6b965f772f6b36752d38c9dd488f074d48cc6",
+      "results/round2/window-011-interleaved_all_attn_mlp/rank7.json": "fc48331ec152a006de46717efb7d19d0d48cb2f90b21ab3be0192730f6dd608c",
+      "results/round2/window-011-interleaved_all_attn_mlp/rank5.json": "650ef2cb1949c931374de4ef86d685b62c1898d978476145d06b4d2fdf943a72",
+      "results/round2/window-011-interleaved_all_attn_mlp/rank3.json": "31ced2d00ec204d0620ffc4ebfff191d947ef6567f7034217d75e0db1576a29b",
+      "results/round2/window-011-interleaved_all_attn_mlp/rank2.json": "cce4b493e7b6e2a80f4ba66cd99783eccd5e316fc57637cddea17631550cad71",
+      "results/round2/window-011-interleaved_all_attn_mlp/rank1.json": "3740e3bfb45ae03b1ce588c91095edfdb5c097cd33e5cd5462128eeaf2b394b2",
+      "results/round2/window-011-interleaved_all_attn_mlp/rank6.json": "8aa55b9ad6cbc250f5c27bc1cba0eceb30c174fc719534c0afd1e15b1d717e94",
+      "results/round2/window-011-interleaved_all_attn_mlp/rank0.json": "89ad86d1bb2e4dd1a4eeedd8f5b954f8bff2cded2d927f220bc80708ed0a7996",
+      "results/round2/window-011-interleaved_all_attn_mlp/command.json": "9db3534506a816782cb47edd079427f7e538216ac9b2f47f19add06d37e0e8f4",
+      "results/round2/window-011-interleaved_all_attn_mlp/rank4.json": "a68ea68b412abc7a2cf2b704a03dcd6e340f220c66427edf2b044fc9ebcea957",
+      "results/round2/window-012-interleaved_arrival_selective_attn_mlp/process.log": "a4835caf99fd0ffbef55f52aadb00e3b775066501fbd5f0ca015595289d3e6d8",
+      "results/round2/window-012-interleaved_arrival_selective_attn_mlp/rank7.json": "5d466eb0b83bd756817d287dfe9820ab8b7d6c528e9ebd84bcf0b98d74b0f4fa",
+      "results/round2/window-012-interleaved_arrival_selective_attn_mlp/rank5.json": "6a0893a63f1642f4abdcb4a7fc6eb2eed6191e785a220620f5db10cfbff8d210",
+      "results/round2/window-012-interleaved_arrival_selective_attn_mlp/rank3.json": "7456d2a3d2470cad85c0e6fc75b0beb2aea61752037ef104f5af79057e7e483a",
+      "results/round2/window-012-interleaved_arrival_selective_attn_mlp/rank2.json": "5ab5ae3b840bd03213f1ef67198d38d188103af62c6ab6bd639fab7ea5a5fff7",
+      "results/round2/window-012-interleaved_arrival_selective_attn_mlp/rank1.json": "fab3a75ae4e70751e8f13e3a3eaf13241709cd57b52ea4d56212b935517a5d1e",
+      "results/round2/window-012-interleaved_arrival_selective_attn_mlp/rank6.json": "03b7fa160946334c48a5e9a256c32f01ffc3883d9a3865a87a27522867c74582",
+      "results/round2/window-012-interleaved_arrival_selective_attn_mlp/rank0.json": "779bc187a9957726784428097e8c45f43eb0dee37291880070806646c5a276d9",
+      "results/round2/window-012-interleaved_arrival_selective_attn_mlp/command.json": "0724607dd4622d31ed457fbec273734ef07b46d93b3a48b9cd075f1ce29d8bcd",
+      "results/round2/window-012-interleaved_arrival_selective_attn_mlp/rank4.json": "ddbd06176bad46999bac345c9d9eda40c4878530a7d309d194b3fd55cf7b5b28",
+      "results/round2/window-013-interleaved_arrival_all_attn_mlp/process.log": "b8f04f1991bf7dad559a102b8b0f16538769dfdbcc5c9bf6f14993cafc8a03e5",
+      "results/round2/window-013-interleaved_arrival_all_attn_mlp/rank7.json": "28ea8c16569019c7a339b74abaaaf0dac6f3a64bdb253738d79ea84d81ae178b",
+      "results/round2/window-013-interleaved_arrival_all_attn_mlp/rank5.json": "55b0503711e8b7da67244725fb5cdc0849f7fc3eaeb4ea3c1b151fca45fc79ae",
+      "results/round2/window-013-interleaved_arrival_all_attn_mlp/rank3.json": "7d6b7958c98e722b1799dc1e0c23551fd98033ea4ff51c96c67e93740ea3e576",
+      "results/round2/window-013-interleaved_arrival_all_attn_mlp/rank2.json": "b621dd2ee42c63d759dd423f6eb553a3386ba42d99abef67a62678d4fb271e4c",
+      "results/round2/window-013-interleaved_arrival_all_attn_mlp/rank1.json": "1d7988146d14756874499d45d37f9e6171cfb230883b9d188b3a71e84585e721",
+      "results/round2/window-013-interleaved_arrival_all_attn_mlp/rank6.json": "0eebc36167994bb4d2323fdedb406686c543b85bc13157870c18a3082cd19bca",
+      "results/round2/window-013-interleaved_arrival_all_attn_mlp/rank0.json": "b4355027874df8a50d7ebb5ee2fd79d477758fd72428936c630a39d8d247cb06",
+      "results/round2/window-013-interleaved_arrival_all_attn_mlp/command.json": "73e43c4f6c043a16e1623db737a4f435259caa275c8568ec93bbb009467e9f0f",
+      "results/round2/window-013-interleaved_arrival_all_attn_mlp/rank4.json": "156ab7b41c54f093e0d8ad2377eab16c563c0a6f2d67143bcf1c714220c1a2de",
+      "results/round2/window-014-native_taco_attn_mlp/process.log": "85ff77affe0d3a088775620489d35abbe05f12c821dca89349e33159e64aca82",
+      "results/round2/window-014-native_taco_attn_mlp/rank7.json": "d6d6f5473cb54b6c340e491f2a36a454f3871f66427b6d76c979f23ee6abebc0",
+      "results/round2/window-014-native_taco_attn_mlp/rank5.json": "53d37da684c4e0f4c0662a26717961bdc8bb1ca75cc1e7c4d86d3d05c6dbdc77",
+      "results/round2/window-014-native_taco_attn_mlp/rank3.json": "4969f0b920e2ea3844c9709d144b3e66a48c6d7aafcf3cf4e468cf72590bce66",
+      "results/round2/window-014-native_taco_attn_mlp/rank2.json": "e915a3bcf9b237114795e8e5f03e175dbdc30276a49149c335533cecb59f6b6f",
+      "results/round2/window-014-native_taco_attn_mlp/rank1.json": "2e23c7353b41cbe85ac2cc2e2feb351447f7923feb33a19d00652e013daed32f",
+      "results/round2/window-014-native_taco_attn_mlp/rank6.json": "517cf1e611a224b6bf12a6a1c98aa1cafc90161880ed77cddc08e2f6b6c1cccd",
+      "results/round2/window-014-native_taco_attn_mlp/rank0.json": "5a40bef941de2f05257b83893120783348e1f5d6dc3baa1959d5ddd3b23ca86f",
+      "results/round2/window-014-native_taco_attn_mlp/command.json": "818d289a4a7a2517dc1248bdfc5fbdd74ac129f35397e5820f03a09c5066ee77",
+      "results/round2/window-014-native_taco_attn_mlp/rank4.json": "fe9fdcf02d0cc78612c34e56b2e13dfa0a42dcf06d2b8335ecce3b1a24bfd9e0",
+      "results/round2/window-015-interleaved_all_attn_mlp/process.log": "af75aa70162b16abf1ac503f3f9df916b7627d4055d5a51ca71e7cba12883a29",
+      "results/round2/window-015-interleaved_all_attn_mlp/rank7.json": "0df8dc1612ec4693eff6f4ce1e22097fa4d26784a9d682906c6fc42b5c28435a",
+      "results/round2/window-015-interleaved_all_attn_mlp/rank5.json": "a0405a7ecbe0901c4076b647f6d217d1f71bebac60d4c07f28d86fe7b5b46b3a",
+      "results/round2/window-015-interleaved_all_attn_mlp/rank3.json": "28d5778a60736eb6f2e14b3b2cb093ab7b415fc9ed92bfd03bc482393dd60348",
+      "results/round2/window-015-interleaved_all_attn_mlp/rank2.json": "0e23f57292b3533b811d297e8a88216826b82cea4bb0677f7a6904944cedae4d",
+      "results/round2/window-015-interleaved_all_attn_mlp/rank1.json": "e05dbd456b3a6fc678c18422d060f53d19964ed7d948f3c2baaf86218d981a34",
+      "results/round2/window-015-interleaved_all_attn_mlp/rank6.json": "0a59adc9faff2b2f1c7245c8a00471a4e516d353e91934d49ba7a6fdb5c45ab3",
+      "results/round2/window-015-interleaved_all_attn_mlp/rank0.json": "ef9be15d76b7d486b5f5fe31a422cab227b95a7a61777bd11815d0ab38bfd72a",
+      "results/round2/window-015-interleaved_all_attn_mlp/command.json": "f67a71a3537d7b57834d66b9c2646b76b1def0abbf7ee708565a18371f00adb8",
+      "results/round2/window-015-interleaved_all_attn_mlp/rank4.json": "d9ef3b22f7ffb4551c65eaacb64231ebe58d3e07859bde38a0bf33356f361f6d",
+      "results/round2/window-016-interleaved_arrival_selective_attn_mlp/process.log": "d1b03a7cd5a4687f879da4f3bc2dd7dbfac866f1966630f973920df30ad48ec6",
+      "results/round2/window-016-interleaved_arrival_selective_attn_mlp/rank7.json": "6d6dff817535414b91fd860dc5c80413241a860186a1860af49e9861cedb0872",
+      "results/round2/window-016-interleaved_arrival_selective_attn_mlp/rank5.json": "d16aecb09186f80e14059af972e0ba702254a109daaf64e4547d3524535ba425",
+      "results/round2/window-016-interleaved_arrival_selective_attn_mlp/rank3.json": "24a33b182ce5d64a098f66183179392163f0fdb43294510c6e8df2e4d8837841",
+      "results/round2/window-016-interleaved_arrival_selective_attn_mlp/rank2.json": "aaeb768819b1c509d8d0e734ea01a709649fa08f68e05443907028f6025f2689",
+      "results/round2/window-016-interleaved_arrival_selective_attn_mlp/rank1.json": "004f747af3a3daed8fed2113dbeb72cf684bf05d75483f3765bb4b67b29fffd3",
+      "results/round2/window-016-interleaved_arrival_selective_attn_mlp/rank6.json": "20c07bbc8ed66e787439fdd6a01fa92893161fe41d0f378684ddfa0d7bda5196",
+      "results/round2/window-016-interleaved_arrival_selective_attn_mlp/rank0.json": "bca65dbe93e8c32fb95808b0e5995d60811d51a446571e1745a1fd839f7b48ef",
+      "results/round2/window-016-interleaved_arrival_selective_attn_mlp/command.json": "f5a2a208ec947012fee09e1630ecacce0206823bc0200b2714f73e7406c65370",
+      "results/round2/window-016-interleaved_arrival_selective_attn_mlp/rank4.json": "531a46a66f4eedadeed8bd346ab9d661ae9fb92cb2ba1945a8ba0ebb963a0b57",
+      "results/round2/window-017-interleaved_arrival_all_attn_mlp/process.log": "ac858aeb071bcd71be9466ec04e266b4ca603307751af0b92989be19102b9341",
+      "results/round2/window-017-interleaved_arrival_all_attn_mlp/rank7.json": "f3ca51fb1ca22825d050fad41e89ed5457f53bbedb16e24390a9ce2264c4edd3",
+      "results/round2/window-017-interleaved_arrival_all_attn_mlp/rank5.json": "3b706d78f62ea8d410f695d935b9ee2a311392dfde5a7b9d99185e460ee266e8",
+      "results/round2/window-017-interleaved_arrival_all_attn_mlp/rank3.json": "2b3ed3a14d93dd026543dbad54df9345754c106f840218af3f43304419488657",
+      "results/round2/window-017-interleaved_arrival_all_attn_mlp/rank2.json": "e4fc9712c9d8a1bab9cb437514698aa5cb6f3df7e36d0c204cfe42f30213f251",
+      "results/round2/window-017-interleaved_arrival_all_attn_mlp/rank1.json": "709a1f0a9404fb02f4f71a30a12830c4cdd6fdfacd7c5281362f8d65689524a2",
+      "results/round2/window-017-interleaved_arrival_all_attn_mlp/rank6.json": "a8d3eaf699cf856f263a88cf4572a04044c4f439575e999b7ec2f856ac67b2a5",
+      "results/round2/window-017-interleaved_arrival_all_attn_mlp/rank0.json": "22e4a51ce6f2409f211b7a7219917c29a4a09fbe7ca6fca8c64cd1279394ad61",
+      "results/round2/window-017-interleaved_arrival_all_attn_mlp/command.json": "da87b82cca8e74d4353adb2ba27518071e6f77d7e5703c4f0883fe0e0933ac67",
+      "results/round2/window-017-interleaved_arrival_all_attn_mlp/rank4.json": "76628c9398de9c48f3c2f48ebbd2ee3f8d05296bc3efc2a02425d276e6e24536",
+      "results/round2/window-018-native_taco_attn_mlp/process.log": "e0116dd4133284294c4f28efd2c1ad14c5d089448a99620c7579455e46f53467",
+      "results/round2/window-018-native_taco_attn_mlp/rank7.json": "548c4d567d6e3b7810c47f34e5f4cca03e0c21e7edde6957d4480de44002b44b",
+      "results/round2/window-018-native_taco_attn_mlp/rank5.json": "b8367ce301a1fc0fd7ab0bf6f78c304a1fd124841479babd36a25f6fc6f27a8f",
+      "results/round2/window-018-native_taco_attn_mlp/rank3.json": "39602301e05a61664051b4e1b760d375b9780d02f0262a3bc0191024294c9bff",
+      "results/round2/window-018-native_taco_attn_mlp/rank2.json": "d8b38ee6bab362aa6a06b88cf65693c769de1e6fa9e60ad63d10fb7e605468da",
+      "results/round2/window-018-native_taco_attn_mlp/rank1.json": "a9e6e50859ebd753ccbaf2e118b4d0e87597600ff7ff6077c0e8ea7433cc9484",
+      "results/round2/window-018-native_taco_attn_mlp/rank6.json": "0746b8fb7961bb372f102cdbda084dfe5f4d3fdd126eaad6eab7a73373ff95be",
+      "results/round2/window-018-native_taco_attn_mlp/rank0.json": "60ffba202f02366fd4794a941a57a95aac3e3b30f442e245a3e2734495cd5b69",
+      "results/round2/window-018-native_taco_attn_mlp/command.json": "b3b813956fe0a8a086dafcd46585024221bfc216682f09a66ef861cdca99df20",
+      "results/round2/window-018-native_taco_attn_mlp/rank4.json": "ccf97cd9a33c2f58327520cebbb9f5b5979877ce49bf805d38af7ae8bd278f91",
+      "results/round2/window-019-flux_tensor_taco_attn_mlp/process.log": "586b2a019825198759165283696ea926fb3e0b03c26ccebf399f7e9b91d52e63",
+      "results/round2/window-019-flux_tensor_taco_attn_mlp/rank7.json": "0aa09f211b27cf664a1e09201000587b158674160ca4f084e80fa77e4900dc8f",
+      "results/round2/window-019-flux_tensor_taco_attn_mlp/rank5.json": "ce92c8549b263baa0bb8853b80225a5f686e3894fab7ff3cd674331b5d9ef565",
+      "results/round2/window-019-flux_tensor_taco_attn_mlp/rank3.json": "1031850995bc463e3353696d83b06e11b71795de2c6a3e447d94198ac2cb2f93",
+      "results/round2/window-019-flux_tensor_taco_attn_mlp/rank2.json": "b5ea0e558d24e053c26b386f3d2cefb4485be049914cc5cf2fd4349aae674e4c",
+      "results/round2/window-019-flux_tensor_taco_attn_mlp/rank1.json": "06d89a96042ef4f4915099f4c5c27ab48e2c2546188333dc105907af9c8758e2",
+      "results/round2/window-019-flux_tensor_taco_attn_mlp/rank6.json": "aae55675480bd47bcccb2b65fcf5dbd6ca40024b1a67b58a711df7bf2e87f37a",
+      "results/round2/window-019-flux_tensor_taco_attn_mlp/rank0.json": "2b958d6fa841b984eec73dd934e9544fb0e7a18531936fa7d763d9e111aee04c",
+      "results/round2/window-019-flux_tensor_taco_attn_mlp/command.json": "2ca11c6c4320b4a83fa1ad52dea1ab2c683479f0319a991a1c37d34ea8473ba8",
+      "results/round2/window-019-flux_tensor_taco_attn_mlp/rank4.json": "cb897df3aa77fdbdc5a7f0c114f8ab6e99f8b3334f6c1b0725929986bbd30d74",
+      "results/round2/window-020-interleaved_arrival_selective_attn_mlp/process.log": "0c94f984a18618eba0f6a9441bd5e012e74536255c149a57100b26fe16ab9411",
+      "results/round2/window-020-interleaved_arrival_selective_attn_mlp/rank7.json": "01c6d0e121975a47160147a70bf2cb72ced8c1c540c2d8b990b1392eeb0ab951",
+      "results/round2/window-020-interleaved_arrival_selective_attn_mlp/rank5.json": "076c70e05efcabb2278689297cd32fbc09ce1619268fb5a393906138e3fe1d59",
+      "results/round2/window-020-interleaved_arrival_selective_attn_mlp/rank3.json": "8edde2d44aa89e12a761dd38fa52481a93586c342cbcc5a63c1ca1c02f884643",
+      "results/round2/window-020-interleaved_arrival_selective_attn_mlp/rank2.json": "de27decc6be52cb257f51439d81e252d082f6bce0086d765e8e7243a7f27a39e",
+      "results/round2/window-020-interleaved_arrival_selective_attn_mlp/rank1.json": "a3a1ba58d0c93fc5e8e2599328440ebbf2b8b0363c6e83aef7fe2fcbf318dc78",
+      "results/round2/window-020-interleaved_arrival_selective_attn_mlp/rank6.json": "1958e97869c4b2e41c4ebfb4e6e9f498e1ea35f540650a65887e348ffdc9d6f0",
+      "results/round2/window-020-interleaved_arrival_selective_attn_mlp/rank0.json": "66b232f9357b95d93fab3ad731373d6a3a9ae2d4ab7fc5b3e4199fa1cb7c1cef",
+      "results/round2/window-020-interleaved_arrival_selective_attn_mlp/command.json": "e9ca2b452e319a8263ccab950fa3d997067d8e1c47e8b55a3325b1839a58e03c",
+      "results/round2/window-020-interleaved_arrival_selective_attn_mlp/rank4.json": "318d430bfd61ef7b5c28140cd39bd829607232a778c08ba6c34e30f5be8923b1",
+      "results/round2/window-021-interleaved_arrival_all_attn_mlp/process.log": "20383a8dcd7ef61ead7d9d5a06867f2b63c12ca74eda9d32d102ccbb1dd0a475",
+      "results/round2/window-021-interleaved_arrival_all_attn_mlp/rank7.json": "27dec8b75d58fb0301f1b00cb72820b5ce8cf662d8680c96ae3313c5fc8f88ed",
+      "results/round2/window-021-interleaved_arrival_all_attn_mlp/rank5.json": "fa5d437e008fba7df01ff56920e78cd367492a21860618f379bbd9bf3854120e",
+      "results/round2/window-021-interleaved_arrival_all_attn_mlp/rank3.json": "b00cce4e25ef60e4362f1dc603a996150a309fe3e8a24e0439a50f99097cf72d",
+      "results/round2/window-021-interleaved_arrival_all_attn_mlp/rank2.json": "3ee9290c9eadadce61f31d41c798d471cd4cd513044d47206fe6deb9cd8ee8bd",
+      "results/round2/window-021-interleaved_arrival_all_attn_mlp/rank1.json": "d8512dd69b20734b8d2bcd1afd5f0e4a42cd92a93fada5ad8cdcc62f6c1ec4ef",
+      "results/round2/window-021-interleaved_arrival_all_attn_mlp/rank6.json": "5c8369f2e6364290bc7362b5f445e47bf976151e53c642983c05a6cde9f0df60",
+      "results/round2/window-021-interleaved_arrival_all_attn_mlp/rank0.json": "00315fbb1b97ba09dd423eef995410dfc13e278811958d63b14543a8f8b81094",
+      "results/round2/window-021-interleaved_arrival_all_attn_mlp/command.json": "2194d13bca4aec7ab100edacad437ee7b04861dba83d86f95e7607c788cdc619",
+      "results/round2/window-021-interleaved_arrival_all_attn_mlp/rank4.json": "0aa5bb7156da310b1307e9c92232378b2c2ced0d5177d387584470383c92dfc5",
+      "results/round2/window-022-native_taco_attn_mlp/process.log": "56f874bea4cd9f9361433716618027ae44e19197d496ba726a39de58333f4f7e",
+      "results/round2/window-022-native_taco_attn_mlp/rank7.json": "e1d9d53298280d6e6d6350b3559cdf046b747b2e24e74e09ba9d109a09eac843",
+      "results/round2/window-022-native_taco_attn_mlp/rank5.json": "81fd359765b008d16cb0d7cbe39dc49f64c2eb186b21c43a8ab1bd32959c8d99",
+      "results/round2/window-022-native_taco_attn_mlp/rank3.json": "769890df1fef02346a19c6ac41fe21b0a960b0dc27b8a76b828529bf0075f14e",
+      "results/round2/window-022-native_taco_attn_mlp/rank2.json": "49cecf7244044fa094e9ae0f0ef83ced5c63de241774168a65adf563de624c3a",
+      "results/round2/window-022-native_taco_attn_mlp/rank1.json": "8daade4f159540800da67d9174dddfbbdb2676e50891a08d91a1185ca9e08084",
+      "results/round2/window-022-native_taco_attn_mlp/rank6.json": "7b53302e0cb5f025bd6c4ac4bbf8bc3c24af9077efcb56c61a79fa647174c021",
+      "results/round2/window-022-native_taco_attn_mlp/rank0.json": "f5199c52056b71e224a6961e969bba4852e83819a4f6e47d7925e8281cd9c816",
+      "results/round2/window-022-native_taco_attn_mlp/command.json": "0fdbda81f75fa5bf5658ac95a61c06102635d45b3da3ba0090a0937e804eced8",
+      "results/round2/window-022-native_taco_attn_mlp/rank4.json": "756212eaf570278ae2adebe4135d7e242cacc08715d272dc3c56c3bd6bca1de6",
+      "results/round2/window-023-flux_tensor_taco_attn_mlp/process.log": "94768777068929ed5b101020751bb911a64fe9022cf9b2e64b34fecac5032878",
+      "results/round2/window-023-flux_tensor_taco_attn_mlp/rank7.json": "fa6b06b11c2c30142250c750ba4e6b7739847cf7d9bbbf4b14b7011e65159368",
+      "results/round2/window-023-flux_tensor_taco_attn_mlp/rank5.json": "a714cde069ea92c70cd7742c520b38bd4fa2420eb3535d07d0d5ebe254d34f1c",
+      "results/round2/window-023-flux_tensor_taco_attn_mlp/rank3.json": "6c0a1430a9f6599b05b3fc371f83f02d1bd45eb979b9cb4416a134ba28186a73",
+      "results/round2/window-023-flux_tensor_taco_attn_mlp/rank2.json": "3d93de828493da33f32495654ecfdc7b20c3bb7e06bb77fe44d99821756ea04d",
+      "results/round2/window-023-flux_tensor_taco_attn_mlp/rank1.json": "50b91ea22862ca1d9c10b82e59674cea69c0bd0e0d0f4a3f911ffc85a8f976bc",
+      "results/round2/window-023-flux_tensor_taco_attn_mlp/rank6.json": "f74ec86eb7560bd6bae326fcff4287a79d15390fef3ef14449bcf0593c19dc73",
+      "results/round2/window-023-flux_tensor_taco_attn_mlp/rank0.json": "98ec0cd9ade201985fc76247240366fafefecb23f7a75cc9d2bb4cc5acf71d62",
+      "results/round2/window-023-flux_tensor_taco_attn_mlp/command.json": "0b91f0885c18971f502edb4b41a3fe10505ca46eb227c5417ebbf31a5787c751",
+      "results/round2/window-023-flux_tensor_taco_attn_mlp/rank4.json": "59dc3aba9ce5386b33d6ab5e3d99775c03e8ddcb92f1c81271525f52c1eb4bdb",
+      "results/round2/window-024-interleaved_all_attn_mlp/process.log": "69a408b68c7d0156d84968bdec6c3f2a0dd54a3a15df02b1b224089afbf19bd3",
+      "results/round2/window-024-interleaved_all_attn_mlp/rank7.json": "2acb7501a36527c049f7f96d287989c188fbff7631d348ce32e86d2473beb417",
+      "results/round2/window-024-interleaved_all_attn_mlp/rank5.json": "3adcf72bc31851fab413c991fe038e1fa252134ddd3a71c1d6ef6946d5c1b066",
+      "results/round2/window-024-interleaved_all_attn_mlp/rank3.json": "d605f0f79173f516d1d11346d35baeeae945760e8ac5b887815d323dc20ed44a",
+      "results/round2/window-024-interleaved_all_attn_mlp/rank2.json": "a00263036469491269b79568012e2de23f7b30ca1a406bbe1416b45fc6427ae2",
+      "results/round2/window-024-interleaved_all_attn_mlp/rank1.json": "eb365e922a325bd437cd216e7642cceae5540deb5dad54a3273ebbed2819d383",
+      "results/round2/window-024-interleaved_all_attn_mlp/rank6.json": "56b0a83f3e30d6a2b34f7c7318cf70ca56283bdf254199ef63bc1edf2944d9a3",
+      "results/round2/window-024-interleaved_all_attn_mlp/rank0.json": "a319152f781494968a1c1d8f8da531c8e34974caa90378de5d4604793ff75b10",
+      "results/round2/window-024-interleaved_all_attn_mlp/command.json": "d99a22358559ffb98acd7d570bee72b9574ffef89d12b5f841b49c2257a32be3",
+      "results/round2/window-024-interleaved_all_attn_mlp/rank4.json": "ff6326162a42685e971e650884e2680c28697c54e2af777c778049ae05f45d5d"
+    }
+  }
+}
