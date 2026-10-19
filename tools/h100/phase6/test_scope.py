@@ -399,7 +399,7 @@ def make_window(root, info, job):
                  initial_loss=1.,warmup_steps=warmup,timed_steps=count,elapsed_seconds=(count if rank==7 else count/2)*(2 if job['block']==0 and policy==sp.POLICIES[0] else 1),
                  observed_shapes=observed,module_policies=routes,post_audit_routes=routes,target_modules=list(routes),warmup_calls={n:warmup*4 for n in routes},
                  timed_calls={n:count*4 for n in routes},enabled_modules=sorted(selected),replaced_modules=len(selected),independent_scope_instances=len(selected),
-                 forward_preserved={n:v!='candidate' for n,v in routes.items()},codec_placements={n:{'native_bf16':'native','tensor':'tensor','candidate':'fused'}[v] for n,v in routes.items()},
+                 forward_preserved={n:v not in ('candidate','flux_tensor') for n,v in routes.items()},codec_placements={n:{'native_bf16':'native','tensor':'tensor','candidate':'fused','flux_tensor':'tensor'}[v] for n,v in routes.items()},
                  flux_library_loaded=False,native_linear_forward_preserved=sp.is_native(policy),selection_checks={},forward_checks={},workspace_checks={},
                  initial_parameters_sha256='init'+str(rank),initial_rng_sha256='rng'+str(rank),tokens_sha256='tokens',parameter_count_local=123,
                  torch='CPU-FIXTURE',cuda='CPU-FIXTURE',nccl='CPU-FIXTURE',python='CPU-FIXTURE')

@@ -153,7 +153,7 @@ def calibration_records(root, p):
     return rows
 
 
-def fit(root, out):
+def fit(root, out, arrival_order='legacy_tail'):
     root, out = Path(root).resolve(), Path(out).resolve(); p = verify(root)
     require(not p['source_only'] and p['executable'], 'CPU rehearsal cannot produce measured plans')
     verify_files('/', p['controllers'])
@@ -165,11 +165,13 @@ def fit(root, out):
     inputs = {str(f): sha(f) for f in root.rglob('*') if f.is_file() and f.suffix != '.lock'}
     for f in (HERE/'scope_calibrate.py', HERE/'plan.py', REPO/'tools/a800/arrival/plan.py', REPO/'tools/a800/phase5/plan.py'):
         inputs[str(f)] = sha(f)
+    if arrival_order == 'tail_residual':
+        inputs[str(HERE/'arrival_tail.py')] = sha(HERE/'arrival_tail.py')
     results = {}
     for role in p['roles']:
         with (root/f'mapping-{role}.csv').open() as f:
             mapping = [{k: int(v) for k, v in r.items()} for r in csv.DictReader(f)]
-        entry = fitter.fit(rows, mapping, p['config'], 'interleaved', SHAPES[role])
+        entry = fitter.fit(rows, mapping, p['config'], 'interleaved', SHAPES[role], arrival_order=arrival_order)
         record = role_record(role, entry, done['hardware'], inputs,
                              dict(kind='scope_bf16_calibration', source=str(root), run_id=p['run_id'],
                                   sampler_manifest_sha256=p['build_sha256'], role=role, shape=SHAPES[role]))

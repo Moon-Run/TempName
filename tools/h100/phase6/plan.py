@@ -30,16 +30,18 @@ def validate_mapping(rows,c,base,expected_shape=None):
             require((r['m'],r['n'])==expected and r['destination']==r['m']//(tm//world),'Base order disagrees with calibration mapping')
 
 
-def fit(reports,rows,c,base,expected_shape=None):
+def fit(reports,rows,c,base,expected_shape=None,arrival_order='legacy_tail'):
     """Pure CPU fit; held-out observations are used only for diagnostics."""
+    require(arrival_order in ('legacy_tail', 'tail_residual'), 'Unknown arrival order')
     validate_mapping(rows,c,base,expected_shape)
     m,n,k=expected_shape if expected_shape is not None else shape(c);world=c['tp'];tiles=m//128*(n//128);per=tiles//world
-    scores=[[0.]*tiles for _ in range(world)];heldout={};overhead=[];invalid=[];valid=0
+    scores=[[0.]*tiles for _ in range(world)];heldout={};overhead=[];invalid=[];valid=0;observations={}
     require(len(reports)==world,'Missing calibration rank')
     for rank,r in enumerate(reports):
         require(r['rank']==rank and r['completed'],'Wrong/incomplete calibration rank')
         sh=next(s for s in r['shapes'] if [s['M'],s['N'],s['K_global']]==[m,n,k])
         obs=arrival.observations(sh,rank,world,relative=True)
+        observations.update(obs)
         for t in range(rank*per,(rank+1)*per):
             invalid.extend(dict(rank=rank,pass_index=p,tile=t) for p in range(3) if (p,t) not in obs)
             if all((p,t) in obs for p in (0,1)):
@@ -55,6 +57,11 @@ def fit(reports,rows,c,base,expected_shape=None):
         original=[r['m']*(n//128)+r['n'] for r in rr]
         mapping=arrival.permute(rr,dict(enumerate(scores[rank])),c['window'])
         maps.append(mapping);coords.append([original[i] for i in mapping]);base_coords.append(original)
+    order_diagnostics = None
+    if arrival_order == 'tail_residual':
+        from arrival_tail import fit_order
+        maps, order_diagnostics = fit_order(rows, observations, world, c['window'])
+        coords = [[base_coords[r][i] for i in maps[r]] for r in range(world)]
     mask=selection.select(scores,world,c['fraction'])
     hits=[max(heldout[t][0])-heldout[t][0][s]<=heldout[t][1]
           for s in range(world) for t in range(tiles) if mask[s][t] and t in heldout]
@@ -64,6 +71,8 @@ def fit(reports,rows,c,base,expected_shape=None):
                training_valid_tiles=valid,invalid_observations=invalid,heldout_selected_observations=len(hits),
                heldout_near_critical_fraction=statistics.mean(hits) if hits else None,
                sampled_median_overhead_percent=statistics.median(overhead) if overhead else None)
+    if order_diagnostics is not None:
+        entry['arrival_order'] = order_diagnostics
     validate_entry(entry,c,expected_shape)
     return entry
 

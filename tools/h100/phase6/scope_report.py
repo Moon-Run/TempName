@@ -74,6 +74,7 @@ def window(root, folder, policy, mode, block=-1, index=-1, routing=scope_protoco
     PROTOCOL, SHAPES = routing.PROTOCOL, routing.SHAPES
     definition, is_native = routing.definition, routing.is_native
     fused_v2 = getattr(routing, 'is_fused_v2', lambda p: False)(policy)
+    flux_tensor = getattr(routing, 'is_flux_tensor', lambda p: False)(policy)
     module_role, module_routes = routing.module_role, routing.module_routes
     root, folder = Path(root), Path(folder); info = read(root/'submission.json')
     c = info['config']; cfg = read(root/'scripts/config.json'); plans = read(root/'scripts/selection-plan.json')
@@ -104,8 +105,8 @@ def window(root, folder, policy, mode, block=-1, index=-1, routing=scope_protoco
                 r['timed_calls'] == {n: count*4 for n in names}, 'Missing/incorrect actual projection calls')
         require(r['enabled_modules'] == sorted(selected) and r['replaced_modules'] == r['independent_scope_instances'] == len(selected),
                 'Wrong scope count/shared module instance')
-        require(r['forward_preserved'] == {n: route != 'candidate' for n, route in routes.items()}, 'Native forward replaced')
-        placements = {'native_bf16': 'native', 'tensor': 'tensor', 'candidate': 'fused'}
+        require(r['forward_preserved'] == {n: route not in ('candidate', 'flux_tensor') for n, route in routes.items()}, 'Native forward replaced')
+        placements = {'native_bf16': 'native', 'tensor': 'tensor', 'candidate': 'fused', 'flux_tensor': 'tensor'}
         require(r['codec_placements'] == {n: placements[route] for n, route in routes.items()}, 'Wrong codec placement')
         if is_native(policy):
             require(r['flux_library_loaded'] is False and r['native_linear_forward_preserved'] is True and
@@ -116,22 +117,25 @@ def window(root, folder, policy, mode, block=-1, index=-1, routing=scope_protoco
             require(set(r['workspace_checks']) == selected, 'Missing candidate workspace identities')
             for name, slots in r['workspace_checks'].items():
                 role = module_role(name)
-                if fused_v2:
+                if flux_tensor:
+                    require(len(slots) == 1 and set(slots[0]) == {'shape', 'gemm_output_ptr'} and
+                            slots[0]['shape'] == SHAPES[role], 'Wrong GemmOnly output workspace')
+                elif fused_v2:
                     require(len(slots) == 1 and set(slots[0]) == {'shape', 'packet_ptr'} and
                             slots[0]['shape'] == SHAPES[role], 'Wrong original fused-v2 workspace')
                 else:
                     require(len(slots) == 2 and all(s['shape'] == SHAPES[role] and
                             s['mask_sha256'] == role_records[role]['mask_sha256'] for s in slots), 'Workspace shape/mask crossed roles')
-            for field in (('packet_ptr',) if fused_v2 else ('packet_ptr', 'mask_ptr')):
+            for field in (('gemm_output_ptr',) if flux_tensor else ('packet_ptr',) if fused_v2 else ('packet_ptr', 'mask_ptr')):
                 pointers = [s[field] for slots in r['workspace_checks'].values() for s in slots]
                 require(all(type(p) is int and p > 0 for p in pointers) and len(pointers) == len(set(pointers)), 'Workspaces alias across modules/slots')
         require(set(r['selection_checks']) == selected, 'Wrong quantized module set')
         for name, check in r['selection_checks'].items():
             role = module_role(name); record = role_records[role]; mask = record['entry']['mask']
             expected = dict(role=role, shape=SHAPES[role], bf16_wire_bytes=7*256*4096*2,
-                            mask_sha256=None if is_native(policy) or fused_v2 else mask_sha(mask),
-                            plan_sha256=None if is_native(policy) or fused_v2 else record['entry_sha256'],
-                            wire_bytes=7*256*32*136 if is_native(policy) or fused_v2 else 7*256*4096*2+sum(mask[rank])*128*(136-256))
+                            mask_sha256=None if is_native(policy) or fused_v2 or flux_tensor else mask_sha(mask),
+                            plan_sha256=None if is_native(policy) or fused_v2 or flux_tensor else record['entry_sha256'],
+                            wire_bytes=7*256*32*136 if is_native(policy) or fused_v2 or flux_tensor else 7*256*4096*2+sum(mask[rank])*128*(136-256))
             require(check == expected, 'Wrong role/full-shape physical mask or wire bytes')
         if mode == 'smoke':
             require(set(r['forward_checks']) == selected, 'Missing/extra enabled-module numerical checks')
@@ -145,9 +149,10 @@ def window(root, folder, policy, mode, block=-1, index=-1, routing=scope_protoco
 def profile_roles(events, policy, routing=scope_protocol):
     """Associate CUDA kernels with role scopes through their runtime launch correlation."""
     SHAPES, definition, is_native = routing.SHAPES, routing.definition, routing.is_native
+    flux_tensor = getattr(routing, 'is_flux_tensor', lambda p: False)(policy)
     result = {}
     for role in SHAPES:
-        route = ('tensor' if is_native(policy) else 'candidate') if role in definition(policy)['roles'] else 'native_bf16'
+        route = ('flux_tensor' if flux_tensor else 'tensor' if is_native(policy) else 'candidate') if role in definition(policy)['roles'] else 'native_bf16'
         name = f'scope.{role}.{route}'
         # CUDA launch correlations belong to CPU spans; GPU annotations mirror them.
         scopes = [e for e in events if e.get('name') == name and e.get('ph') == 'X'
@@ -173,15 +178,21 @@ def profile_roles(events, policy, routing=scope_protocol):
         names = sorted({e['name'] for e in events if e.get('cat') == 'kernel' and
                         e.get('args', {}).get('correlation') in correlations})
         require(names, f'No correlated GPU kernels for {name}')
-        if route == 'candidate':
+        if route == 'flux_tensor':
+            require(any(('cutlass' in n.lower() or 'flux_bf16' in n.lower()) and 'sm90' in n.lower() for n in names),
+                    'Native SM90 Flux GemmOnly kernel missing')
+            require(not any('taco_decode_ring_kernel' in n or 'reducescatter' in n.lower().replace('_', '') for n in names),
+                    'Naive Flux must not run fused codec or an extra ReduceScatter')
+        elif route == 'candidate':
             require(any('flux_bf16' in n and 'sm80' in n.lower() for n in names) and
                     any('taco_decode_ring_kernel' in n for n in names), f'V2/mixed-wire kernel missing for {role}')
             require(not any('flux_bf16' in n and 'sm90' in n.lower() for n in names), 'Selected projection fell back to V3')
         else:
             require(not any('flux_bf16' in n or 'taco_decode_ring_kernel' in n for n in names), 'Native projection executed a candidate kernel')
         result[role] = dict(route=route, calls=len(scopes), kernels=names)
-    if is_native(policy):
+    if is_native(policy) or flux_tensor:
         native_profile(events)
+    if is_native(policy):
         require(not any(e.get('cat') == 'kernel' and ('flux_bf16' in e['name'] or 'taco_decode_ring_kernel' in e['name'])
                         for e in events), 'Native scope executed Flux')
     return result

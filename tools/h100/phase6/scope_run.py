@@ -28,7 +28,7 @@ def command(root, info, python):
 
 def mapping_jobs(root, info, routing=scope_protocol):
     for policy in routing.POLICIES:
-        if routing.is_native(policy):
+        if not getattr(routing, 'needs_mapping', lambda p: not routing.is_native(p))(policy):
             continue
         lib = Path(info['variants'][policy]['root'])
         for role in routing.definition(policy)['roles']:

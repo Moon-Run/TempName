@@ -58,6 +58,8 @@ def main():
     q.add_argument('--build', type=Path, required=True); q.add_argument('--source-only', action='store_true')
     q.add_argument('--nvls-enable', choices=('0', 'auto'), default='0')
     q = sub.add_parser('fit'); q.add_argument('calibration', type=Path); q.add_argument('out', type=Path)
+    q.add_argument('--arrival-order', choices=('tail_residual', 'legacy_tail'), default='legacy_tail',
+                   help='Preserve the original ablation4 heuristic by default; tail_residual explicitly fits the new candidate')
     q = sub.add_parser('build-prepare'); q.add_argument('out', type=Path)
     q.add_argument('--attn-plan', type=Path); q.add_argument('--mlp-plan', type=Path)
     q.add_argument('--source-only', action='store_true')
@@ -96,7 +98,7 @@ def main():
         plan = scope_calibrate.verify(args.calibration)
         for row in scope_calibrate.calibration_records(args.calibration, plan):
             require(row.get('communication') == plan['communication'], 'Calibration communication changed')
-        print(scope_calibrate.fit(args.calibration, args.out))
+        print(scope_calibrate.fit(args.calibration, args.out, arrival_order=args.arrival_order))
     elif args.action == 'build-prepare':
         require(args.source_only or (args.attn_plan is not None and args.mlp_plan is not None),
                 'Ablation4 requires both explicit measured role plans on this host')
