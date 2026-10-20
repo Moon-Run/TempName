@@ -1,0 +1,78 @@
+{
+  "schema": "h100-arrival-op3-environment-audit-v1",
+  "recording_method": "Faithful manual transcription of read-only tool results from this session; not an automatically captured command log.",
+  "date_local": "2026-10-20",
+  "timezone": "Asia/Shanghai",
+  "gpu_job_submitted": false,
+  "gpu_compute_executed": false,
+  "checks": [
+    {
+      "command": "hostname; command -v nvidia-smi; ls /dev/nvidia*",
+      "result": "hostname=ln02; nvidia-smi not found on PATH; no /dev/nvidia* matched",
+      "sandbox": "workspace restricted"
+    },
+    {
+      "command": "python3 -c \"import importlib.util; print(importlib.util.find_spec(\"torch\"))\"",
+      "stdout": "None\n"
+    },
+    {
+      "command": "PYTHONNOUSERSITE=1 /data/run01/scyb672/conda_envs/flux-megatron-a800/bin/python -c \"import sys,torch; print(sys.executable); print(torch.__version__, torch.version.cuda); import apex_C,amp_C,fused_layer_norm_cuda; print(\"apex ok\")\"",
+      "stdout": "/data/run01/scyb672/conda_envs/flux-megatron-a800/bin/python\n2.6.0+cu124 12.4\napex ok\n",
+      "note": "Read-only imports succeeded after a long cold import. A separate 45-second timeout attempt expired after printing Python 3.10.20; it is not counted as successful."
+    },
+    {
+      "command": "sinfo -N -p gpu_h100 -o \"%N %P %t %C %m %G\"",
+      "stdout": "NODELIST PARTITION STATE CPUS(A/I/O/T) MEMORY GRES\nd1n41d14g01 gpu_h100 drng 8/0/184/192 2050000 gpu:8(S:0-1)\nd1n41d21g01 gpu_h100 drain* 0/0/192/192 2050000 gpu:8(S:0-1)\nd1n41d21g02 gpu_h100 drain* 0/0/192/192 2050000 gpu:8(S:0-1)\nd1n41d29g01 gpu_h100 mix 64/128/0/192 2050000 gpu:8(S:0-1)\nd1n41e26g02 gpu_h100 mix 96/96/0/192 2050000 gpu:8(S:0-1)\n",
+      "sandbox": "approved read-only network access"
+    },
+    {
+      "command": "scontrol show node d1n41d14g01,d1n41d29g01,d1n41e26g02",
+      "selected_fields": {
+        "d1n41d14g01": {
+          "State": "MIXED+DRAIN",
+          "CfgTRES": "cpu=192,mem=2050000M,billing=192,gres/gpu=8",
+          "AllocTRES": "cpu=8,mem=168000M,gres/gpu=2",
+          "Reason": "remove [root@2026-10-13T18:16:04]"
+        },
+        "d1n41d29g01": {
+          "State": "MIXED",
+          "Partitions": "gpu_h200,gpu_h100",
+          "AllocTRES": "cpu=64,mem=1312.50G,gres/gpu=8"
+        },
+        "d1n41e26g02": {
+          "State": "MIXED",
+          "Partitions": "gpu_h200,gpu_h100",
+          "AllocTRES": "cpu=96,mem=2016000M,gres/gpu=8"
+        }
+      },
+      "note": "No non-draining node had eight unallocated GPUs. Partition names do not independently verify GPU model."
+    },
+    {
+      "command": "sacctmgr -n -P show assoc where user=scyb672 format=Cluster,Account,User,Partition,QOS,DefaultQOS,MaxJobs,MaxSubmitJobs,MaxTRES,GrpTRES",
+      "stdout": "n46h|scyb672|scyb672||gpugpu,normal|||0||gres/gpu=128\n"
+    },
+    {
+      "command": "sbatch --test-only --account=scyb672 --partition=gpu_h100 --qos=gpugpu --nodes=1 --ntasks=1 --gpus=8 --cpus-per-task=16 --time=00:30:00 --wrap=true",
+      "exit_code": 1,
+      "stdout_stderr": "sbatch: error: AssocMaxSubmitJobLimit\nallocation failure: Job violates accounting/QOS policy (job submit limit, user's size and/or time limits)\n",
+      "note": "--test-only does not submit or allocate a job. This is a Slurm policy rejection, not a Codex automatic approval rejection."
+    },
+    {
+      "command": "ssh -o BatchMode=yes -o ConnectTimeout=5 -o StrictHostKeyChecking=yes gxn75 ...",
+      "exit_code": 255,
+      "stdout_stderr": "ssh: Could not resolve hostname gxn75: Name or service not known\n"
+    },
+    {
+      "command": "git -C ../Megatron-LM rev-parse HEAD",
+      "stdout": "3ea68ad6042cc1204386ae9364358f7c4de1bc37\n"
+    }
+  ],
+  "available_paths": [
+    "/data/apps/cuda/12.8/bin/nvcc",
+    "/data/apps/cuda/12.4/bin/nvcc",
+    "/data/home/scyb672/run/software/cmake-3.30.0-linux-x86_64/bin/cmake",
+    "/data/apps/apptainer/1.4.5/bin/apptainer",
+    "/data/home/scyb672/run/megatron_nccl.sif"
+  ],
+  "conclusion": "Source and CPU/SM90 compile verification can continue. GPU correctness, useful early consumption and >=1% full-step improvement remain unmeasured. New same-host A/S/O measurement is supported without historical calibration identity, once an eligible H100 allocation and account permission are available."
+}
