@@ -1,221 +1,165 @@
-# H100 到达优先 op3：按 fragment 就绪提前消费
+# H100 到达优先 op3 实测：提前消费生效，但完整训练退化
 
-更新：2026-10-20。接续 [op-1.md](op-1.md)、[base-op2.md](base-op2.md) 和 [idea.md](../idea.md)。
+更新：2026-10-20。依据回传批次 `arrival-op3-2x-50steps-20261020-192646-582458` 汇总；该批v1实现与启动说明见 [op3-v1.md](op3-v1.md)，前次调度实验见 [base-op2.md](base-op2.md)。本次从原始 rank 记录重算算子和整步报告，并逐调用复核全部 48 份算子 trace；原始实验文件未修改。
 
-**本轮已实现独立 op3 候选：逐 fragment 发布、辅助 stream 提前消费、本地 GEMM 完成后补齐；原来的全 rank 发布屏障已从候选执行路径移除。尚无本轮 H100 正确性、有效重叠或完整 step 的实测结果，因此“比 A 快至少 1%”仍未验证。** CPU 协议测试与 SM90 编译分别检查逻辑和编译可行性，不能替代这一验收。
+## 1. 结论：没有性能收益，1% 目标未通过
 
-## 1. 基线和收益预算
+**这次确实实现了部分 fragment 在 GEMM 生产结束前完成解码，但没有带来加速。O 相对 A 在两次完整训练比较中分别慢 0.739% 和 0.952%，95% 区间均完全落在退化方向。** 这不只是“未达到 1%”，而是在本次固定配置下测到了可重复的整步退化。
 
-A 沿用 op2 的准确含义：双 shape 基础交替调度、全部远端贡献采用 H128/E4M3、本地贡献 BF16、原 scalar CTA 解码器、原 ring 来源次序及逐次 BF16 舍入、单工作区、输出 clone、发布与复用两道屏障。不能拿当前 `src/` 中其他 warp 解码实验当作 A。
+- **机制生效：** 64 次 O 算子 profile 调用中，25 次满足“同一次调用存在不同 stream 的 GEMM/解码重叠，且至少一个 fragment 的解码完成早于本地最后一次生产发布”。其中 Attention 只有 **1/32** 次，MLP 为 **24/32** 次。
+- **整步无收益：** 两次合并的描述性均值为 A **537.021 ms/step**、O **541.565 ms/step**，O 多耗时 **4.544 ms/step，约慢 0.846%**。正式统计仍按各次比较的完整块配对，不能把合并均值代替验收。
+- **提前扫描本身也没有正增量：** O 相对同协议串行控制 S，两次分别慢 **0.832%**、**0.537%**，两次 95% 区间也均显示退化。
+- **正确性和实验完成度通过：** 算子 A/S/O 输出逐位一致，模型数值检查通过，72 个正式窗口完整，未出现 skip 或 fallback。本次不能用“没有真正运行”“仍是原发布屏障”或“数值失败”解释未达标。
 
-op2 合并 A 为 535.492 ms/step；1% 对应约 **5.355 ms/step**。每步有 128 次 Attention 输出投影和 128 次 MLP 输出投影，若节省全部来自这些调用，平均每次需要净省 **20.918 μs**：
+批次状态为：
 
-```text
-128 × (ΔAttention + ΔMLP) ≥ 5354.92 μs/step
+```json
+{
+  "status": "completed",
+  "useful_early_consumption_validated": true,
+  "target_validated": false,
+  "acceptance_status": "not_validated_1_percent",
+  "formal_optimizer_steps": 3600,
+  "timing_windows": 72
+}
 ```
 
-这是以旧 A 耗时估算的预算。新机、新运行环境应以同批 A 的实测耗时重新计算，不能与旧 535.492 ms 直接配对，也不能把算子百分比当作完整 step 百分比。
+当前应保留 A 作为性能基线。op3 的实验价值是验证了提前消费路径可以工作，同时暴露其开销超过收益；不能把“出现重叠”写成“尾部已经缩短”或“到达优先已经加速训练”。
 
-## 2. 改动解决哪条依赖
+## 2. 三组含义及固定条件
 
-原执行关系为：
-
-```text
-主 stream：GEMM + 编码写入 → 全 rank 发布屏障 → 全量解码归约 → 复用屏障
-```
-
-op3 的执行关系为：
-
-```text
-主 stream：输入就绪事件 → GEMM + 每 fragment 发布
-                                      ↓ 本地生产完成
-                                等待有限提前扫描结束
-                                      ↓
-                    只补齐未消费 fragment，各自等待所需来源 → 复用屏障
-
-辅助 stream：等待输入就绪事件 → 有限扫描已就绪 fragment → 直接解码归约
-                                             ↓
-                              未就绪则退出，本轮不占住 CTA 等待
-```
-
-辅助 stream 的事件记录在 GEMM **之前**。它不依赖 GEMM 完成事件或全 rank 发布屏障。每个来源对一个 fragment 的完整载荷发布后，接收端就能独立判断该 fragment 是否收齐。
-
-主 stream 的尾部补齐只等待**本 rank** GEMM 和辅助扫描完成，然后按 fragment 读取来源就绪标记。某个远端 rank 仍在生产其他目的地或其他 tile，不再阻止已经齐备的数据被解码。函数返回的完整输出仍须完成所有 fragment 及复用屏障；未修改 Megatron 后继算子，使其逐 tile 接受输出。
-
-这次保留 A 的生产映射。新机制是“按实际到达就绪提前消费”，没有重新拟合 `tail` 分数，也没有把 op1/op2 的离线生产重排带入候选。只有确认消费路径存在有效重叠后，才适合再做同协议下的生产顺序消融。
-
-## 3. 发布粒度、内存顺序与跨代复用
-
-实现限定单节点 TP8、`M=2048,N=4096`、`K_local∈{512,2048}`、128×128 GEMM tile。每个目标拥有 64 个 tile；每 tile 分为 8 个 epilogue fragment。fragment `f` 覆盖两段各 8 行：
-
-```text
-[8f, 8f+7] 和 [64+8f, 64+8f+7]
-```
-
-一个 fragment 因而包含 16 个 H128 group。每个接收 rank 共 512 个 fragment、8192 个 H128 group。
-
-生产端的远端编码与本地 BF16 写入都执行：
-
-```text
-本 fragment 的所有载荷/scale 写入
-→ 所有写线程 __threadfence_system()
-→ CTA __syncthreads()
-→ 线程 0 st.release.sys 写 ready[source][fragment] = epoch
-```
-
-不能只在线程 0 执行 fence；它不足以替代其余载荷写线程的发布。每个回调只发布自己拥有的 fragment，不等待其他 CTA。
-
-消费者由线程 0 使用 `ld.acquire.sys` 读取八个来源的同代标记，再通过 CTA 同步让其余线程进入原解码代码。同步语义参考 [NVIDIA PTX 内存一致性模型](https://docs.nvidia.com/cuda/parallel-thread-execution/index.html#memory-consistency-model)。GPU 实测仍需检查跨设备可见性及长期复用。
-
-每个目的地原本未使用的 `source==destination` FP8 packet slot 用作控制区；该来源的数据始终从本地 BF16 缓冲读取：
-
-| 控制内容 | 大小 |
-| --- | ---: |
-| 8 来源 × 512 fragment 的 uint32 ready | 16,384 字节 |
-| 512 fragment 的 uint32 done | 2,048 字节 |
-| 仅诊断使用的 5 个 uint64 统计量 | 40 字节 |
-| 合计 | **18,472 字节** |
-
-其他七个来源的 packet 布局、codec 和载荷不变；没有增加 packet 分配尺寸。控制区只在实例初始化时清零并跨 rank 同步。正常调用通过每实例递增的 epoch 隔离旧标记，拒绝 0 和超出 `0x7fffffff` 的代号；不在每轮清 ready/done，避免远端先发布、接收端后清零的竞态。
-
-原复用屏障保留在消费完成之后，因此任何 rank 开始下一代生产之前，所有 rank 已结束上一代读取。所有 rank 仍须按相同次序创建和调用实例。CUDA enqueue 途中异常由实验执行器终止整组，不能重试已部分发出的同一实例。
-
-## 4. 有限提前扫描和尾部补齐
-
-`taco_op3_try_decode` 默认运行两轮，每轮 512 个 128-thread CTA。一个 CTA 负责一个 fragment：
-
-1. 本代已经消费，直接退出。
-2. 八来源尚未全部发布，直接退出。
-3. 全部就绪，使用 A 的原 scalar CTA 解码计算，依次处理该 fragment 的 16 个 H128 group，再写 `done=epoch`。
-
-两轮扫描在同一辅助 stream 上串行；不同 CTA 拥有不同 fragment。主 stream 等待该 stream 的完成事件后，才读取 done 并启动 `taco_op3_tail_decode`。尾部保持 A 的每 H128 group 一个 CTA 的粒度；已经消费的 fragment 跳过，其余等待各来源标记后计算。
-
-两个阶段直接共用从 A 提取的原解码计算体，保留 `rank+1,…,rank` 来源次序，以及解码后、每次累加后的 BF16 舍入。未替换为 warp 解码器，也未改变量化预算。是否逐位一致需要新的 A/S/O GPU 检查。
-
-**进展条件不依赖“CUDA 一定并发执行两个 kernel”。** 提前扫描没有等待生产者的循环，未获得调度重叠时会有限退出。尾部允许等待远端标记，但它只能在本 rank 的全部生产完成后运行：进入尾部的 rank 已向所有目标发布自己的贡献；仍被等待的 rank 可以继续完成本地生产，不依赖其他 rank 的尾部消费。正常执行下不会形成消费者占住本 GPU、又等待该 GPU 尚未调度生产者的环。
-
-不使用 `use_gemmk=False` 作为“没有 Stream-K”的证明；原调度启发式保留。实际 occupancy、Stream-K 行为及资源竞争仍属于 GPU 预检内容。
-
-## 5. 如何区分协议变化和重叠收益
-
-新增三组同机比较：
-
-| 组别 | 生产/codec | 发布与消费 | 用途 |
+| 项目 | A：原基线 | S：新协议串行控制 | O：提前消费候选 |
 | --- | --- | --- | --- |
-| A | 原 A | 原发布屏障、原解码、复用屏障 | 性能基线 |
-| S | 与 O 相同，生产映射同 A | 新 fragment 发布；本地 GEMM 后按 fragment 消费；无提前扫描 | 协议串行控制 |
-| O | 与 S 相同 | 有限提前扫描＋尾部补齐＋复用屏障 | 实际候选 |
+| 生产映射 | 原双 shape 交替 | 同 A | 同 A |
+| 量化与数学计算 | 全远端 H128/E4M3，本地 BF16 | 同 A | 同 A |
+| 解码计算 | 原 scalar CTA 计算体、ring 来源次序、逐次 BF16 舍入 | 同一计算体 | 同一计算体 |
+| 生产发布 | 整阶段发布屏障 | 每 fragment 的 system fence＋epoch 标记 | 同 S |
+| 提前扫描 | 无 | 无 | 两轮，每轮 512 CTA，每 CTA 处理一个 16 行 fragment |
+| 尾部消费 | 发布屏障后全量解码 | 本地 GEMM 后，逐 fragment 等待并解码 | 等待辅助扫描结束，再补齐未消费 fragment |
+| 工作区/复用/输出 | 单工作区、复用屏障、输出 clone | 相同生命周期约束 | 相同生命周期约束 |
 
-`O/A` 回答是否达到实际目标；`O/S` 帮助判断提前消费的增量收益；`S/A` 显示发布标记、移除发布屏障及尾部等待实现的综合影响。不能把整个 `O/A` 差异都归于离线到达排序。
+**本轮没有更改生产顺序，也没有重新校准离线 `tail` 排序。** O/A 衡量新协议和提前消费的整体效果；O/S 衡量增加提前扫描、done 跳过及 stream 等待等路径后的净效果。不能把它们解释为 op1/op2 的离线生产重排收益。
 
-新实验对所有组统一设置 `CUDA_DEVICE_MAX_CONNECTIONS=8`，允许独立 stream 使用不同连接；统一 `FLUX_GEMM_RS_GEMM_ONLY=1`、`NCCL_NVLS_ENABLE=0`。这与旧实验默认连接数不同，必须重测同批 A。配置一致不等于保证实际 kernel 重叠。
+计划登记的 A/O 来源分别有 351/352 个文件：O 修改了 Python 前端、epilogue、runtime 头文件/实现和 C++ wrapper，共 5 个文件，另新增一个 helper；其余 346 个登记哈希一致，包括原 codec 和生产映射。本次回传未包含远端完整构建目录及动态库，CPU 审计核对的是计划、运行记录中的来源/库哈希一致性，未重新读取或加载远端二进制。
 
-固定版本 Megatron 的 TP 参数检查强制连接数为 1。整步准备器从固定 commit 导出独立源码副本，仅把 `megatron/training/arguments.py` 的这一检查改为要求 8；保存完整文件哈希和唯一补丁，A/S/O 共用该副本。原仓库不改，不临时伪造环境变量绕过检查。该版本 `tensor_parallel/layers.py` 对连接数的说明明确区分调度性能和数值正确性；其他 TP 通信与计算的重叠性能仍可能随连接数改变，故新配置结论必须限定在本次同机比较。
+环境为 `gxn75`，8×NVIDIA H100 80GB HBM3、每卡 132 SM，PyTorch 2.6.0+cu124、CUDA 运行时 12.4、NCCL 2.21.5。三组均使用 `CUDA_DEVICE_MAX_CONNECTIONS=8`、`FLUX_GEMM_RS_GEMM_ONLY=1`、`NCCL_NVLS_ENABLE=0`。完整训练共用固定 Megatron commit 的独立副本，只调整要求连接数为 1 的参数检查，使其接受本实验固定的 8。
 
-诊断开关 `H100_OP3_DIAGNOSTICS=1` 仅用于独立 profile 窗口。记录同一 GPU 上的首次解码开始/完成、最后本地 fragment 发布、提前消费数。有效证据要求：
+模型仍为 GPT6.7B：32 层、H4096/FFN16384、32 heads、序列 2048、micro batch 1/global batch 4、TP8、BF16，seed1234、token_seed4321、padded vocab33792。每个 optimizer step 含 4 个微批、8192 token、256 次目标前向投影。结论限定于这套固定合成数据与运行配置；本次 A 与历史 op2 的连接数设置不同，不能直接拿旧 A 的 535.492 ms 做配对比较。
 
-- trace 中 GEMM 和 `taco_op3_try_decode` 位于不同 stream，时间区间有交集；
-- 至少一个完整 fragment 的解码完成早于该 GPU 最后一次生产发布，且提前消费计数为正。
+## 3. 完整训练：两次比较、四轮均没有 O/A 收益
 
-仅看到一个轮询/检查 kernel 与 GEMM 同时运行，不足以证明有用消费。正式计时必须关闭诊断原子操作和时间戳。
+每次比较包含 12 个完整 A/S/O 块，前后各 6 块，后半反转顺序；两次共 24 个块、72 个正式窗口、576 份正式 rank 记录、3600 个累计 optimizer step。每窗口独立初始化模型，10 步预热＋50 步正式计时。3600 步是多个独立窗口的累计工作量，不是一个模型连续训练 3600 步。
 
-## 6. 实现与验证入口
+每窗口读取八 rank 的 `elapsed_seconds`，取最大值后除以 50；覆盖完整前后向、通信、optimizer 更新及清梯度。无 profiler、无诊断时间戳参与正式计时。
 
-另一台 H100 服务器可使用与 op2 相同形式的一键后台入口。先同步本轮代码到 `/workspace/TempName`，在已能使用完整 8×H100 的容器内执行：
+下表的“下降率”正值表示更快，负值表示更慢：
 
-```bash
-cd /workspace/TempName
-/workspace/conda-envs/flux-h100-ablation3-20261017/bin/python \
-  tools/h100/phase6/detach_arrival_op3.py --execute
-```
+| 比较 / 轮次 | A ms/step | S ms/step | O ms/step | O/A 配对耗时下降% [95% CI] |
+| --- | ---: | ---: | ---: | --- |
+| compare1，第1轮 | 537.894 | 537.324 | 541.463 | −0.663 [−0.982, −0.319] |
+| compare1，第2轮 | 537.574 | 537.155 | 541.969 | −0.816 [−1.308, −0.380] |
+| **compare1，合并** | **537.734** | **537.239** | **541.716** | **−0.739 [−1.039, −0.455]** |
+| compare2，第1轮 | 537.456 | 540.768 | 542.235 | −0.889 [−1.147, −0.594] |
+| compare2，第2轮 | 535.158 | 536.289 | 540.591 | −1.015 [−1.353, −0.687] |
+| **compare2，合并** | **536.307** | **538.528** | **541.413** | **−0.952 [−1.175, −0.733]** |
 
-新增的 [detach_arrival_op3.py](../../../../tools/h100/phase6/detach_arrival_op3.py) 依次执行：重新生成 A/O 源码并编译 → A/S/O 算子正确性及计时 → 独立 trace/有效提前消费检查 → 两次完整训练比较。没有有效提前消费时记录 `completed_no_overlap` 并停止整步阶段；性能没有达到 1% 时记录完成但目标未通过。默认不复用 op2 构建或本机的 CPU 诊断构建。
+下降率按 `100×[1−exp(mean(log(T_candidate/T_baseline)))]` 计算；95% 区间以完整配对块 bootstrap 10000 次，seed20261020。没有把八个 rank 或窗口内的 50 步作为独立样本。
 
-默认与原服务器 op2 环境一致：使用启动脚本的 Python，CUDA12.8 编译、CUDA12.4 运行、jobs2、相邻目录 `../Megatron-LM`。未指定 `--nccl-root` 时在新构建目录编译 NCCL。路径不同可覆盖：
+串行控制进一步表明：
 
-```bash
-/workspace/conda-envs/flux-h100-ablation3-20261017/bin/python \
-  tools/h100/phase6/detach_arrival_op3.py --execute \
-  --build-cuda-home /usr/local/cuda-12.8 \
-  --cuda-home /usr/local/cuda-12.4 \
-  --megatron /workspace/Megatron-LM
-```
-
-去掉 `--execute` 仅打印计划，不创建目录、启动进程或查询 GPU；添加 `--foreground` 可前台运行。`--op3-build` 只接受完整、可执行且来源核验通过的 op3 A/O 构建。
-
-启动时打印本批目录，默认位于 `logs/h100/phase6/arrival-op3-2x-50steps-<时间>/`。查看 `batch-state.json`、`handoff/container-supervisor.log`；结果分别在 `operator/report.json`、`operator/profile-summary.json`、`fullstep/report.json`。成功后台启动不表示实验已完成。一键入口的 8 项 CPU 调度回归及无副作用预览已通过，本机未执行 `--execute`。
-
-历史 A、op1/op2 源码和原始实验记录未回写。新增文件：
-
-- [arrival_op3_sources.py](../../../../tools/h100/phase6/arrival_op3_sources.py)：从已核验 A 生成独立候选；修改 runtime、epilogue、C++ 调用关系和 Python 实例配置。
-- [arrival_op3_cuda.cuh](../../../../tools/h100/phase6/arrival_op3_cuda.cuh)：控制区布局、system release/acquire 和逐 fragment 发布。
-- [arrival_op3_build.py](../../../../tools/h100/phase6/arrival_op3_build.py)：A/O 源码封存、构建与 CPU/SM90 编译检查。
-- [arrival_op3_bench.py](../../../../tools/h100/phase6/arrival_op3_bench.py)：独立 fresh-process A/S/O 算子正确性、重复复用、配对计时及 trace 验证。
-- [arrival_op3_fullstep.py](../../../../tools/h100/phase6/arrival_op3_fullstep.py)：复用既有完整模型 worker/adapter，生成隔离 Megatron 副本，执行两次独立整步比较并验收 1%。
-- [arrival_op3.sbatch](../../../../tools/h100/phase6/arrival_op3.sbatch)：新 H100 节点上的作业入口，第四个参数选择 `micro` 或 `fullstep`。
-- [协议模型测试](../../../../tools/h100/phase6/test_arrival_op3_protocol.py)：乱序生产、延迟 rank、旧 epoch、唯一覆盖、复用及进展条件。
-
-从仓库根目录准备新构建，不需要沿用旧 gxn75 的校准身份：
-
-```bash
-export OP3_PYTHON=/data/run01/scyb672/conda_envs/flux-megatron-a800/bin/python
-export OP3_CUDA=/data/apps/cuda/12.8
-export PATH=/data/home/scyb672/run/software/cmake-3.30.0-linux-x86_64/bin:$PATH
-
-"$OP3_PYTHON" tools/h100/phase6/arrival_op3_build.py prepare \
-  --out outputs/h100/phase6/arrival-op3-executable
-
-"$OP3_PYTHON" tools/h100/phase6/arrival_op3_build.py build \
-  --build outputs/h100/phase6/arrival-op3-executable \
-  --cuda-home "$OP3_CUDA" --nccl-root "$PWD/3rdparty/nccl/build" --jobs 2
-
-"$OP3_PYTHON" tools/h100/phase6/arrival_op3_bench.py prepare \
-  logs/h100/phase6/arrival-op3-operator \
-  --build outputs/h100/phase6/arrival-op3-executable
-
-# 以下两条在完整8×H100分配内执行；默认不加 --execute 只预览。
-"$OP3_PYTHON" tools/h100/phase6/arrival_op3_bench.py run \
-  logs/h100/phase6/arrival-op3-operator \
-  --python "$OP3_PYTHON" --cuda-home "$OP3_CUDA" --execute
-"$OP3_PYTHON" tools/h100/phase6/arrival_op3_bench.py run \
-  logs/h100/phase6/arrival-op3-operator \
-  --python "$OP3_PYTHON" --cuda-home "$OP3_CUDA" --profile --execute
-
-# 算子正确性和提前消费证据核验后，另建完整训练比较。
-"$OP3_PYTHON" tools/h100/phase6/arrival_op3_fullstep.py prepare \
-  logs/h100/phase6/arrival-op3-fullstep \
-  --build outputs/h100/phase6/arrival-op3-executable \
-  --megatron ../Megatron-LM --trials 2 --blocks 12
-"$OP3_PYTHON" tools/h100/phase6/arrival_op3_fullstep.py run \
-  logs/h100/phase6/arrival-op3-fullstep \
-  --python "$OP3_PYTHON" --cuda-home "$OP3_CUDA" --execute
-```
-
-正式性能验收还需要相同 GPT6.7B 全训练、每窗口 10 步预热＋50 步正式计时、完整 A/S/O 块配对、反序复测。原始八 rank 取完整窗口最大墙钟，不把 rank、窗口内 step 或受 profiler 扰动的时间当作独立样本。算子报告始终保留 `target_validated=false`，不会自动升级为 1% 整步结论。
-
-整步入口默认两次比较，每次 12 个完整 A/S/O 块（前后各 6 块，后半反序），共 72 个正式窗口、3600 个累计 optimizer step。每次比较分别计算配对 log-ratio 的 95% bootstrap 区间，**两次 O/A 的点估计和区间下界都至少为 1%** 才通过性能门槛。所有数值、执行范围、运行库、前端源码和同机身份检查也必须通过；机制证据另由独立算子 profile 验证，不能仅凭整步性能报告推断重叠。
-
-## 7. 当前结果和未完成验收
-
-**45 项 CPU 回归全部通过**：协议模型 12 项、实际源码变换与配置门槛 10 项、构建来源核验 5 项、实验生成/报告/失败清理 18 项。覆盖乱序/延迟生产、连续三代复用、所有提前扫描均未命中、唯一消费、仅线程 0 fence 的错误反例、原解码计算体一致、未完成/被篡改/带诊断的正式证据拒绝。性能报告测试使用临时合成 fixture，仅测试判定逻辑，没有计入 GPU 结果。见 [统一测试日志](../../../../outputs/h100/phase6/arrival-op3-validation-20261020/all-cpu-tests.log) 和 [测试输入哈希](../../../../outputs/h100/phase6/arrival-op3-validation-20261020/cpu-validation.json)。
-
-实际固定 Megatron commit 的导出与校验也已运行通过：1383 个文件中仅调度配置检查文件发生登记变化，原仓库未改；见 [快照核验](../../../../outputs/h100/phase6/arrival-op3-validation-20261020/megatron-snapshot-validation.json)。Python 语法、Slurm shell 语法及本页本地链接检查通过。GPU 正确性入口另外包含 rank0/rank7 的延迟生产压力，但本轮尚未执行。
-
-已完成真实交叉编译，见 [编译结果](../../../../outputs/h100/phase6/arrival-op3-20261020-compile/validation.json) 和 [命令日志](../../../../outputs/h100/phase6/arrival-op3-20261020-compile/compile.log)：
-
-| 检查 | A | O |
+| 比较 | S/A 配对下降% [95% CI] | O/S 配对下降% [95% CI] |
 | --- | --- | --- |
-| 主机双 shape、全 rank 的物理映射 | 通过 | 通过 |
-| SM90 mapping/runtime 对象编译 | 通过 | 通过 |
-| 真实完整 V2 GEMM 实例编译，包含 epilogue 实例化 | 通过 | 通过 |
-| 使用 Torch 2.6.0 头文件编译 C++ THS wrapper | 通过 | 通过 |
+| compare1 | +0.092 [−0.125, +0.333] | **−0.832 [−1.191, −0.481]** |
+| compare2 | −0.413 [−0.726, −0.081] | **−0.537 [−0.882, −0.211]** |
 
-合计 18 条真实命令、8 个对象文件；CUDA Toolkit 12.8，Torch 环境 2.6.0+cu124。记录明确为 `completed=true,gpu_used=false,gpu_validated=false,linked_runtime=false`：这不是完整动态库链接或 GPU 执行通过。
+S/A 第一轮完整比较没有确认收益，第二次显示退化；O/S 两次均显示退化。因此，移除发布屏障的新协议未验证稳定整步收益，加入提前扫描也没有改善它。
 
-新生成 A 与登记 A 的 351 项源码哈希完全一致；O 修改其中 5 个文件并新增一个 helper，其余 346 项保持一致。原 scalar codec 和生产映射均未改变。源码与哈希见 [A/O 封存目录](../../../../outputs/h100/phase6/arrival-op3-20261020/)。该 CPU 编译目录继承诊断父构建属性；正式运行应按第 6 节 fresh prepare，不能把它升级成已验收 GPU 构建。
+两次合并的描述性结果：
 
-当前登录节点为 `ln02`，无本地 CUDA 设备。读取 H100 分区后，没有可用的完整八卡节点；`sbatch --test-only` 还返回 `AssocMaxSubmitJobLimit`。这是本次 GPU 实测的实际阻碍；没有取消其他作业、实际提交排队任务或复用旧时间冒充新结果。详见 [环境核验记录](../../../../outputs/h100/phase6/arrival-op3-validation-20261020/environment-audit.json)，其中明确区分了忠实转录的只读结果与自动生成的编译证据。
+| 指标，每组24个正式窗口 | A | S | O |
+| --- | ---: | ---: | ---: |
+| 平均 ms/step | 537.021 | 537.884 | 541.565 |
+| 中位 ms/step | 536.924 | 537.836 | 541.310 |
+| 吞吐 tokens/s，总量/总时间 | 15254.53 | 15230.06 | 15126.54 |
+| 平均训练 loss | 3.821014 | 3.821014 | 3.821014 |
+| 最终 loss 平均 | 3.261156e−05 | 3.261156e−05 | 3.261156e−05 |
 
-实现存在清楚的性能风险：每 fragment 的 system fence/标记、有限扫描发起成本、与 GEMM 竞争 SM/内存带宽，以及尾部重复检查，都可能抵消提前消费的收益。两轮扫描也可能全部错过可消费时间窗。**本轮移除了结构上的整阶段消费依赖，但不能据此宣称物理生产尾部、跨 rank 等待或完整 step 已经缩短。**
+全部窗口保留。按各次、各轮、各组中位数归一化，A/S/O 最慢窗口比分别为 1.008891、1.011718、1.013642；未发现超过 1.10 倍中位数的明显慢窗口。没有剔除数据来改变结论。
 
-验收必须同时补齐：新库多输入跨代正确性、有效提前消费 trace、无诊断的完整训练配对结果。若 O/A 没达到 1%，继续以 A 为基线，并报告未达标；不通过降低门槛或只选单轮结果宣称成功。
+以本批 A 的 537.021 ms/step 计算，1% 需要净省 **5.370 ms/step**，即目标投影平均每次净省约 **20.977 μs**。O 实际平均增加 4.544 ms/step，方向与目标相反。
+
+## 4. 独立算子计时也明显退化
+
+算子阶段共有 6 个完整 A/S/O 块、18 个 fresh-process TP8 窗口、144 份 rank 记录。每窗口分别测 Attention 和 MLP，各 100 次预热＋200 次正式 `forward().clone()`，以八 rank 最大墙钟计时；共 7200 次正式分布式算子调用，不重复乘 rank 数。
+
+| 角色 | A μs/次 | S μs/次 | O μs/次 | O/A 配对下降% [95% CI] |
+| --- | ---: | ---: | ---: | --- |
+| Attention | 193.689 | 323.873 | 531.085 | **−174.196 [−174.962, −173.550]** |
+| MLP | 270.803 | 389.863 | 583.342 | **−115.412 [−117.440, −113.245]** |
+
+Attention 的 O 约为 A 的 2.742 倍，MLP 约为 2.154 倍。负下降率可以小于 −100%，含义是耗时超过基线两倍。
+
+S/A 的配对下降分别为 −67.212%、−43.974%；O/S 分别为 −63.980%、−49.619%，这些 95% 区间也均完全为负。这说明在本次独立固定输入算子运行中，新协议和提前扫描两部分都有明显成本。
+
+**不能把上述算子差值直接乘以训练中的调用数，作为完整 step 的实测归因。** 独立重复调用和真实模型中的输入、缓存、层间调度与其他工作不同；本次完整 step 的实际退化约 0.74%–0.95%，应以第3节为准。当前证据没有给出二者差异的完整定量解释。
+
+## 5. trace：有真实提前消费，但尾部等待仍然很长
+
+独立 profile 阶段为每组 8 rank、每 rank 两个角色、每角色 4 次调用，共 24 份 rank 记录、48 份 trace、192 个 rank-local 算子调用。其中 O 有 64 次。CPU 复核将每次诊断记录与同一次调用的 GEMM、两轮 try 和 tail kernel 对齐，而不是只在整份 trace 中寻找任意重叠。
+
+| O 的诊断 | Attention | MLP |
+| --- | ---: | ---: |
+| profile 调用数 | 32 | 32 |
+| 存在不同 stream 的 GEMM/try 时间交集 | 32/32 | 32/32 |
+| **至少一个 fragment 解码完成早于本地最后生产发布** | **1/32** | **24/32** |
+| try 完全没有消费 | 7/32 | 7/32 |
+| try 最终消费全部512个 fragment | 22/32 | 25/32 |
+| 首个完成解码相对最后发布的提前量，限有效调用 | 1.344 μs，1次 | 中位4.816 μs，范围0.896–10.016 μs |
+| 辅助扫描结束晚于 GEMM 的调用数 | 25/32 | 25/32 |
+| 上述调用中，辅助扫描晚于 GEMM 结束的时间中位数 | 209.120 μs | 218.527 μs |
+
+另有 3 次 Attention 调用在 try 中消费了 424、433、459 个 fragment。两角色合计有 78 对不同 stream 的 GEMM/try kernel 时间交集，但它们只对应 **25 次有效提前完成消费**，不能把 kernel 对数当作有效调用数。
+
+这些结果说明：
+
+1. **原来“所有消费者都等全部生产结束”的限制，确实在部分调用中被打破。** 本批不再是 GEMM/decode 零重叠；MLP 的诊断结果比 Attention 明显。
+2. **扫描最终处理了512个 fragment，不等于512个都在生产结束前处理完。** 记录只证明至少一个 fragment 的完成提前；多数消费仍可能发生在生产结束之后。
+3. **主 stream 还必须等辅助扫描结束。** 本批每个角色的25次有消费调用，辅助扫描都晚于本地 GEMM 结束；尾部补齐之前的 join 等待是真实存在的。把工作提前到另一个 stream，并不自动缩短完成时间。
+
+所有 A trace 均为 GEMM→发布屏障→原解码→复用屏障；S 为 GEMM→tail→复用屏障；O 具有两轮辅助 try、主 stream tail 和一轮复用屏障。由此确认新路径实际执行，原发布屏障已经从 S/O 路径移除。
+
+上述时间均来自**启用诊断的独立算子 profile**，不是正式训练阶段的无扰动测量。首次调用还存在明显跨 rank 起步差异；不能用这些绝对时间直接拆解整步的4.544 ms退化。
+
+## 6. 为什么“提前消费生效”仍然没有收益
+
+最直接的证据是：**O/S 在完整训练中两次都变慢，而不是只在微基准中变慢。** 提前扫描相关路径在本次配置下的总成本，超过了它带来的等待减少。
+
+代码与 trace 给出以下解释线索：
+
+- 每个 fragment 增加全写线程的 system fence、CTA 同步和发布标记；S/O 的生产阶段因此增加了原 A 没有的工作。
+- try 使用 512 个 CTA，每 CTA 顺序解码16个 H128 group；它与 A 的8192个单 group CTA 的工作分配不同。沿用相同数学计算体，并不意味着解码吞吐相同。
+- 两轮 try 需要就绪检查、done 记录、额外 kernel 发起和 stream join；已被 try 处理的数据仍需由 tail 判断并跳过。
+- 提前完成的首个 fragment 只领先最后生产发布约1–10 μs，而辅助扫描经常持续到 GEMM 结束之后。当前调度没有把这部分工作充分隐藏在生产期间。
+
+这些是有源码和 profile 支持的瓶颈线索，**尚未通过单独消融把退化精确分配给 fence、CTA 工作分配、资源竞争或跨 rank 等待**。尤其不能只看最后一个 tail kernel 变短，就忽略生产和辅助扫描延长后的总路径。
+
+本批支持的结论是：同步依赖改造和部分提前消费已验证，但“真正缩短尾部生产或跨 rank 等待，并转化为至少1%完整训练加速”没有验证；现有 O 实际更慢。后续若继续优化，应围绕生产发布成本和辅助扫描完成时间验证新候选，而不继续把“观察到重叠”当作性能准入条件。本次仅总结回传结果，没有改参数或启动新实验。
+
+## 7. 数值、复核范围与证据
+
+- 算子计时窗口登记的 **3456 项**输入/输出及独立 codec 检查全部通过；每窗口包含3个seed×4次改变输入/权重的复用轮次、重复输出检查，以及rank0/rank7的延迟生产压力。A/S/O 的对应输入和输出哈希逐项一致。
+- 模型 smoke 共24份rank记录，每组512项、合计1536项模块/rank数值检查通过。三组最大相对 BF16 L2 均为 **2.545994%**，最大相对独立 codec 参考 L2 均为 **0.017685%**。
+- 576份正式训练rank记录的loss/grad_norm有限，skip/fallback均为0；全部72条窗口级loss轨迹逐项相同，同窗口各rank也一致。这支持本次固定合成输入上的一致性，不代表真实语料上的长期收敛验证。
+- [审计脚本](../../../../outputs/h100/phase6/arrival-op3-results-audit-20261020/audit.py) 在CPU上重新运行严格报告逻辑，报告写入被截获在内存中；整步报告和算子报告与回传JSON逐项一致。profile汇总除迁移后的trace绝对路径外逐项一致，并额外逐调用确认25次有效重叠。
+- 审计记录838个直接核验输入的SHA256。远端完整构建和动态库未回传，因此未重新验证其实际字节或加载执行；没有把登记哈希一致写成新一次GPU运行。
+
+| 证据 | 链接 |
+| --- | --- |
+| 批次完成与验收状态 | [batch-state.json](../../../../logs/h100/phase6/arrival-op3-2x-50steps-20261020-192646-582458/batch-state.json) |
+| 独立算子报告 | [operator/report.json](../../../../logs/h100/phase6/arrival-op3-2x-50steps-20261020-192646-582458/operator/report.json) |
+| 有效提前消费及trace汇总 | [operator/profile-summary.json](../../../../logs/h100/phase6/arrival-op3-2x-50steps-20261020-192646-582458/operator/profile-summary.json) |
+| 两次完整训练报告 | [fullstep/report.json](../../../../logs/h100/phase6/arrival-op3-2x-50steps-20261020-192646-582458/fullstep/report.json) |
+| 完整模型预检 | [fullstep/preflight.json](../../../../logs/h100/phase6/arrival-op3-2x-50steps-20261020-192646-582458/fullstep/preflight.json) |
+| 本轮CPU重算与逐调用核验 | [audit.json](../../../../outputs/h100/phase6/arrival-op3-results-audit-20261020/audit.json) / [audit.log](../../../../outputs/h100/phase6/arrival-op3-results-audit-20261020/audit.log) |
+
+算子run_id为 `288e6cd2e3c0434781c5fd604b5d824a`；整步批次run_id为 `de233af3b1d747f0823bdb9af87ae3fc`；两次比较run_id分别为 `ff12f6c7833749019e77641dbdf399b8` 和 `8305f48fd64e4b91ba047eead5088f55`。

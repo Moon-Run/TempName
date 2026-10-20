@@ -1,0 +1,173 @@
+{
+  "completed": true,
+  "gpu_executed": false,
+  "source_batch": "logs/h100/phase6/arrival-op3-2x-50steps-20261020-192646-582458",
+  "cached_fullstep_report_exact_match": true,
+  "cached_operator_report_exact_match": true,
+  "cached_profile_summary_match_except_relocated_trace_paths": true,
+  "aggregate": {
+    "A": {
+      "mean_ms": 537.0206952886656,
+      "median_ms": 536.9239946454763,
+      "tokens_per_second": 15254.533152761536,
+      "mean_loss": 3.8210143247736412,
+      "mean_final_loss": 3.2611555070616305e-05,
+      "max_window_over_round_median": 1.0088905093062805
+    },
+    "S": {
+      "mean_ms": 537.8837884256305,
+      "median_ms": 537.8363567590714,
+      "tokens_per_second": 15230.05559245006,
+      "mean_loss": 3.8210143247736412,
+      "mean_final_loss": 3.2611555070616305e-05,
+      "max_window_over_round_median": 1.0117176931270653
+    },
+    "O": {
+      "mean_ms": 541.5645481933219,
+      "median_ms": 541.3100996892899,
+      "tokens_per_second": 15126.544060775019,
+      "mean_loss": 3.8210143247736412,
+      "mean_final_loss": 3.2611555070616305e-05,
+      "max_window_over_round_median": 1.0136418711992436
+    }
+  },
+  "descriptive_O_minus_A_ms": 4.543852904656319,
+  "descriptive_O_over_A_increase_percent": 0.8461224948163037,
+  "formal_optimizer_steps": 3600,
+  "training_rank_records": 576,
+  "smoke_rank_records": 24,
+  "smoke": {
+    "A": {
+      "checks": 512,
+      "max_relative_l2": 0.025459939691002402,
+      "max_codec_relative_l2": 0.00017685305251376754
+    },
+    "S": {
+      "checks": 512,
+      "max_relative_l2": 0.025459939691002402,
+      "max_codec_relative_l2": 0.00017685305251376754
+    },
+    "O": {
+      "checks": 512,
+      "max_relative_l2": 0.025459939691002402,
+      "max_codec_relative_l2": 0.00017685305251376754
+    }
+  },
+  "all_training_loss_trajectories_identical": true,
+  "micro_windows": 18,
+  "micro_rank_records": 144,
+  "micro_correctness_checks": 3456,
+  "timed_distributed_operator_calls": 7200,
+  "profile_rank_records": 24,
+  "trace_files": 48,
+  "profile_calls": {
+    "attn": {
+      "calls": 32,
+      "useful_calls": 1,
+      "same_call_useful_overlap": 1,
+      "overlap_pairs": 39,
+      "no_try_consumption": 7,
+      "all_fragments_in_try": 22,
+      "fragment_counts": [
+        0,
+        424,
+        433,
+        459,
+        512
+      ],
+      "useful_first_complete_lead_us": {
+        "count": 1,
+        "minimum": 1.344,
+        "median": 1.344,
+        "mean": 1.344,
+        "maximum": 1.344
+      },
+      "positive_try_end_after_gemm_us": {
+        "count": 25,
+        "minimum": 119.807861328125,
+        "median": 209.1201171875,
+        "mean": 189.065966796875,
+        "maximum": 250.623046875
+      },
+      "profiled_kernel_medians": {
+        "A": {
+          "gemm_us": 93.45599999999999,
+          "try_sum_us": 0.0,
+          "decoder_us": 48.512
+        },
+        "S": {
+          "gemm_us": 208.864,
+          "try_sum_us": 0.0,
+          "decoder_us": 75.088
+        },
+        "O": {
+          "gemm_us": 211.1365,
+          "try_sum_us": 268.62350000000004,
+          "decoder_us": 29.567500000000003
+        }
+      }
+    },
+    "mlp": {
+      "calls": 32,
+      "useful_calls": 24,
+      "same_call_useful_overlap": 24,
+      "overlap_pairs": 39,
+      "no_try_consumption": 7,
+      "all_fragments_in_try": 25,
+      "fragment_counts": [
+        0,
+        512
+      ],
+      "useful_first_complete_lead_us": {
+        "count": 24,
+        "minimum": 0.896,
+        "median": 4.816,
+        "mean": 4.988,
+        "maximum": 10.016
+      },
+      "positive_try_end_after_gemm_us": {
+        "count": 25,
+        "minimum": 170.97509765625,
+        "median": 218.52685546875,
+        "mean": 213.06283203125,
+        "maximum": 249.087158203125
+      },
+      "profiled_kernel_medians": {
+        "A": {
+          "gemm_us": 152.7995,
+          "try_sum_us": 0.0,
+          "decoder_us": 51.376000000000005
+        },
+        "S": {
+          "gemm_us": 262.9575,
+          "try_sum_us": 0.0,
+          "decoder_us": 78.4005
+        },
+        "O": {
+          "gemm_us": 265.487,
+          "try_sum_us": 328.75149999999996,
+          "decoder_us": 29.6
+        }
+      }
+    }
+  },
+  "registered_source_difference": {
+    "A_count": 351,
+    "O_count": 352,
+    "changed": [
+      "python/flux/gemm_rs_taco.py",
+      "src/gemm_rs/epilogue_evt.hpp",
+      "src/gemm_rs/taco_runtime.cu",
+      "src/gemm_rs/taco_runtime.h",
+      "src/gemm_rs/ths_op/gemm_reduce_scatter.cc"
+    ],
+    "added": [
+      "src/gemm_rs/arrival_op3.cuh"
+    ]
+  },
+  "limitations": [
+    "Remote compiled build and libraries were not returned; source/library identities are checked against declarations, not loaded binary bytes.",
+    "Profiles are separate diagnostic operator runs, not full-training traces or uninstrumented stage timings.",
+    "No input evidence was rewritten; strict reporter writes were intercepted in memory."
+  ]
+}
