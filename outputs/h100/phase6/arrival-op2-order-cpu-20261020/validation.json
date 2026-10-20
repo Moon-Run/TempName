@@ -1,0 +1,184 @@
+{
+  "completed": true,
+  "gpu_used": false,
+  "gpu_validated": false,
+  "device_code_compiled": "sm_90",
+  "host_constructor_checked": true,
+  "role_span_combinations": 25,
+  "mapping_checks_per_combination": 8192,
+  "commands": [
+    [
+      "/data/apps/cuda/12.8/bin/nvcc",
+      "-std=c++17",
+      "-O2",
+      "--expt-relaxed-constexpr",
+      "-gencode=arch=compute_90,code=sm_90",
+      "-I/data/run01/scyb672/hjr/TempName/3rdparty/cutlass/include",
+      "/data/run01/scyb672/hjr/TempName/outputs/h100/phase6/arrival-op2-order-cpu-20261020/scheduler-check/check.cu",
+      "-o",
+      "/data/run01/scyb672/hjr/TempName/outputs/h100/phase6/arrival-op2-order-cpu-20261020/scheduler-check/check"
+    ],
+    [
+      "/data/run01/scyb672/hjr/TempName/outputs/h100/phase6/arrival-op2-order-cpu-20261020/scheduler-check/check"
+    ],
+    [
+      "/data/apps/cuda/12.8/bin/nvcc",
+      "-x",
+      "cu",
+      "-std=c++17",
+      "-O2",
+      "--expt-relaxed-constexpr",
+      "-gencode=arch=compute_90,code=sm_90",
+      "-I/data/run01/scyb672/hjr/TempName/3rdparty/cutlass/include",
+      "/data/run01/scyb672/hjr/TempName/outputs/h100/phase6/arrival-op2-order-cpu-20261020/dispatch-proof.cc",
+      "-o",
+      "/data/run01/scyb672/hjr/TempName/outputs/h100/phase6/arrival-op2-order-cpu-20261020/dispatch-proof"
+    ],
+    [
+      "/data/run01/scyb672/hjr/TempName/outputs/h100/phase6/arrival-op2-order-cpu-20261020/dispatch-proof"
+    ],
+    [
+      "/usr/bin/python3",
+      "-m",
+      "unittest",
+      "discover",
+      "-s",
+      "/data/run01/scyb672/hjr/TempName/tools/h100/phase6",
+      "-p",
+      "test_arrival_pair_order.py",
+      "-v"
+    ]
+  ],
+  "diagnostics": {
+    "1": {
+      "method": "destination-preserving-row-pair-v1",
+      "span": 1,
+      "candidate_kind": "producer_locality",
+      "changed_per_rank": [
+        496,
+        496,
+        496,
+        496,
+        496,
+        496,
+        496,
+        496
+      ],
+      "identity_fallback": false,
+      "destination_slots_preserved": true,
+      "destination_window": 64,
+      "permutation": true,
+      "b_row_pair_slot_gap": 8,
+      "baseline_b_row_pair_slot_gap": 256,
+      "gpu_validated": false,
+      "timing_prediction": false
+    },
+    "4": {
+      "method": "destination-preserving-row-pair-v1",
+      "span": 4,
+      "candidate_kind": "producer_locality",
+      "changed_per_rank": [
+        448,
+        448,
+        448,
+        448,
+        448,
+        448,
+        448,
+        448
+      ],
+      "identity_fallback": false,
+      "destination_slots_preserved": true,
+      "destination_window": 64,
+      "permutation": true,
+      "b_row_pair_slot_gap": 32,
+      "baseline_b_row_pair_slot_gap": 256,
+      "gpu_validated": false,
+      "timing_prediction": false
+    },
+    "8": {
+      "method": "destination-preserving-row-pair-v1",
+      "span": 8,
+      "candidate_kind": "producer_locality",
+      "changed_per_rank": [
+        384,
+        384,
+        384,
+        384,
+        384,
+        384,
+        384,
+        384
+      ],
+      "identity_fallback": false,
+      "destination_slots_preserved": true,
+      "destination_window": 64,
+      "permutation": true,
+      "b_row_pair_slot_gap": 64,
+      "baseline_b_row_pair_slot_gap": 256,
+      "gpu_validated": false,
+      "timing_prediction": false
+    },
+    "16": {
+      "method": "destination-preserving-row-pair-v1",
+      "span": 16,
+      "candidate_kind": "producer_locality",
+      "changed_per_rank": [
+        256,
+        256,
+        256,
+        256,
+        256,
+        256,
+        256,
+        256
+      ],
+      "identity_fallback": false,
+      "destination_slots_preserved": true,
+      "destination_window": 64,
+      "permutation": true,
+      "b_row_pair_slot_gap": 128,
+      "baseline_b_row_pair_slot_gap": 256,
+      "gpu_validated": false,
+      "timing_prediction": false
+    },
+    "32": {
+      "method": "destination-preserving-row-pair-v1",
+      "span": 32,
+      "candidate_kind": "producer_locality",
+      "changed_per_rank": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "identity_fallback": true,
+      "destination_slots_preserved": true,
+      "destination_window": 64,
+      "permutation": true,
+      "b_row_pair_slot_gap": 256,
+      "baseline_b_row_pair_slot_gap": 256,
+      "gpu_validated": false,
+      "timing_prediction": false
+    }
+  },
+  "baseline_source_sha256": {
+    "src/gemm_rs/tile_scheduler/threadblock_swizzle.hpp": "fbb307c93407bb52c82469224c6cb2791f85bcc50dbc6931ac28bdda8a7f8bf8",
+    "phase6_host.hpp": "3f0bea728ed78fa7811cc72f8d03a657b70fdddd5d9942ad67b5c6e0bece7153"
+  },
+  "source_sha256": {
+    "src/gemm_rs/tile_scheduler/threadblock_swizzle.hpp": "332b705ec461e5fb66e9647f854d743f06800cb5e82837f7b39581b0ee9a551f",
+    "phase6_host.hpp": "83140a05dcfbb351cdc5fa07c60e8ad761512c37da9c6fac8148a3defb8816c1"
+  },
+  "algorithm_sha256": "4e8d8488f94227007ec91924c666ed23b3d51fd342afcb49098b31738f15f5b2",
+  "dispatch_output": "problem_size: (2048,4096), tiled_shape: (16,32), tiles: 512, dp_tiles: 512, sk_tiles: 0, iters_per_tile: 16, reduction_blocks: 0, dp_blocks: 512, dp_waves: 3, dp_first_wave_tiles: 1, sk_blocks_per_region: 1, sk_regions: 1, sk_waves: 0, sk_iters_per_normal_block: 1, sk_big_blocks_per_region: 0, remap_block_indices: 0, cohort_raster: 0, sm_occupancy: 2, avail_sms: 132, num_blocks: 512\n\nproblem_size: (2048,4096), tiled_shape: (16,32), tiles: 512, dp_tiles: 512, sk_tiles: 0, iters_per_tile: 64, reduction_blocks: 0, dp_blocks: 512, dp_waves: 3, dp_first_wave_tiles: 1, sk_blocks_per_region: 1, sk_regions: 1, sk_waves: 0, sk_iters_per_normal_block: 1, sk_big_blocks_per_region: 0, remap_block_indices: 0, cohort_raster: 0, sm_occupancy: 2, avail_sms: 132, num_blocks: 512\n\n",
+  "notes": [
+    "No GPU kernel or CUDA context was launched.",
+    "Dispatch proof assumes the archived A occupancy 2 and 132 SM hardware configuration.",
+    "Locality and timing gains require target GPU validation."
+  ]
+}
