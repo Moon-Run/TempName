@@ -35,6 +35,8 @@ def parser():
     q.add_argument('out', type=Path)
     q.add_argument('--parent-build', type=Path, required=True, help='Verified original ablation4 build; never modified')
     q.add_argument('--source-only', action='store_true')
+    q.add_argument('--arrival-margin-multiplier', type=float, default=1.0,
+                   help='Frozen training margin in epsilon units (1..6; default 1 is exploratory)')
     q = sub.add_parser('compile')
     q.add_argument('build', type=Path)
     q.add_argument('--cuda-home', type=Path, required=True)
@@ -69,7 +71,8 @@ def parser():
 def main():
     args = parser().parse_args()
     if args.action == 'build-prepare':
-        print(builder.prepare(args.out, args.parent_build, args.source_only))
+        print(builder.prepare(args.out, args.parent_build, args.source_only,
+                              arrival_options={'uncertainty_multiplier': args.arrival_margin_multiplier}))
     elif args.action == 'compile':
         builder.compile_build(args.build, args.cuda_home, args.jobs, args.nccl_root)
     elif args.action == 'compile-check':

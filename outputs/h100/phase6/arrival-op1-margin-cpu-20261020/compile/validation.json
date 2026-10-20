@@ -1,0 +1,71 @@
+{
+  "completed": true,
+  "gpu_used": false,
+  "gpu_performance_validated": false,
+  "historical_v2_reproduced": true,
+  "source_plan_sha256": "00c5e193d6ae22ab8a824c447f5b2f4c0ea6d4bbc9ae8307a3d6e716b5e17cba",
+  "arrival_options": {
+    "uncertainty_multiplier": 1.0
+  },
+  "summary": {
+    "attn": {
+      "changed_per_rank": [
+        22,
+        0,
+        24,
+        0,
+        46,
+        0,
+        27,
+        0
+      ],
+      "accepted_windows": 14,
+      "exploratory": true
+    },
+    "mlp": {
+      "changed_per_rank": [
+        0,
+        0,
+        0,
+        0,
+        16,
+        0,
+        20,
+        6
+      ],
+      "accepted_windows": 5,
+      "exploratory": true
+    }
+  },
+  "commands": [
+    [
+      "g++",
+      "-std=c++17",
+      "-O2",
+      "outputs/h100/phase6/arrival-op1-margin-cpu-20261020/compile/host.cc",
+      "-o",
+      "outputs/h100/phase6/arrival-op1-margin-cpu-20261020/compile/host-check"
+    ],
+    [
+      "outputs/h100/phase6/arrival-op1-margin-cpu-20261020/compile/host-check"
+    ],
+    [
+      "/data/apps/cuda/12.8/bin/nvcc",
+      "-std=c++17",
+      "-O2",
+      "-gencode=arch=compute_90,code=sm_90",
+      "-c",
+      "outputs/h100/phase6/arrival-op1-margin-cpu-20261020/compile/device.cu",
+      "-o",
+      "outputs/h100/phase6/arrival-op1-margin-cpu-20261020/compile/device.o"
+    ]
+  ],
+  "files": {
+    "compile.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "host-check": "55bcb10588ccb63634498f3413a30cb1c5cafe4ea95b90be9ef457f7794c3b06",
+    "device.cu": "08e34f0c529926404cb16ce72d4d38902321457a7dbc1c501845916c258ccb33",
+    "device.o": "277e53b76917e3d829784cf5ede8bad9ba675334b9cc38bb33205a37ffb1cdfb",
+    "host.hpp": "2290a5cb8ef9ce7ee447c13197f5e46ab1bd8fd7fd2fc58c3d5ef3f34ff44cd8",
+    "host.cc": "d7d678f41dfe3beef8e23e7042231ac9bcbfec547a51847ce686440b8450509c"
+  }
+}

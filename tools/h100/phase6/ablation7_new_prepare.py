@@ -52,10 +52,12 @@ def prepare(out, build_root, megatron, blocks=6, rounds=2, nvls='0', source_only
         shutil.copy2(build_root/relative, provenance/name)
 
     plans = read(build_root/'plans.json')
+    options = builder.planner.frozen_options(plans)
+    option_fields = {} if options is None else dict(arrival_options=options)
     model, timing, comm = model_config(), routing.execution_timing(), communication.capture(nvls)
     budgets = {p: routing.definition(p)['budget_fraction'] for p in routing.POLICIES}
     config = read(REPO/'tools/a800/phase5/e2e/config.json')
-    config.update(protocol=routing.PROTOCOL, policies=list(routing.POLICIES), orders=[], repetitions=rounds,
+    config.update(protocol=routing.PROTOCOL, policies=list(routing.POLICIES), orders=[], repetitions=rounds, **option_fields,
         **timing, execution_timing=timing, graph_forward=False, double_buffered=True, ring_reduction=True,
         cases=[dict(name='h100-phase6', **{k: model[k] for k in ('hidden', 'ffn', 'heads', 'sequence', 'tp')})],
         common={k: model[k] for k in ('layers', 'micro_batch', 'global_batch', 'seed', 'token_seed', 'vocab')},
@@ -64,7 +66,7 @@ def prepare(out, build_root, megatron, blocks=6, rounds=2, nvls='0', source_only
               'only B uses tail_assignment; 10 warmup and 50 complete timed optimizer steps.')
     write(scripts/'config.json', config)
     run_id = uuid.uuid4().hex
-    write(provenance/'preparation.json', dict(protocol=routing.PROTOCOL, run_id=run_id,
+    write(provenance/'preparation.json', dict(protocol=routing.PROTOCOL, run_id=run_id, **option_fields,
         source_only=source_only, executable=not source_only, rounds=rounds, communication=comm,
         execution_timing=timing, plans_sha256=sha(build_root/'plans.json')))
 
@@ -83,7 +85,7 @@ def prepare(out, build_root, megatron, blocks=6, rounds=2, nvls='0', source_only
     for name, variant in improved['variants'].items():
         build_files.update({str(build_root/'improved'/name/p): h for p, h in variant['source_sha256'].items()})
     hardware = next((r['hardware'] for r in plans['parent']['roles'].values() if not r['test_only']), {})
-    info = dict(protocol=routing.PROTOCOL, run_id=run_id, config=model, execution_timing=timing,
+    info = dict(protocol=routing.PROTOCOL, run_id=run_id, config=model, execution_timing=timing, **option_fields,
         source_only=source_only, executable=not source_only, gpu_validated=False,
         rounds=rounds, blocks_per_round=blocks, schedule_seed=20261013, schedule=jobs,
         timing_windows=len(jobs), variants=variants, communication=comm, calibration_hardware=hardware,

@@ -60,6 +60,8 @@ def main():
     q = sub.add_parser('fit'); q.add_argument('calibration', type=Path); q.add_argument('out', type=Path)
     q.add_argument('--arrival-order', choices=('tail_residual', 'tail_assignment', 'legacy_tail'), default='legacy_tail',
                    help='Keep the historical default; explicitly opt into residual swaps or joint tail assignment')
+    q.add_argument('--arrival-margin-multiplier', type=float,
+                   help='Explicit tail_assignment v3 margin in [1,6]; values below 4 are exploratory')
     q = sub.add_parser('build-prepare'); q.add_argument('out', type=Path)
     q.add_argument('--attn-plan', type=Path); q.add_argument('--mlp-plan', type=Path)
     q.add_argument('--source-only', action='store_true')
@@ -95,10 +97,15 @@ def main():
         else:
             scope_calibrate.run(args.root, False, args.python, args.cuda_home)
     elif args.action == 'fit':
+        options = {}
+        if args.arrival_margin_multiplier is not None:
+            from arrival_assignment import normalize_options
+            require(args.arrival_order == 'tail_assignment', 'Margin options require tail_assignment')
+            options['arrival_options'] = normalize_options(dict(uncertainty_multiplier=args.arrival_margin_multiplier))
         plan = scope_calibrate.verify(args.calibration)
         for row in scope_calibrate.calibration_records(args.calibration, plan):
             require(row.get('communication') == plan['communication'], 'Calibration communication changed')
-        print(scope_calibrate.fit(args.calibration, args.out, arrival_order=args.arrival_order))
+        print(scope_calibrate.fit(args.calibration, args.out, arrival_order=args.arrival_order, **options))
     elif args.action == 'build-prepare':
         require(args.source_only or (args.attn_plan is not None and args.mlp_plan is not None),
                 'Ablation4 requires both explicit measured role plans on this host')

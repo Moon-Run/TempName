@@ -30,9 +30,14 @@ def validate_mapping(rows,c,base,expected_shape=None):
             require((r['m'],r['n'])==expected and r['destination']==r['m']//(tm//world),'Base order disagrees with calibration mapping')
 
 
-def fit(reports,rows,c,base,expected_shape=None,arrival_order='legacy_tail'):
+def fit(reports,rows,c,base,expected_shape=None,arrival_order='legacy_tail',arrival_options=None):
     """Pure CPU fit; held-out observations are used only for diagnostics."""
     require(arrival_order in ('legacy_tail', 'tail_residual', 'tail_assignment'), 'Unknown arrival order')
+    require(arrival_options is None or arrival_order == 'tail_assignment',
+            'arrival_options require tail_assignment')
+    if arrival_order == 'tail_assignment':
+        from arrival_assignment import normalize_options
+        arrival_options = normalize_options(arrival_options)
     validate_mapping(rows,c,base,expected_shape)
     m,n,k=expected_shape if expected_shape is not None else shape(c);world=c['tp'];tiles=m//128*(n//128);per=tiles//world
     scores=[[0.]*tiles for _ in range(world)];heldout={};overhead=[];invalid=[];valid=0;observations={}
@@ -63,7 +68,8 @@ def fit(reports,rows,c,base,expected_shape=None,arrival_order='legacy_tail'):
             from arrival_assignment import fit_order
         else:
             from arrival_tail import fit_order
-        maps, order_diagnostics = fit_order(rows, observations, world, c['window'])
+        options = {} if arrival_options is None else dict(options=arrival_options)
+        maps, order_diagnostics = fit_order(rows, observations, world, c['window'], **options)
         coords = [[base_coords[r][i] for i in maps[r]] for r in range(world)]
     mask=selection.select(scores,world,c['fraction'])
     hits=[max(heldout[t][0])-heldout[t][0][s]<=heldout[t][1]

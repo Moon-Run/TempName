@@ -68,12 +68,14 @@ def parent_files(root, record, candidate, fused):
     return files
 
 
-def prepare(out, parent_build, source_only=False):
+def prepare(out, parent_build, source_only=False, arrival_options=None):
+    options = planner.arrival_assignment.normalize_options(arrival_options)
+    option_fields = {} if options is None else dict(arrival_options=options)
     parent_build = Path(parent_build).resolve(); out = Path(out).resolve()
     parent = ablation4_build.verify(parent_build, built=not source_only)
     require(parent['source_only'] == source_only, 'Cannot promote a source-only parent or mix build modes')
     legacy = read(parent_build/'plans.json')
-    plans = planner.bundle(legacy['parent'], source_only)
+    plans = planner.bundle(legacy['parent'], source_only, arrival_options=options)
     candidate = read(parent_build/'candidate/manifest.json'); fused = read(parent_build/'fused/manifest.json')
     out.mkdir(parents=True, exist_ok=False)
     write(out/'plans.json', plans)
@@ -102,11 +104,11 @@ def prepare(out, parent_build, source_only=False):
     inputs = {str(HERE/name): sha(HERE/name) for name in ALGORITHM_INPUTS}
     for key in ('commands', 'nccl_files', 'plan_sha256'):
         improved.pop(key, None)
-    improved.update(status='prepared', gpu_validated=False, files=files, inputs=inputs,
+    improved.update(status='prepared', gpu_validated=False, files=files, inputs=inputs, **option_fields,
                     variants={IMPROVED_NAME: variant},
                     algorithm='Ablation7-new B: unchanged fixed fused-v2 compute/codec; independent tail_assignment order only.')
     write(improved_root/'manifest.json', improved)
-    record = dict(protocol=routing.PROTOCOL, config=model_config(), execution_timing=routing.execution_timing(),
+    record = dict(protocol=routing.PROTOCOL, config=model_config(), execution_timing=routing.execution_timing(), **option_fields,
         source_only=source_only, diagnostic_only=source_only, gpu_validated=False,
         parent_build=str(parent_build), parent_manifest=parent, parent_source_commit=parent['parent_source_commit'],
         parent_files=parent_files(parent_build, parent, candidate, fused), inputs=inputs,
@@ -121,6 +123,9 @@ def validate_snapshots(record, plans, candidate, fused, improved, built=False, v
     require(record['protocol'] == routing.PROTOCOL and record['config'] == model_config() and
             record['execution_timing'] == routing.execution_timing(), 'Wrong ablation7_new build/model/timing')
     planner.validate(plans, verify_evidence)
+    options = planner.frozen_options(plans)
+    require(planner.frozen_options(record) == planner.frozen_options(improved) == options,
+            'Build/plan arrival margin configuration changed')
     legacy = parent_plan(plans); parent = record['parent_manifest']
     require(record['source_only'] == record['diagnostic_only'] == plans['source_only'] == parent['source_only'] ==
             improved['source_only'] == improved['diagnostic_only'], 'Ablation7-new rehearsal flags changed')

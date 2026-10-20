@@ -1,9 +1,10 @@
 """Offline, bounded joint assignment for the receiver-local tail surrogate.
 
 Unlike v1's individually improving swaps, a complete assignment may move several
-tied tails together.  Every accepted WINDOW still clears the same 6*error gate
-in both training passes.  This is a conditional surrogate calculation, not a
-confidence interval, causal model, or measured GPU speedup.
+tied tails together. The unconfigured v2 path retains its historical 6*error
+gate exactly. Explicit v3 options allow a frozen screening margin of 1..6 times
+the original error proxy. Margins below 4*error are exploratory, not a bounded
+observation-error guarantee. Neither mode establishes measured GPU speedup.
 """
 import math
 
@@ -12,8 +13,23 @@ from arrival_tail import (HELDOUT_PASS, TRAINING_PASSES, UNCERTAINTY_MULTIPLIER,
 
 
 METHOD = 'receiver-tail-assignment-v2'
+CONFIGURED_METHOD = 'receiver-tail-assignment-v3'
+CONDITIONAL_ERROR_MULTIPLIER = 4.0
 MAX_DISPLACEMENT = 8
 STRICT_TOLERANCE_US = 1e-12
+
+
+def normalize_options(options):
+    """None means exact historical v2; explicit options select the v3 schema."""
+    if options is None:
+        return None
+    if not isinstance(options, dict) or set(options) != {'uncertainty_multiplier'}:
+        raise ValueError('arrival_options must contain only uncertainty_multiplier')
+    multiplier = options['uncertainty_multiplier']
+    if (type(multiplier) not in (int, float) or
+            not 1 <= multiplier <= UNCERTAINTY_MULTIPLIER or not math.isfinite(multiplier)):
+        raise ValueError('uncertainty_multiplier must be finite and between 1 and 6')
+    return dict(uncertainty_multiplier=float(multiplier))
 
 
 def _safe_sample(observations, pass_index, physical, source, world):
@@ -142,10 +158,10 @@ def _cost_matrix(samples, maxima, margins, max_displacement=None):
     return result
 
 
-def _fit_window(samples, max_displacement):
+def _fit_window(samples, max_displacement, uncertainty_multiplier=UNCERTAINTY_MULTIPLIER):
     identity = list(range(len(samples[0]['arrivals'])))
     maxima = [max(sample['arrivals']) for sample in samples]
-    margins = [UNCERTAINTY_MULTIPLIER * sample['uncertainty'] for sample in samples]
+    margins = [uncertainty_multiplier * sample['uncertainty'] for sample in samples]
     bounds = []
     for pass_index, sample, maximum, margin in zip(TRAINING_PASSES, samples, maxima, margins):
         # For one nondecreasing baseline, oppositely sorting residuals minimizes
@@ -205,13 +221,17 @@ def _fit_window(samples, max_displacement):
     return order, result
 
 
-def fit_order(rows, observations, world, window, max_displacement=MAX_DISPLACEMENT):
+def fit_order(rows, observations, world, window, max_displacement=MAX_DISPLACEMENT, options=None):
     """Same mapping interface as v1, with bounded joint window assignments.
 
     Displacement counts positions WITHIN a destination window, not CTA waves or
     physical execution time. Pass 2 is diagnostic only. Missing/invalid training
-    observations retain the complete identity window.
+    observations retain the complete identity window. Explicit options freeze a
+    v3 margin; they never scale the recorded observation errors or inspect pass 2
+    to choose the margin. None reproduces historical v2 output without new keys.
     """
+    options = normalize_options(options)
+    multiplier = UNCERTAINTY_MULTIPLIER if options is None else options['uncertainty_multiplier']
     if type(window) is not int or window <= 0:
         raise ValueError('window must be a positive integer')
     if type(max_displacement) is not int or max_displacement < 0:
@@ -231,8 +251,18 @@ def fit_order(rows, observations, world, window, max_displacement=MAX_DISPLACEME
                 if any(sample is None for sample in samples):
                     group.update(status='incomplete_training_identity', rejection='missing_or_invalid_training')
                 else:
-                    order, fitted = _fit_window(samples, max_displacement)
+                    order, fitted = _fit_window(samples, max_displacement, multiplier)
                     group.update(fitted)
+                    if options is not None and group['candidate'] is not None:
+                        # The baseline is the observed identity maximum (error
+                        # <= epsilon), not another shifted prediction. PAVA is
+                        # L-infinity nonexpansive, giving <= 3*epsilon error for
+                        # the candidate and <= 4*epsilon for their difference.
+                        # This is conditional on a uniform observation bound
+                        # and the surrogate; it does not cover model mismatch.
+                        group['candidate']['conservative_gain_lower_bound_us'] = [
+                            gain - CONDITIONAL_ERROR_MULTIPLIER * sample['uncertainty']
+                            for gain, sample in zip(group['candidate']['gain_us'], samples)]
                     for p, sample in zip(TRAINING_PASSES, samples):
                         predicted = (_predicted(sample, order) if group['status'] == 'candidate'
                                      else sample['arrivals'][:])
@@ -264,10 +294,23 @@ def fit_order(rows, observations, world, window, max_displacement=MAX_DISPLACEME
         identity_fallback=not any(changed), changed_per_rank=changed,
         accepted_windows=sum(group['status'] == 'candidate' for group in groups),
         max_displacement=max_displacement, displacement_unit='position within destination window',
-        uncertainty_multiplier=UNCERTAINTY_MULTIPLIER, strict_tolerance_us=STRICT_TOLERANCE_US,
+        uncertainty_multiplier=multiplier, strict_tolerance_us=STRICT_TOLERANCE_US,
         groups=groups, gpu_validated=False,
         limitation='Receiver-local per-source/window surrogate from separate sampled invocations. '
                    'The 6*error bound covers bounded observation error conditional on this model, '
                    'not statistical confidence or model misspecification. No global makespan or GPU '
                    'performance claim. Requires independent same-codec intervention and measurement.')
+    if options is not None:
+        diagnostics.update(method=CONFIGURED_METHOD, arrival_options=options,
+            exploratory=multiplier < CONDITIONAL_ERROR_MULTIPLIER,
+            conditional_error_multiplier=CONDITIONAL_ERROR_MULTIPLIER,
+            accepted_windows_with_positive_conservative_bound=sum(
+                group['status'] == 'candidate' and
+                all(value > STRICT_TOLERANCE_US for value in
+                    group['candidate']['conservative_gain_lower_bound_us']) for group in groups),
+            limitation='Configured receiver-local tail surrogate; the recorded error proxy is unchanged. '
+                'A margin below 4*error admits exploratory candidates without a positive conservative '
+                'gain guarantee. gain-4*error is a lower bound only conditional on uniformly bounded '
+                'observation error and this surrogate, not statistical confidence or model validity. '
+                'Pass 2 is diagnostic only. Independent same-codec GPU measurement is required.')
     return maps, diagnostics

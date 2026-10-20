@@ -59,7 +59,7 @@ def arrival_metadata(plans):
     """Keep identity fallback visible instead of claiming a changed GPU order."""
     base = routing.role_plans(plans, routing.A)
     improved = routing.role_plans(plans, routing.B)
-    return {role: dict(method=plans['orders'][role]['entry']['arrival_order']['method'],
+    result = {role: dict(method=plans['orders'][role]['entry']['arrival_order']['method'],
                        identity_fallback=plans['orders'][role]['entry']['arrival_order']['identity_fallback'],
                        accepted_windows=plans['orders'][role]['entry']['arrival_order']['accepted_windows'],
                        window_status_counts=dict(Counter(group['status'] for group in
@@ -73,6 +73,18 @@ def arrival_metadata(plans):
                        identical_to_A=improved[role]['entry']['coords'] == base[role]['entry']['coords'],
                        fitted_entry_sha256=plans['orders'][role]['entry_sha256'])
             for role in routing.SHAPES}
+    options = builder.planner.frozen_options(plans)
+    if options is not None:
+        for role, metadata in result.items():
+            diagnostics = plans['orders'][role]['entry']['arrival_order']
+            bounds = [bound for group in diagnostics['groups'] if group['status'] == 'candidate'
+                      for bound in group['candidate']['conservative_gain_lower_bound_us']]
+            metadata.update(arrival_options=options, exploratory=diagnostics['exploratory'],
+                conditional_error_multiplier=diagnostics['conditional_error_multiplier'],
+                accepted_windows_with_positive_conservative_bound=
+                    diagnostics['accepted_windows_with_positive_conservative_bound'],
+                minimum_conservative_gain_lower_bound_us=min(bounds) if bounds else None)
+    return result
 
 
 def verify_inputs(root, offline=False):
@@ -98,6 +110,9 @@ def verify_inputs(root, offline=False):
             cfg['cases'] == [dict(name='h100-phase6', **{k: model[k] for k in ('hidden', 'ffn', 'heads', 'sequence', 'tp')})],
             'Worker model/full shapes changed')
     plans = read(root/'scripts/selection-plan.json'); manifest = read(root/'provenance/build-manifest.json')
+    options = builder.planner.frozen_options(plans)
+    require(all(builder.planner.frozen_options(record) == options for record in (info, cfg, seal)),
+            'Submission/worker/preparation arrival margin changed')
     candidate = read(root/'provenance/parent-candidate-manifest.json'); fused = read(root/'provenance/parent-fused-manifest.json')
     improved = read(root/'provenance/improved-manifest.json')
     require(sha(root/'scripts/selection-plan.json') == seal['plans_sha256'] == manifest['files']['plans.json'] and
@@ -186,6 +201,9 @@ def preflight(root, offline=False):
     gate = dict(protocol=PROTOCOL, completed=True, submission_sha256=sha(root/'submission.json'),
                 communication=info['communication'], fingerprints=reference, role_profiles=profiles,
                 execution_timing=dict(routing.TIMING), files={str(p.relative_to(root)): sha(p) for p in files})
+    options = builder.planner.frozen_options(info)
+    if options is not None:
+        gate['arrival_options'] = options
     write(root/'preflight.json', gate)
     return gate
 
@@ -201,11 +219,14 @@ def summarize(values, blocks, samples):
 
 
 def markdown(result):
+    options = builder.planner.frozen_options(result)
+    method = 'receiver-tail-assignment-v2' if options is None else 'receiver-tail-assignment-v3'
     lines = ['# H100 消融7-new：C、A与改进到达调度B', '',
              f'每窗口预热10步、正式计时50步；{result["timing_windows"]}个正式窗口，'
              f'{result["formal_optimizer_steps"]}个正式optimizer step（不重复计rank）。',
              '完整32层模型、4微批、8192 token/step；每窗口取8 rank最大elapsed/50。',
              'C保留原到达表和candidate实现，以1/16预算重新选择远端mask；A/B使用同一固定融合v2全远端量化实现。',
+             f'B只替换为tail_assignment联合排列调度（{method}）；无训练门槛合格候选时回退到A的交替表。' if options is not None else
              'B只替换为tail_assignment联合排列调度（receiver-tail-assignment-v2）；无稳健收益证据时回退到A的交替表。',
              '排列来自原BF16校准的条件代理；实际收益以相同全远端融合实现的B/A计时为准。',
              'B/A是调度净收益的主比较；C/A和C/B同时包含量化覆盖率与实现差异。',
@@ -217,6 +238,15 @@ def markdown(result):
         lines.append(f'B的{role}表相对A每rank改变槽位数：{metadata["changed_per_rank"]}；'
                      f'完全回退到A：{metadata["identical_to_A"]}；接受窗口数：{metadata["accepted_windows"]}；'
                      f'窗口状态：`{metadata["window_status_counts"]}`。')
+        if options is not None:
+            lines.append(f'训练门槛：两次训练pass各自gain > {options["uncertainty_multiplier"]:g}ε；'
+                         f'探索模式：{metadata["exploratory"]}；条件误差界仍为4ε。'
+                         f'接受窗口最小gain−4ε：{metadata["minimum_conservative_gain_lower_bound_us"]} μs；'
+                         f'两pass下界均为正的接受窗口：'
+                         f'{metadata["accepted_windows_with_positive_conservative_bound"]}。')
+    if options is not None:
+        lines.append('门槛小于4ε时不提供保守正收益保证；4ε只界定既定代理模型中的观测误差，不包含模型失配。'
+                     'pass 2仅报告诊断；最终收益仍由四次相同实现的B/A实测判断。')
     for rep, summary in result['rounds'].items():
         lines += ['', f'## {rep}', '', '| 指标 | '+' | '.join(routing.LABELS[p] for p in POLICIES)+' |',
                   '| --- | '+' | '.join(['---:']*3)+' |']
@@ -247,6 +277,8 @@ def report(root, offline=False):
     require(gate['completed'] and gate['protocol'] == PROTOCOL and
             gate['submission_sha256'] == sha(root/'submission.json') and gate['communication'] == info['communication'] and
             gate['execution_timing'] == routing.TIMING, 'Fresh complete preflight required')
+    options = builder.planner.frozen_options(info)
+    require(builder.planner.frozen_options(gate) == options, 'Preflight arrival margin changed')
     verify_files(root, gate['files'])
     require({str(p.relative_to(root/'results')) for p in (root/'results').glob('round*/window-*') if p.is_dir()} ==
             {job['directory'] for job in info['schedule']}, 'Missing or extra timing windows')
@@ -259,6 +291,8 @@ def report(root, offline=False):
                   primary_comparisons=routing.PRIMARY, comparisons=routing.COMPARISONS,
                   acceptance_threshold=None, sample_policy='all samples primary', measurement_identity=measurement_identity(info, gate),
                   bootstrap=dict(resamples=10000, seed=20261009, unit='complete three-policy block', multiple_comparison_correction=None))
+    if options is not None:
+        result['arrival_options'] = options
     result['measurement_identity']['communication'] = info['communication']
     combined = {p: [] for p in POLICIES}; all_blocks = []; files = {}
     for rep in range(1, info['rounds']+1):

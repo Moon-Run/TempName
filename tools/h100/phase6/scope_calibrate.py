@@ -153,7 +153,7 @@ def calibration_records(root, p):
     return rows
 
 
-def fit(root, out, arrival_order='legacy_tail'):
+def fit(root, out, arrival_order='legacy_tail', arrival_options=None):
     root, out = Path(root).resolve(), Path(out).resolve(); p = verify(root)
     require(not p['source_only'] and p['executable'], 'CPU rehearsal cannot produce measured plans')
     verify_files('/', p['controllers'])
@@ -173,7 +173,8 @@ def fit(root, out, arrival_order='legacy_tail'):
     for role in p['roles']:
         with (root/f'mapping-{role}.csv').open() as f:
             mapping = [{k: int(v) for k, v in r.items()} for r in csv.DictReader(f)]
-        entry = fitter.fit(rows, mapping, p['config'], 'interleaved', SHAPES[role], arrival_order=arrival_order)
+        entry = fitter.fit(rows, mapping, p['config'], 'interleaved', SHAPES[role],
+                           arrival_order=arrival_order, arrival_options=arrival_options)
         record = role_record(role, entry, done['hardware'], inputs,
                              dict(kind='scope_bf16_calibration', source=str(root), run_id=p['run_id'],
                                   sampler_manifest_sha256=p['build_sha256'], role=role, shape=SHAPES[role]))

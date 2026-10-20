@@ -16,8 +16,12 @@ from scope_plan import validate
 from scope_protocol import SHAPES
 
 
-def replay(selection_path, arrival_order='tail_residual'):
+def replay(selection_path, arrival_order='tail_residual', arrival_options=None):
     require(arrival_order in ('tail_residual', 'tail_assignment'), 'Unknown candidate order')
+    require(arrival_options is None or arrival_order == 'tail_assignment', 'Margin options require tail_assignment')
+    if arrival_order == 'tail_assignment':
+        from arrival_assignment import normalize_options
+        arrival_options = normalize_options(arrival_options)
     selection_path = Path(selection_path).resolve()
     selection = read(selection_path)
     parent = selection['parent']
@@ -30,6 +34,8 @@ def replay(selection_path, arrival_order='tail_residual'):
                   selection_plan=dict(path=str(selection_path), sha256=sha(selection_path)),
                   roles={}, limitation='Raw-evidence CPU replay only; no executable plans or measured speedups. '
                   'BF16 labels and logical-slot proxies require independent same-codec GPU validation.')
+    if arrival_options is not None:
+        result['arrival_options'] = arrival_options
     for role in SHAPES:
         record = parent['roles'][role]
         validate(record, role, verify_evidence=False)
@@ -60,7 +66,7 @@ def replay(selection_path, arrival_order='tail_residual'):
         for field in ('maps', 'coords', 'base_coords', 'mask'):
             require(legacy[field] == record['entry'][field], 'Legacy replay differs: '+role+'/'+field)
         candidate = fitter.fit(reports, rows, record['config'], 'interleaved', SHAPES[role],
-                               arrival_order=arrival_order)
+                               arrival_order=arrival_order, arrival_options=arrival_options)
         require(candidate['mask'] == legacy['mask'], 'Order replay changed quantization')
         diagnostics = candidate['arrival_order']
         changed_groups = [g for g in diagnostics['groups'] if g['status'] == 'candidate']
@@ -81,10 +87,13 @@ def main():
     parser.add_argument('selection_plan', type=Path)
     parser.add_argument('--out', type=Path)
     parser.add_argument('--arrival-order', choices=('tail_residual', 'tail_assignment'), default='tail_residual')
+    parser.add_argument('--arrival-margin-multiplier', type=float,
+                        help='Explicit v3 margin in [1,6]; absent preserves historical 6*error v2')
     args = parser.parse_args()
     if args.out:
         require(not args.out.exists(), 'Do not overwrite a replay result')
-    result = replay(args.selection_plan, args.arrival_order)
+    options = None if args.arrival_margin_multiplier is None else dict(uncertainty_multiplier=args.arrival_margin_multiplier)
+    result = replay(args.selection_plan, args.arrival_order, options)
     payload = json.dumps(result, indent=2, ensure_ascii=False, allow_nan=False)+'\n'
     if args.out:
         with args.out.open('x') as handle:

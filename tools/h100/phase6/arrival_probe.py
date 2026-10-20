@@ -97,6 +97,10 @@ def inspect(root):
                      hardware=info['calibration_hardware'], pair=pair,
                      libraries={p: {name: lib['sha256'] for name, lib in info['variants'][p]['libraries'].items()}
                                 for p in (pair['A'], pair['B'])})
+    if 'arrival_options' in plans:
+        # Identical maps alone cannot join runs selected with different gates.
+        signature.update(arrival_options=plans['arrival_options'],
+                         selection_plan_sha256=sha(root/'scripts/selection-plan.json'))
     return dict(root=root, reporter=reporter, info=info, pair=pair, signature=signature,
                 signature_sha256=digest(signature))
 

@@ -1,10 +1,12 @@
 # 到达优先复核：优化生产尾部，联合求解，并以同实现实测决定是否采用
 
-更新：2026-10-19。依据 [idea.md](../idea.md)、[消融4](../base-phase6-ablation4.md)、[消融7改进版](../base-phase6-ablation7.md)，重新核查冻结计划、原始校准、实际 mapping、profile 和配对计时，并实现下一版候选生成与实测准入工具。
+更新：2026-10-20。最新四次回传见 [base-op1.md](base-op1.md)。本轮确认旧6ε门槛仍使B全部回退，现已加入 **v3显式门槛参数，新一轮启动默认1ε探索模式**。用原始校准CPU重放，Attention接受14个窗口、改变119/4096个槽位；MLP接受5个窗口、改变42/4096个槽位。**这次已生成不同映射，尚未在H100上运行，不能称为已获得加速。** 最新依据、参数与复测命令见[第9节](#9-2026-10-20更新从6ε保守回退到1ε探索候选)。
+
+第1—7节保留2026-10-19对v2/6ε及更早实验的复核，以便解释原始问题；其中零重排与验证计数均为对应历史版本。第8节的四次启动入口已更新为默认1ε，并保持旧实验离线重放兼容。
 
 **结论：主要问题是优化目标与实际消费路径不匹配，以及校准信号不足；没有找到“到达表未生效、映射方向写反”这类实现故障。改进版还存在可以修复的单交换搜索盲点，但它不是本批零收益的全部原因。** 当前证据不支持继续把“较晚到达的贡献提前生产”作为默认有效的加速机制，也不足以否定所有到达感知方法。
 
-本次选择的修正是：**保留交替基线，把到达信息用于提出受约束的生产尾部候选；联合评估所有被提前和被推迟的贡献；没有可信信号就保留基线，非 identity 候选必须经过同实现、同量化方式的独立配对实测。** 不把代理模型改善写成真实加速，不通过降低误差门槛强行得到置换。
+上一版选择的修正是：**保留交替基线，把到达信息用于提出受约束的生产尾部候选；联合评估所有被提前和被推迟的贡献，非identity候选必须经过同实现、同量化方式的独立配对实测。** 本轮按允许放宽门槛的要求，增加明确标注的1ε探索准入；仍要求两遍训练都有超过门槛的正改善，没有合格候选时仍保留基线，不填充随机或强制置换。
 
 已完成联合求解、计划生成接入、回退诊断和历史实测准入审计。**本机没有可用的 H100 执行环境，本次没有启动新 GPU 性能实验。** 本文中的已有 GPU 结果来自原始回传证据；新算法的验证为 CPU 重放、回归及映射编译检查。
 
@@ -208,7 +210,7 @@ python3 tools/h100/phase6/ablation4.py fit \
 
 ## 8. 在H100服务器后台连续测四次
 
-新增入口 [detach_ablation7_new.py](../../../../tools/h100/phase6/detach_ablation7_new.py)，只运行新的C/A/B三组比较，顺序为 `compare1 → compare2 → compare3 → compare4`。新B固定使用 `tail_assignment`；C保留旧到达表、原candidate实现及1/16量化预算，A保持交替＋全远端量化。
+入口 [detach_ablation7_new.py](../../../../tools/h100/phase6/detach_ablation7_new.py) 只运行C/A/B三组比较，默认顺序为 `compare1 → compare2 → compare3 → compare4`；可用 `--trials 2` 先只测前两次。新B使用 `tail_assignment`，当前默认显式冻结 `--arrival-margin-multiplier 1`，方法标识为v3；C保留旧到达表、原candidate实现及1/16量化预算，A保持交替＋全远端量化。
 
 新协议为 `h100-gpt67-tp8-ablation7-new-v1`，由 [ablation7_new.py](../../../../tools/h100/phase6/ablation7_new.py) 及其独立计划、构建、worker和报告模块执行。旧 `ablation7.py` 与 `detach_ablation6_then7.py` 的行为不变。同步到服务器时需要包含配套的 `ablation7_new*.py`、`arrival_assignment.py` 等依赖，建议同步本次完整 `tools/h100/phase6/` 改动，而不是只复制启动脚本。
 
@@ -235,11 +237,20 @@ export DEBUG=0
 export MAKEFLAGS=
 
 # 预览：不创建目录、不编译、不查询GPU。
-"$H100_A7_NEW_PYTHON" tools/h100/phase6/detach_ablation7_new.py
+"$H100_A7_NEW_PYTHON" tools/h100/phase6/detach_ablation7_new.py --arrival-margin-multiplier 1
 
 # 后台执行四次；确认由容器PID 1托管后返回。
-"$H100_A7_NEW_PYTHON" tools/h100/phase6/detach_ablation7_new.py --execute
+"$H100_A7_NEW_PYTHON" tools/h100/phase6/detach_ablation7_new.py --arrival-margin-multiplier 1 --execute
 ```
+
+如果这次先只测两次，在同步更新后的代码后执行：
+
+```bash
+/workspace/conda-envs/flux-h100-ablation3-20261017/bin/python \
+  tools/h100/phase6/detach_ablation7_new.py --trials 2 --execute
+```
+
+`--trials`支持2或4，省略仍为4；门槛默认1ε。两次模式仍只构建一次B，每次独立预检及报告，仍为6块×2轮、每窗口10步预热＋50步正式计时；总计72个正式窗口、576份正式rank记录、3600个正式optimizer step。它只减少独立比较次数，不减少单次比较内的轮数或步数。默认输出名相应为 `ablation7-new-2x-50steps-北京时间戳`，只创建 `compare1`、`compare2`。
 
 默认父构建为 `outputs/h100/phase6/ablation4-gpt67-tp8-both-20261018-hostservice/build`，需要其完整C/A运行库和已登记的两角色校准证据。执行前沿用原主机/GPU顺序及空闲检查；如果换了主机或GPU顺序，需要先获得对应校准的父构建，不能把旧计划直接当作新设备的校准。
 
@@ -262,11 +273,11 @@ compare3/report.json、report.md
 compare4/report.json、report.md
 ```
 
-四次各自的 `report.json` 均须通过，且运行身份、角色计划一致，批次才标为 `completed`。启动后返回只表示已托管，不表示已测完；关闭终端后可继续运行，容器和主机须保持运行。
+所请求的每次 `report.json` 均须通过，且运行身份、角色计划一致，批次才标为 `completed`；两次模式要求两份，默认四次模式要求四份。启动后返回只表示已托管，不表示已测完；关闭终端后可继续运行，容器和主机须保持运行。
 
-可以通过 `--ablation7-build /path/to/new-build` 复用已编译的新B构建；它必须包含本新协议的 `ablation7-new-manifest.json` 并来自相同父构建。旧版消融7的 `ablation7-manifest.json` 不可替代。
+可以通过 `--ablation7-build /path/to/new-build` 复用已编译的新B构建；它必须包含本新协议的 `ablation7-new-manifest.json`、来自相同父构建，并与请求的 `arrival_options` 完全一致。旧版消融7的 `ablation7-manifest.json`、本次回传的无参数v2/6ε构建以及其他倍率构建均不可替代默认1ε构建。更新代码后还须通过既有源码哈希检查；建议新一轮省略复用选项，让脚本新建B。
 
-**本次按指定的四次重复执行，即使新B仍回退identity，也不自动跳过。** 启动日志、`batch-state.json` 和每份报告都会显示实际改变槽位、接受窗口及回退状态。对现有真实旧校准的CPU重放仍是两角色0窗口；因此这四次可能继续检验回退路径，不能预先称为非identity重排的收益实验。
+**脚本仍按指定的四次重复执行，即使B回退identity，也不自动跳过。** 启动日志、`batch-state.json` 和每份报告都会显示倍率、方法、实际改变槽位、接受窗口及回退状态。历史v2/6ε在两角色均为0窗口；当前默认v3/1ε已在CPU重放中产生14/5个接受窗口，实际GPU mapping和性能仍须由新一轮预检、正式计时确认。
 
 四次测完后，可选择只读审计新实验的准入证据；该命令不会再次启动GPU，也不修改原报告：
 
@@ -278,3 +289,111 @@ python3 tools/h100/phase6/arrival_probe.py \
 ```
 
 该入口已通过9项新后端测试、14项四次调度测试和13项既有准入工具回归；覆盖真实格式的合成原始校准产生非identity新排列、独立协议、完整报告、第四次失败/输入漂移停止以及identity仍执行四次。默认命令预览确认不创建目录、不启动子进程。这里的通过均为CPU验证，四次H100实测要在执行端启动后才会产生。
+
+## 9. 2026-10-20更新：从6ε保守回退到1ε探索候选
+
+### 9.1 最新四次没有新增校准，反复计时不会改变拟合结果
+
+对 [base-op1.md](base-op1.md) 对应批次 `ablation7-new-4x-50steps-20261019-235424-435064` 重新检查：四次 `selection-plan.json` 完全相同，SHA256均为 `00c5e193d6ae22ab8a824c447f5b2f4c0ea6d4bbc9ae8307a3d6e716b5e17cba`；两角色的原始校准输入路径及哈希与旧消融7一致。逐行检查四次GPU mapping，A/B每角色4096行均无差异。
+
+因此，这次完整跑通了四轮构建后比较，但没有产生新的到达标签；同一份数据加同一个6ε规则，每次得到identity是确定的结果。B/A的+0.191%、−0.110%、+0.012%、−0.061%也不能作为新排列收益。本轮调整的是候选接受规则，原始GPU结果与 [base-op1.md](base-op1.md) 保持原样。
+
+### 9.2 6ε确有过度保守之处，但仅改成4ε仍不够
+
+旧逐次交换可能比较两个已经重排过的预测最大值，每侧预测误差最多3ε，因此用了6ε。联合求解始终和**原identity观测最大值**比较，对照侧只有ε误差；在统一双侧观测误差不超过ε的假设下，4ε已经足够覆盖这种比较。
+
+具体地，设真实向量为x、观测为y，`||x−y||∞≤ε`，PAVA投影为P。PAVA的保序、平移等变性质给出 `||P(x)−P(y)||∞≤ε`。排列π的预测为：
+
+```text
+q_i(y,π) = P_i(y) + y_π(i) − P_π(i)(y)
+gain(y,π) = max_i y_i − max_i q_i(y,π)
+```
+
+候选预测误差最多3ε，原最大值误差最多ε，所以 `|gain(y,π)−gain(x,π)|≤4ε`。该界对所有π同时成立，联合搜索不额外增加倍数。但不能凭“共享观测有相关性”直接把它降到2ε或3ε；回归测试包含gain扰动达到3.8ε的反例。
+
+**4ε仍只是当前代理模型、统一观测误差假设下的条件界。** ε来自轮询周期代理，不是统计标准差；此界不覆盖不同调用的波动、BF16到量化的迁移或重排后模型失配。更不能当作GPU加速的置信区间。
+
+### 9.3 放宽的是接受倍率，不篡改观测误差
+
+保持原始到达数据、PAVA、两训练pass、最大位移8和优化目标不变，只将门槛写成 `gain_p > αε_p`。以下扫描仅使用pass0/1，不用pass2或整步耗时选择参数：
+
+| α | Attention接受窗口 / 改变槽位 | MLP接受窗口 / 改变槽位 |
+| ---: | ---: | ---: |
+| 6 | 0 / 0 | 0 / 0 |
+| 4 | 0 / 0 | 0 / 0 |
+| 3 | 0 / 0 | 0 / 0 |
+| 2 | 0 / 0 | 0 / 0 |
+| **1：新启动默认** | **14 / 119** | **5 / 42** |
+| 0.5：仅离线诊断 | 31 / 229 | 25 / 163 |
+| 0.25：仅离线诊断 | 39 / 298 | 49 / 323 |
+| 0：仅离线诊断 | 46 / 325 | 63 / 385 |
+
+每角色总计64个调度窗口、4096个来源槽位。为允许探索，选择全角色一致的 **α=1**：仍要求两遍训练的预测尾部改善都超过原误差代理，不采用零门槛，不先扩大位移，也不为填满预算强制排序。正式接口只允许有限倍率 `[1,6]`；后三档只用来说明限制来源，不能通过启动参数进入正式实验。
+
+这里“放宽”是降低所需的误差倍数6→1，**原ε、到达观测和量化预算均不变**。如果直接把ε或6这个系数调大，反而会使准入更严格。
+
+### 9.4 新候选的具体变化和局限
+
+| 新v3/1ε候选 | Attention | MLP |
+| --- | --- | --- |
+| 各rank改变槽位数 | `[22,0,24,0,46,0,27,0]` | `[0,0,0,0,16,0,20,6]` |
+| 改变槽位比例 | 119/4096＝2.905% | 42/4096＝1.025% |
+| 接受窗口中，较小的两pass预测改善范围 | 2.891—4.485 μs | 3.333—4.077 μs |
+| 对应 `min_pass(gain/ε)` 范围 | 1.027—1.593 | 1.065—1.137 |
+| 两pass均满足 `gain−4ε>0` 的接受窗口 | **0/14** | **0/5** |
+
+这些候选可以进入GPU实验，但**没有正的4ε保守收益下界**。代码记录 `exploratory=true`，报告同时列出实际α、`conditional_error_multiplier=4`、`conservative_gain_lower_bound_us=gain−4ε` 及正下界窗口数；不能继承旧版保守保证。
+
+其余Attention窗口为34个位移限制、12个无模型改善、1个跨pass冲突和3个误差限制；MLP为57个位移限制和2个误差限制。本轮不进一步放宽这些限制，以免同时改变多个因素。
+
+在α与映射已经冻结后查看pass2诊断：Attention的12个可诊断接受窗口中只有3个预测gain为正，MLP为0/5；两角色中位预测gain均为0。Attention另2个窗口缺少完整pass2观测。**这个留出诊断没有用于选α或剔除候选，也不支持宣称泛化收益**；它再次说明需要新的同实现、无采样GPU计时。pass2仍会重拟合自身PAVA趋势，不能把它当作GPU反事实验证。
+
+### 9.5 参数贯穿计划到运行，旧6ε档案继续可读
+
+[arrival_assignment.py](../../../../tools/h100/phase6/arrival_assignment.py) 保留无配置路径的 `receiver-tail-assignment-v2`、6ε和原诊断字段，历史计划按缺少参数的语义精确重放。显式参数开启 `receiver-tail-assignment-v3`：
+
+```json
+{"arrival_options": {"uncertainty_multiplier": 1.0}}
+```
+
+参数经过 `plan.fit → ablation7_new_plan → build → prepare → worker配置/submission → preflight/report → 四次批次状态` 冻结并交叉核验。新CLI `build-prepare` 和 `detach_ablation7_new.py` 默认显式1ε；程序接口的 `None` 仍保留历史语义。显式指定6也属于v3配置，不会把它伪装成原档案。
+
+四次必须使用相同倍率、计划和运行库；`--ablation7-build` 复用时必须与请求参数一致。旧版无参数6ε构建不能悄悄用于新默认1ε。准入审计对新配置额外比较完整计划哈希，防止不同倍率偶然得到相同映射后被当成同一实验。
+
+C的原到达表、1/16物理mask及A的全部计划保持一致；B的全远端mask也保持一致。pass2不参与排序或倍率选择。本轮没有修改CUDA同步、codec和工作区策略。
+
+### 9.6 复测与证据
+
+在原H100环境同步代码后，新建构建与批次，沿用第8节环境：
+
+```bash
+# 默认也是1，显式写出便于记录；仍为四次、每次10+50步。
+"$H100_A7_NEW_PYTHON" tools/h100/phase6/detach_ablation7_new.py \
+  --arrival-margin-multiplier 1 --execute
+
+# 可选：仅预览4ε条件保守规则；本批旧校准下仍会identity。
+"$H100_A7_NEW_PYTHON" tools/h100/phase6/detach_ablation7_new.py \
+  --arrival-margin-multiplier 4
+```
+
+不要传入上一次的旧B构建目录作为复用目标。新报告必须先确认 `arrival_schedule` 中的方法v3、倍率1和实际非identity mapping，再解释B/A性能；不能只看耗时表。
+
+仅CPU重放的命令为：
+
+```bash
+python3 tools/h100/phase6/arrival_replay.py \
+  logs/h100/phase6/ablation7-new-4x-50steps-20261019-235424-435064/compare1/scripts/selection-plan.json \
+  --arrival-order tail_assignment --arrival-margin-multiplier 1 \
+  --out /tmp/arrival-op1-alpha1-replay.json
+```
+
+省略倍率时，该CPU入口保留历史v2/6ε；它与新四次启动器的默认值有意不同，以维持旧重放兼容。
+
+本次诊断保存在 [arrival-op1-margin-cpu-20261020](../../../../outputs/h100/phase6/arrival-op1-margin-cpu-20261020/)：包括 [四次档案核验](../../../../outputs/h100/phase6/arrival-op1-margin-cpu-20261020/latest-four-audit.json)、[阈值扫描](../../../../outputs/h100/phase6/arrival-op1-margin-cpu-20261020/threshold-sweep.json) 和 [1ε原始校准重放](../../../../outputs/h100/phase6/arrival-op1-margin-cpu-20261020/replay-alpha1.json)。本机仍无H100执行条件，以上新候选是CPU结果，GPU数值检查与完整step收益留待新一轮实测。
+
+### 9.7 本轮验证结果
+
+- 83项测试通过：核心与拟合接入30项、四次启动器21项、新门槛后端10项、历史后端9项、既有准入工具13项。覆盖v2完整输出快照、严格门槛、4ε条件界、heldout隔离、mask保持、参数篡改拒绝、构建复用参数匹配、第四次失败中止及完整报告。
+- 最新真实档案的v2 `orders` 重新从原始校准计算后逐项一致，旧 `arrival_schedule` 与存档报告逐项一致，旧compare的离线输入核验通过。未回写原始实验文件。
+- 用同一原始校准派生v3/1ε完整候选计划，确认C/A的完整entry、B的mask均与旧计划一致。诊断包装保存在 [candidate-plans-diagnostic.json](../../../../outputs/h100/phase6/arrival-op1-margin-cpu-20261020/candidate-plans-diagnostic.json)，不替代执行端构建。
+- 对真实新候选的8192个主机映射坐标及shape分派逐项核对通过，设备映射表以CUDA12.8编译为SM90对象通过，见 [compile/validation.json](../../../../outputs/h100/phase6/arrival-op1-margin-cpu-20261020/compile/validation.json)。这仍是映射表生成/编译检查，不是GPU运行、完整Flux动态库或性能验收。
