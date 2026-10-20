@@ -1,0 +1,72 @@
+{
+  "megatron_commit": "3ea68ad6042cc1204386ae9364358f7c4de1bc37",
+  "policies": [
+    "interleaved_all_attn_mlp",
+    "interleaved_pair_order_all_attn_mlp"
+  ],
+  "orders": [],
+  "cases": [
+    {
+      "name": "h100-phase6",
+      "hidden": 4096,
+      "ffn": 16384,
+      "heads": 32,
+      "sequence": 2048,
+      "tp": 8
+    }
+  ],
+  "common": {
+    "layers": 32,
+    "micro_batch": 1,
+    "global_batch": 4,
+    "seed": 1234,
+    "token_seed": 4321,
+    "vocab": 32768
+  },
+  "warmup_steps": 10,
+  "timed_steps": 50,
+  "smoke_warmup_steps": 2,
+  "smoke_steps": 3,
+  "profile_steps": 1,
+  "repetitions": 2,
+  "ring_reduction": true,
+  "scope": "Arrival-op2: A is pinned all-remote interleaving; S changes only paired-row tile order. Both use identical codec, CTA decoder, one workspace, clone and both barriers.",
+  "protocol": "h100-gpt67-tp8-arrival-op2-order-v2",
+  "schedule_options": {
+    "attn": 8,
+    "mlp": 4
+  },
+  "execution_timing": {
+    "warmup_steps": 10,
+    "timed_steps": 50
+  },
+  "graph_forward": false,
+  "double_buffered": false,
+  "role_plan_sha256": {
+    "interleaved_all_attn_mlp": {
+      "attn": "90551069e99c067387b1aa9c9635fc6a2e72e07016e92820bd17e96835ade76f",
+      "mlp": "06a5cdf2c2a56b799e51fc9c3905c6b93ac3b51dc3ed26836f188bb31bd5c6e8"
+    },
+    "interleaved_pair_order_all_attn_mlp": {
+      "attn": "c0d4b6808b40a4ac8b6c997bf3812bde7e9436138e56b0ecf14be45c5f854459",
+      "mlp": "a890be0a52fd3b6e699bd073f10d6959468f65c16b869cc56d0925bf13d465a0"
+    }
+  },
+  "communication": {
+    "environment": {
+      "NCCL_VERSION": "2.21.5-1",
+      "NCCL_NVLS_ENABLE": "0",
+      "NCCL_DEBUG": "WARN",
+      "TORCH_NCCL_ASYNC_ERROR_HANDLING": "1"
+    },
+    "config_files": {
+      "/etc/nccl.conf": null,
+      "/root/.nccl.conf": null
+    },
+    "nvls_request": "0"
+  },
+  "budget_fractions": {
+    "interleaved_all_attn_mlp": 1,
+    "interleaved_pair_order_all_attn_mlp": 1
+  }
+}
