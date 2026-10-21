@@ -1,0 +1,20 @@
+/workspace/conda-envs/flux-h100-ablation3-20261017/bin/python /workspace/TempName/tools/h100/phase6/ma1_build.py prepare --out /workspace/TempName/logs/h100/phase6/ma1-prefetch-1x-50steps-20261021-210732-317969/build
+Log: /workspace/TempName/logs/h100/phase6/ma1-prefetch-1x-50steps-20261021-210732-317969/build-prepare.log
+/workspace/conda-envs/flux-h100-ablation3-20261017/bin/python /workspace/TempName/tools/h100/phase6/ma1_build.py build --build /workspace/TempName/logs/h100/phase6/ma1-prefetch-1x-50steps-20261021-210732-317969/build --cuda-home /usr/local/cuda-12.8 --jobs 2
+Log: /workspace/TempName/logs/h100/phase6/ma1-prefetch-1x-50steps-20261021-210732-317969/compile.log
+/workspace/conda-envs/flux-h100-ablation3-20261017/bin/python /workspace/TempName/tools/h100/phase6/ma1_bench.py prepare /workspace/TempName/logs/h100/phase6/ma1-prefetch-1x-50steps-20261021-210732-317969/operator --build /workspace/TempName/logs/h100/phase6/ma1-prefetch-1x-50steps-20261021-210732-317969/build --blocks 12
+Log: /workspace/TempName/logs/h100/phase6/ma1-prefetch-1x-50steps-20261021-210732-317969/operator-prepare.log
+/workspace/conda-envs/flux-h100-ablation3-20261017/bin/python /workspace/TempName/tools/h100/phase6/ma1_bench.py run /workspace/TempName/logs/h100/phase6/ma1-prefetch-1x-50steps-20261021-210732-317969/operator --python /workspace/conda-envs/flux-h100-ablation3-20261017/bin/python --cuda-home /usr/local/cuda-12.4 --worker-timeout 1800 --execute
+Log: /workspace/TempName/logs/h100/phase6/ma1-prefetch-1x-50steps-20261021-210732-317969/operator-timing.log
+/workspace/conda-envs/flux-h100-ablation3-20261017/bin/python /workspace/TempName/tools/h100/phase6/ma1_bench.py run /workspace/TempName/logs/h100/phase6/ma1-prefetch-1x-50steps-20261021-210732-317969/operator --python /workspace/conda-envs/flux-h100-ablation3-20261017/bin/python --cuda-home /usr/local/cuda-12.4 --worker-timeout 1800 --profile --execute
+Log: /workspace/TempName/logs/h100/phase6/ma1-prefetch-1x-50steps-20261021-210732-317969/operator-profile.log
+Traceback (most recent call last):
+  File "/workspace/TempName/tools/h100/phase6/detach_ablation5_run_two.py", line 164, in detach
+    (supervisor or supervise)(args)
+  File "/workspace/TempName/tools/h100/phase6/detach_ma1.py", line 156, in supervise
+    launcher.invoke(command, args.out/(label+'.log'), env)
+  File "/workspace/TempName/tools/h100/phase6/detach_ablation5_run_two.py", line 67, in invoke
+    subprocess.run(cmd, cwd=REPO, env=env, stdout=f, stderr=subprocess.STDOUT, check=True)
+  File "/workspace/conda-envs/flux-h100-ablation3-20261017/lib/python3.10/subprocess.py", line 526, in run
+    raise CalledProcessError(retcode, process.args,
+subprocess.CalledProcessError: Command '['/workspace/conda-envs/flux-h100-ablation3-20261017/bin/python', '/workspace/TempName/tools/h100/phase6/ma1_bench.py', 'run', '/workspace/TempName/logs/h100/phase6/ma1-prefetch-1x-50steps-20261021-210732-317969/operator', '--python', '/workspace/conda-envs/flux-h100-ablation3-20261017/bin/python', '--cuda-home', '/usr/local/cuda-12.4', '--worker-timeout', '1800', '--profile', '--execute']' returned non-zero exit status 1.
