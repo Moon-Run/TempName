@@ -1,0 +1,55 @@
+{
+  "megatron_commit": "3ea68ad6042cc1204386ae9364358f7c4de1bc37",
+  "policies": [
+    "interleaved_all_attn_mlp"
+  ],
+  "orders": [],
+  "cases": [
+    {
+      "name": "h100-phase6",
+      "hidden": 4096,
+      "ffn": 16384,
+      "heads": 32,
+      "sequence": 2048,
+      "tp": 8
+    }
+  ],
+  "common": {
+    "layers": 32,
+    "micro_batch": 1,
+    "global_batch": 4,
+    "seed": 1234,
+    "token_seed": 4321,
+    "vocab": 32768
+  },
+  "warmup_steps": 10,
+  "timed_steps": 50,
+  "smoke_warmup_steps": 2,
+  "smoke_steps": 3,
+  "profile_steps": 1,
+  "repetitions": 2,
+  "ring_reduction": true,
+  "scope": "New same-host op4 SP/CP/SM/CM comparison; full GPT6.7B optimizer steps; fixed-budget closure masks and FP32 reduction; synthetic input.",
+  "protocol": "h100-reduction-closure-v1-fullstep",
+  "graph_forward": false,
+  "double_buffered": false,
+  "role_plan_sha256": {
+    "interleaved_all_attn_mlp": {
+      "attn": null,
+      "mlp": null
+    }
+  },
+  "communication": {
+    "environment": {
+      "NCCL_VERSION": "2.21.5-1",
+      "NCCL_NVLS_ENABLE": "0",
+      "NCCL_DEBUG": "WARN",
+      "TORCH_NCCL_ASYNC_ERROR_HANDLING": "1"
+    },
+    "config_files": {
+      "/etc/nccl.conf": null,
+      "/root/.nccl.conf": null
+    },
+    "nvls_request": "0"
+  }
+}
