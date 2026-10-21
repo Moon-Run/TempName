@@ -1,0 +1,85 @@
+{
+  "megatron_commit": "3ea68ad6042cc1204386ae9364358f7c4de1bc37",
+  "policies": [
+    "native_cuda_taco_attn_mlp",
+    "flux_cuda_taco_attn_mlp",
+    "interleaved_all_attn_mlp",
+    "interleaved_arrival_all_attn_mlp",
+    "interleaved_arrival_selective_attn_mlp"
+  ],
+  "orders": [],
+  "cases": [
+    {
+      "name": "h100-phase6",
+      "hidden": 4096,
+      "ffn": 16384,
+      "heads": 32,
+      "sequence": 2048,
+      "tp": 8
+    }
+  ],
+  "common": {
+    "layers": 32,
+    "micro_batch": 1,
+    "global_batch": 4,
+    "seed": 1234,
+    "token_seed": 4321,
+    "vocab": 32768
+  },
+  "warmup_steps": 10,
+  "timed_steps": 50,
+  "smoke_warmup_steps": 2,
+  "smoke_steps": 3,
+  "profile_steps": 1,
+  "repetitions": 2,
+  "ring_reduction": true,
+  "scope": "A/B/C unchanged from ablation6; Flux GemmOnly and Megatron share upstream standalone TACO CUDA kernels; no COCCL.",
+  "protocol": "h100-gpt67-tp8-upstream-taco-baseline-v1",
+  "graph_forward": false,
+  "double_buffered": true,
+  "role_plan_sha256": {
+    "native_cuda_taco_attn_mlp": {},
+    "flux_cuda_taco_attn_mlp": {},
+    "interleaved_all_attn_mlp": {
+      "attn": "90551069e99c067387b1aa9c9635fc6a2e72e07016e92820bd17e96835ade76f",
+      "mlp": "06a5cdf2c2a56b799e51fc9c3905c6b93ac3b51dc3ed26836f188bb31bd5c6e8"
+    },
+    "interleaved_arrival_all_attn_mlp": {
+      "attn": "8714b5e1f5bb46b7311769eb6422972c9056ac0a5c33323c75bab9f289710851",
+      "mlp": "9ffc1bc8c0b445f029dacf9979fc5c8a146e45a6c44a1f35bc98a296f06ea1b7"
+    },
+    "interleaved_arrival_selective_attn_mlp": {
+      "attn": "bc0fa4d67217f12d9ede83e4ce1cf4f5b65695d2ee327788012c003d23a1419a",
+      "mlp": "608ecfbe3f2ccd136a5a026c7aba0697939b44cec37a2253e9aebebf221dd3cd"
+    }
+  },
+  "communication": {
+    "environment": {
+      "NCCL_VERSION": "2.21.5-1",
+      "NCCL_NVLS_ENABLE": "0",
+      "NCCL_DEBUG": "WARN",
+      "TORCH_NCCL_ASYNC_ERROR_HANDLING": "1"
+    },
+    "config_files": {
+      "/etc/nccl.conf": null,
+      "/root/.nccl.conf": null
+    },
+    "nvls_request": "0"
+  },
+  "codec_identity": {
+    "implementation": "upstream-taco-cuda-h128-e4m3-ca717e05-v1",
+    "source_sha256": "d6213c093274600210a3594d87efeb7346bafab4cdf77709ce8b294378112178",
+    "reference_sha256": "1a6f8e4ef7a7a20b1709d2a91eeed55832c0cf7d73f351b4dc6e8f152be60b5b",
+    "cuda_source_identity": {
+      "baseline_upstream/LICENSE.txt": "36e053d82c9ff1384a1045bb4cda1f5b569aa6a0e2faa1f9a42e16eb4c13ac78",
+      "baseline_upstream/provenance.json": "ed3ffb67ca7cd7045b796ff9a21e880a8de0b62b1937a1283471892cb2a7a107",
+      "baseline_upstream/taco.cu": "15a9fa3b41f59333c03170a886d1c5d596415cebbc3642447cfcfdd93dffad8e",
+      "baseline_upstream/taco_RS.config": "c5bef55bf028d4e9e4b11b3b580f0214b7d724105e385c9d1f0bb2f47b51f24d",
+      "baseline_codec.cu": "cea609bbefd96135aa4bd08a7db7bb8722880c8f382fa29dc979b42ec054efb9"
+    }
+  },
+  "codec_library": {
+    "path": "/workspace/TempName/logs/h100/phase6/baseline-taco-cuda-3x-50steps-20261021-162929-989672/codec-build/libbaseline_taco.so",
+    "sha256": "104aeaf0eae46d4000592f533cd985bbce40077e3e924e7cec14c2678c773bb0"
+  }
+}
