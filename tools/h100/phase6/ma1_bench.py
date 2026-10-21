@@ -638,7 +638,10 @@ def trace_path(events, arm, role, calls=4):
             child["ts"] >= parent["ts"] and child["ts"] + child.get("dur", 0) <= parent["ts"] + parent["dur"] + .01
 
     for invocation in range(calls):
-        markers = [e for e in events if e.get("name") == f"ma1.{role}.{invocation}" and e.get("ph") == "X"]
+        # Kineto may mirror record_function spans as gpu_user_annotation.
+        # Launch containment uses the CPU pid/tid and its host-clock interval.
+        markers = [e for e in events if e.get("cat") == "user_annotation" and
+                   e.get("name") == f"ma1.{role}.{invocation}" and e.get("ph") == "X"]
         require(len(markers) == 1, "Missing or duplicated profiled invocation marker")
         marker = markers[0]
         call_launches = [e for e in launches if contained(e, marker)]

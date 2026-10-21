@@ -67,6 +67,9 @@ def trace_fixture(arm="P", role="attn", calls=4):
         start = invocation * 200
         events.append(dict(cat="user_annotation", name=f"ma1.{role}.{invocation}",
                            ph="X", pid=10, tid=11, ts=start, dur=80))
+        # Real Kineto traces also contain the same record_function name on GPU.
+        events.append(dict(cat="gpu_user_annotation", name=f"ma1.{role}.{invocation}",
+                           ph="X", pid=0, tid=7, ts=start + 100, dur=45))
         events.append(dict(cat="cpu_op", name="aten::clone", ph="X", pid=10, tid=11,
                            ts=start + 50, dur=20))
         names = ["flux_bf16_reducescatter(X)", "CudaIpcBarrierAllKernel(X)", decoder,
@@ -273,6 +276,17 @@ class EvidenceTests(unittest.TestCase):
 
 
 class ProfileTests(unittest.TestCase):
+    def test_gpu_mirror_cannot_replace_missing_or_duplicate_cpu_marker(self):
+        for duplicate in (False, True):
+            events = trace_fixture()
+            marker = next(e for e in events if e["cat"] == "user_annotation")
+            if duplicate:
+                events.append(copy.deepcopy(marker))
+            else:
+                events.remove(marker)
+            with self.subTest(duplicate=duplicate), self.assertRaisesRegex(ValueError, "invocation marker"):
+                bench.trace_path(events, "P", "attn")
+
     def test_all_three_paths_bind_by_launch_correlation_not_timestamps(self):
         for arm in bench.ARMS:
             for role in bench.ROLES:

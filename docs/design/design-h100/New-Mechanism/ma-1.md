@@ -1,6 +1,8 @@
 # MA1：交替排序＋接收端来源预取
 
-日期：2026-10-21。**本页提出并实现一个待八卡 H100 实测的新机制，不预先承诺加速。** 比较目标是：在相同交替生产顺序、全远端量化、发布屏障、输出所有权和完整训练配置下，提前读取下一来源的数据，能否缩短接收端解码归约及完整 optimizer step。启动命令见第 6 节。
+日期：2026-10-21。**本页提出并实现一个待八卡 H100 完整训练验证的新机制，不预先承诺加速。** 比较目标是：在相同交替生产顺序、全远端量化、发布屏障、输出所有权和完整训练配置下，提前读取下一来源的数据，能否缩短接收端解码归约及完整 optimizer step。启动命令见第 6 节。
+
+**最新回传：算子预检和计时已完成，原批次在 profile 汇总时因解析错误停止，完整训练尚未开始。** 解析器已修复并通过全部回传 trace 的离线核验；已有算子数据尚未证明 P/W 的预取净收益，详见第 8 节。
 
 ## 1. 为什么这次不继续调到达表
 
@@ -140,3 +142,30 @@ python3 tools/h100/phase6/ma1_fullstep.py report /path/to/batch/fullstep --offli
 W/P 共同使用 `__grid_constant__` 保留只读 kernel 参数，避免动态 peer 索引产生参数的线程本地副本；该项属于 W/A 的公共接收端优化，不算作 P/W 预取增量。指令核验还显示最终本地 BF16 读取可能穿插在最后远端来源的前几级 butterfly 之间，不能宣称全部本地读取都严格早于该来源的第一条计算指令。
 
 本地只验证了编译对象和 CPU 行为，**没有完成三份完整 Flux 动态库的链接，也未运行 GPU kernel、八卡数值检查或训练计时**。SASS 发射顺序不能证明实测访存重叠或速度收益。完整链接、实际路径、逐位正确性及性能由上述服务器启动入口继续验证；尚不能写成“已经比交替排序更快”。
+
+## 8. 首次回传：profile 解析失败，完整训练未开始
+
+回传批次为 `ma1-prefetch-1x-50steps-20261021-210732-317969`，来自提交 `ea771841`。其 [batch-state.json](../../../../logs/h100/phase6/ma1-prefetch-1x-50steps-20261021-210732-317969/batch-state.json) 为 `failed`，停止阶段是 `operator-profile`。
+
+**失败与后台进程托管无关。** [supervisor.json](../../../../logs/h100/phase6/ma1-prefetch-1x-50steps-20261021-210732-317969/handoff/supervisor.json) 记录 `ready=true`、`pid=3426600`、`ppid=1`；GPU worker 在初始化通信前也执行了 `torch.cuda.set_device(local_rank)`。本批已完成三组编译、八卡算子正确性检查、36 个算子计时窗口，以及三组各八 rank、两种 shape 的 48 份 profile trace。完整训练的 `fullstep/` 尚未创建，因此 **36 个完整训练窗口、1800 个正式 optimizer step 均未执行**。
+
+具体错误见 [operator-profile.log](../../../../logs/h100/phase6/ma1-prefetch-1x-50steps-20261021-210732-317969/operator-profile.log)：`Missing or duplicated profiled invocation marker`。实际 trace 同时包含同名的 CPU `user_annotation` 与 GPU `gpu_user_annotation`。旧 `trace_path()` 只按名称和 `ph=X` 匹配，得到两份记录，错误地判定调用标记重复。
+
+修复仅让调用边界匹配 CPU `user_annotation`；实际 kernel 仍通过 launch correlation 核验。CPU 标记确实缺失或重复时仍报错，GEMM、两屏障、decoder、clone 与 stream 顺序检查均保留。**26 项相关 CPU 测试通过，全部 48 份真实 trace、192 次算子调用均通过修复后的解析器。** [离线审计](../../../../outputs/h100/phase6/ma1-profile-fix-20261021/audit.json) 与 [重建的 profile 汇总](../../../../outputs/h100/phase6/ma1-profile-fix-20261021/profile-summary.json) 保存在独立输出目录；原日志、冻结脚本及原失败状态未修改，未重新运行 GPU。
+
+[原算子报告](../../../../logs/h100/phase6/ma1-prefetch-1x-50steps-20261021-210732-317969/operator/report.json) 已离线复算一致，`correctness_passed`、`bitwise_equal`、`actual_mapping_validated` 均为 `true`。批次状态中的 `operator_bitwise_equal=false` 是因为 supervisor 要等 profile 汇总成功后才登记阶段结果，不代表实际出现逐位错误。
+
+| 算子 | P/A 配对耗时下降 % [95% CI] | P/W 预取净增量 % [95% CI] |
+| --- | ---: | ---: |
+| Attention 输出投影 | +23.377 [+22.992, +23.697] | −0.258 [−0.664, +0.089] |
+| MLP 输出投影 | +14.365 [+13.795, +14.894] | −0.517 [−1.369, +0.282] |
+
+正值表示 P 更快。P/A 有正算子收益，但 P/W 两项区间均跨零且点估计为负，**尚无预取相对 W 的额外收益证据**。这些是完整 `GemmRS.forward().clone()` 的算子计时，不能换算成已经获得完整训练收益。
+
+同步修复后的工具到原服务器后，可复用仍保留在服务器上的构建，启动一个新批次，跳过重新编译：
+
+```bash
+/workspace/conda-envs/flux-h100-ablation3-20261017/bin/python tools/h100/phase6/detach_ma1.py --ma1-build /workspace/TempName/logs/h100/phase6/ma1-prefetch-1x-50steps-20261021-210732-317969/build --execute
+```
+
+该命令仍执行一次完整训练比较，并先重新完成算子预检、计时和 profile；不覆盖旧批次，也不修改旧批次的冻结脚本或哈希。构建目录若已删除，则使用第 6 节的默认命令重新构建。
