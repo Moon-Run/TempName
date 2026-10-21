@@ -1,6 +1,6 @@
 # H100 到达优先 op3 v2：降低发布成本，限制提前消费拖尾
 
-更新：2026-10-20。本页记录新的 v2 候选；旧方案原文保存在 [op3-v1.md](op3-v1.md)，旧版实测见 [base-op3.md](base-op3.md)。**本轮代码、四组对照和一键启动器已实现；是否相对 A 达到1%，仍须在另一台 H100 服务器实测，不能由 CPU 测试或编译通过推定。**
+实现记录：2026-10-20；实测状态更新：2026-10-21。本页记录v2方案；旧方案原文保存在 [op3-v1.md](op3-v1.md)，旧版实测见 [base-op3-v1.md](base-op3-v1.md)。**v2回传实验已完成：辅助扫描拖尾明显缩短，但O/A两次完整训练分别慢0.928%、0.844%，1%目标未通过。完整结果与证据见 [base-op3.md](base-op3.md)。**
 
 ## 1. 针对旧版暴露的问题改什么
 
@@ -180,7 +180,7 @@ fullstep/report.json                  # 只有进入并完成整步阶段后才�
 
 CPU测试覆盖数值顺序、组级唯一覆盖、stop传播延迟、partial done、跨代复用、同步反例、D与O隔离、旧库拒绝、四组配对统计、双角色多轮profile匹配、诊断不阻止训练及两次正式验收。真实SM90交叉编译检查包括A/D/O的mapping、runtime、完整GEMM实例与C++ wrapper，证据保存到本轮独立输出目录。
 
-本轮实际验证结果：
+实现阶段的本地验证结果（2026-10-20）：
 
 - 取消预筛门槛前，**131项CPU测试通过**，其中v2新增78项、旧op3回归53项。见 [统一日志](../../../../outputs/h100/phase6/arrival-op3-v2-validation-20261020/all-cpu-tests.log) 和 [输入哈希与状态](../../../../outputs/h100/phase6/arrival-op3-v2-validation-20261020/cpu-validation.json)。
 - 取消预筛门槛后，重新执行 `python3 -m unittest discover -s tools/h100/phase6 -p 'test_arrival_op3_v2_*.py' -v`，**78项v2 CPU测试通过**；覆盖无有效重叠、低/零/负估算收益仍继续完整训练，以及最终验收独立于算子诊断。新入口无副作用预览通过；此项仅验证调度与报告逻辑，没有执行GPU训练。
@@ -188,4 +188,4 @@ CPU测试覆盖数值顺序、组级唯一覆盖、stop传播延迟、partial do
 - **27条真实编译/检查命令、12个对象全部通过**，覆盖三个变体的mapping、runtime、完整GEMM模板实例和THS wrapper。见 [SM90编译结果](../../../../outputs/h100/phase6/arrival-op3-v2-20261020-compile/validation.json) 和 [日志](../../../../outputs/h100/phase6/arrival-op3-v2-20261020-compile/compile.log)。记录为 `completed=true,gpu_used=false,linked_runtime=false`，不是完整动态库链接或GPU运行通过。
 - 新入口已执行无副作用预览；Python语法、文档本地链接检查通过。旧源码及旧GPU结果未修改，旧结果页仅将历史设计链接指向归档文件。
 
-**本机没有执行v2 GPU性能实验。** 固定64个提前CTA、两轮try以及stop kernel的成本仍可能使O不如D或S；同一数学顺序也必须经过GPU逐位对照。新代码为争取1%提供了针对旧瓶颈的具体改动和完整对照验证，但尚不能写成“已经提升1%”。
+实现阶段本机没有执行v2 GPU性能实验。2026-10-21已复核另一台服务器回传的完整四组实验：算子逐位正确性和模型数值检查通过，43/64次O诊断调用存在有效提前消费，但O/A与O/S两次整步比较均退化。详见 [最新实测结果](base-op3.md)；本页上述CPU测试与编译记录仍仅代表实现阶段验证，不能写成“已经提升1%”。

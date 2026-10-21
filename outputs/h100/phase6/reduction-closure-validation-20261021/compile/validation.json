@@ -1,0 +1,617 @@
+{
+  "completed": true,
+  "mode": "sm90-objects",
+  "gpu_used": false,
+  "gpu_validated": false,
+  "linked_runtime": false,
+  "commands": [
+    {
+      "args": [
+        "/data/run01/scyb672/conda_envs/flux-megatron-a800/bin/python",
+        "-c",
+        "import json, sysconfig, torch; from torch.utils.cpp_extension import include_paths; print(json.dumps(dict(includes=include_paths()+[sysconfig.get_path(\"include\")], abi=int(torch._C._GLIBCXX_USE_CXX11_ABI))))"
+      ],
+      "completed": true
+    },
+    {
+      "args": [
+        "g++",
+        "-std=c++17",
+        "-O2",
+        "-I/data/run01/scyb672/hjr/TempName/outputs/h100/phase6/reduction-closure-validation-20261021/build/SP",
+        "/data/run01/scyb672/hjr/TempName/outputs/h100/phase6/reduction-closure-validation-20261021/compile/SP/mapping.cc",
+        "-o",
+        "/data/run01/scyb672/hjr/TempName/outputs/h100/phase6/reduction-closure-validation-20261021/compile/SP/mapping"
+      ],
+      "completed": true
+    },
+    {
+      "args": [
+        "/data/run01/scyb672/hjr/TempName/outputs/h100/phase6/reduction-closure-validation-20261021/compile/SP/mapping"
+      ],
+      "completed": true
+    },
+    {
+      "args": [
+        "/data/apps/cuda/12.8/bin/nvcc",
+        "-std=c++17",
+        "-O2",
+        "--expt-relaxed-constexpr",
+        "--expt-extended-lambda",
+        "-DFLUX_TACO_BASELINE",
+        "-gencode=arch=compute_90,code=sm_90",
+        "-I/data/run01/scyb672/hjr/TempName/outputs/h100/phase6/reduction-closure-validation-20261021/build/SP",
+        "-I/data/run01/scyb672/hjr/TempName/outputs/h100/phase6/reduction-closure-validation-20261021/build/SP/src",
+        "-I/data/run01/scyb672/hjr/TempName/outputs/h100/phase6/reduction-closure-validation-20261021/build/SP/include",
+        "-I/data/apps/cuda/12.8/include",
+        "-I/data/run01/scyb672/hjr/TempName/outputs/h100/phase6/reduction-closure-validation-20261021/build/SP/3rdparty/cutlass/include",
+        "-I/data/run01/scyb672/hjr/TempName/outputs/h100/phase6/reduction-closure-validation-20261021/build/SP/3rdparty/cutlass/tools/util/include",
+        "-c",
+        "/data/run01/scyb672/hjr/TempName/outputs/h100/phase6/reduction-closure-validation-20261021/build/SP/check_mapping.cu",
+        "-o",
+        "/data/run01/scyb672/hjr/TempName/outputs/h100/phase6/reduction-closure-validation-20261021/compile/SP/mapping.o"
+      ],
+      "completed": true
+    },
+    {
+      "args": [
+        "/data/apps/cuda/12.8/bin/nvcc",
+        "-std=c++17",
+        "-O2",
+        "--expt-relaxed-constexpr",
+        "--expt-extended-lambda",
+        "-DFLUX_TACO_BASELINE",
+        "-gencode=arch=compute_90,code=sm_90",
+        "-I/data/run01/scyb672/hjr/TempName/outputs/h100/phase6/reduction-closure-validation-20261021/build/SP",
+        "-I/data/run01/scyb672/hjr/TempName/outputs/h100/phase6/reduction-closure-validation-20261021/build/SP/src",
+        "-I/data/run01/scyb672/hjr/TempName/outputs/h100/phase6/reduction-closure-validation-20261021/build/SP/include",
+        "-I/data/apps/cuda/12.8/include",
+        "-I/data/run01/scyb672/hjr/TempName/outputs/h100/phase6/reduction-closure-validation-20261021/build/SP/3rdparty/cutlass/include",
+        "-I/data/run01/scyb672/hjr/TempName/outputs/h100/phase6/reduction-closure-validation-20261021/build/SP/3rdparty/cutlass/tools/util/include",
+        "-c",
+        "/data/run01/scyb672/hjr/TempName/outputs/h100/phase6/reduction-closure-validation-20261021/build/SP/src/gemm_rs/taco_runtime.cu",
+        "-o",
+        "/data/run01/scyb672/hjr/TempName/outputs/h100/phase6/reduction-closure-validation-20261021/compile/SP/runtime.o"
+      ],
+      "completed": true
+    },
+    {
+      "args": [
+        "g++",
+        "-std=c++17",
+        "-O2",
+        "-I/data/run01/scyb672/hjr/TempName/outputs/h100/phase6/reduction-closure-validation-20261021/build/SP",
+        "-I/data/run01/scyb672/hjr/TempName/outputs/h100/phase6/reduction-closure-validation-20261021/build/SP/src",
+        "-I/data/run01/scyb672/hjr/TempName/outputs/h100/phase6/reduction-closure-validation-20261021/build/SP/include",
+        "-I/data/apps/cuda/12.8/include",
+        "-I/data/run01/scyb672/hjr/TempName/outputs/h100/phase6/reduction-closure-validation-20261021/build/SP/3rdparty/cutlass/include",
+        "-I/data/run01/scyb672/hjr/TempName/outputs/h100/phase6/reduction-closure-validation-20261021/build/SP/3rdparty/cutlass/tools/util/include",
+        "-I/data/run01/scyb672/hjr/TempName/outputs/h100/phase6/reduction-closure-validation-20261021/build/SP/src/generator",
+        "/data/run01/scyb672/hjr/TempName/outputs/h100/phase6/reduction-closure-validation-20261021/build/SP/src/generator/gen_gemm_rs.cc",
+        "-o",
+        "/data/run01/scyb672/hjr/TempName/outputs/h100/phase6/reduction-closure-validation-20261021/compile/SP/generator"
+      ],
+      "completed": true
+    },
+    {
+      "args": [
+        "/data/run01/scyb672/hjr/TempName/outputs/h100/phase6/reduction-closure-validation-20261021/compile/SP/generator",
+        "--archs=80",
+        "--sm_cores=108",
+        "--dir=/data/run01/scyb672/hjr/TempName/outputs/h100/phase6/reduction-closure-validation-20261021/compile/SP/registers",
+        "--output_file=/data/run01/scyb672/hjr/TempName/outputs/h100/phase6/reduction-closure-validation-20261021/compile/SP/generated.txt"
+      ],
+      "completed": true
+    },
+    {
+      "args": [
+        "/data/apps/cuda/12.8/bin/nvcc",
+        "-std=c++17",
+        "-O2",
+        "--expt-relaxed-constexpr",
+        "--expt-extended-lambda",
+        "-DFLUX_TACO_BASELINE",
+        "-gencode=arch=compute_90,code=sm_90",
+        "-I/data/run01/scyb672/hjr/TempName/outputs/h100/phase6/reduction-closure-validation-20261021/build/SP",
+        "-I/data/run01/scyb672/hjr/TempName/outputs/h100/phase6/reduction-closure-validation-20261021/build/SP/src",
+        "-I/data/run01/scyb672/hjr/TempName/outputs/h100/phase6/reduction-closure-validation-20261021/build/SP/include",
+        "-I/data/apps/cuda/12.8/include",
+        "-I/data/run01/scyb672/hjr/TempName/outputs/h100/phase6/reduction-closure-validation-20261021/build/SP/3rdparty/cutlass/include",
+        "-I/data/run01/scyb672/hjr/TempName/outputs/h100/phase6/reduction-closure-validation-20261021/build/SP/3rdparty/cutlass/tools/util/include",
+        "-c",
+        "/data/run01/scyb672/hjr/TempName/outputs/h100/phase6/reduction-closure-validation-20261021/compile/SP/registers/flux_bf16_bf16_void_bf16_fp32_fp32_sm80_a100_reducescatter_rcr_gemmv2_false_false_intranode.cu",
+        "-o",
+        "/data/run01/scyb672/hjr/TempName/outputs/h100/phase6/reduction-closure-validation-20261021/compile/SP/gemm.o"
+      ],
+      "completed": true
+    },
+    {
+      "args": [
+        "g++",
+        "-std=c++17",
+        "-O0",
+        "-fPIC",
+        "-DFLUX_TACO_BASELINE",
+        "-D_GLIBCXX_USE_CXX11_ABI=0",
+        "-I/data/run01/scyb672/hjr/TempName/outputs/h100/phase6/reduction-closure-validation-20261021/build/SP",
+        "-I/data/run01/scyb672/hjr/TempName/outputs/h100/phase6/reduction-closure-validation-20261021/build/SP/src",
+        "-I/data/run01/scyb672/hjr/TempName/outputs/h100/phase6/reduction-closure-validation-20261021/build/SP/include",
+        "-I/data/apps/cuda/12.8/include",
+        "-I/data/run01/scyb672/hjr/TempName/outputs/h100/phase6/reduction-closure-validation-20261021/build/SP/3rdparty/cutlass/include",
+        "-I/data/run01/scyb672/hjr/TempName/outputs/h100/phase6/reduction-closure-validation-20261021/build/SP/3rdparty/cutlass/tools/util/include",
+        "-I/data/run01/scyb672/conda_envs/flux-megatron-a800/lib/python3.10/site-packages/torch/include",
+        "-I/data/run01/scyb672/conda_envs/flux-megatron-a800/lib/python3.10/site-packages/torch/include/torch/csrc/api/include",
+        "-I/data/run01/scyb672/conda_envs/flux-megatron-a800/lib/python3.10/site-packages/torch/include/TH",
+        "-I/data/run01/scyb672/conda_envs/flux-megatron-a800/lib/python3.10/site-packages/torch/include/THC",
+        "-I/data/run01/scyb672/conda_envs/flux-megatron-a800/include/python3.10",
+        "-c",
+        "/data/run01/scyb672/hjr/TempName/outputs/h100/phase6/reduction-closure-validation-20261021/build/SP/src/gemm_rs/ths_op/gemm_reduce_scatter.cc",
+        "-o",
+        "/data/run01/scyb672/hjr/TempName/outputs/h100/phase6/reduction-closure-validation-20261021/compile/SP/wrapper.o"
+      ],
+      "completed": true
+    },
+    {
+      "args": [
+        "g++",
+        "-std=c++17",
+        "-O2",
+        "-I/data/run01/scyb672/hjr/TempName/outputs/h100/phase6/reduction-closure-validation-20261021/build/CP",
+        "/data/run01/scyb672/hjr/TempName/outputs/h100/phase6/reduction-closure-validation-20261021/compile/CP/mapping.cc",
+        "-o",
+        "/data/run01/scyb672/hjr/TempName/outputs/h100/phase6/reduction-closure-validation-20261021/compile/CP/mapping"
+      ],
+      "completed": true
+    },
+    {
+      "args": [
+        "/data/run01/scyb672/hjr/TempName/outputs/h100/phase6/reduction-closure-validation-20261021/compile/CP/mapping"
+      ],
+      "completed": true
+    },
+    {
+      "args": [
+        "/data/apps/cuda/12.8/bin/nvcc",
+        "-std=c++17",
+        "-O2",
+        "--expt-relaxed-constexpr",
+        "--expt-extended-lambda",
+        "-DFLUX_TACO_BASELINE",
+        "-gencode=arch=compute_90,code=sm_90",
+        "-I/data/run01/scyb672/hjr/TempName/outputs/h100/phase6/reduction-closure-validation-20261021/build/CP",
+        "-I/data/run01/scyb672/hjr/TempName/outputs/h100/phase6/reduction-closure-validation-20261021/build/CP/src",
+        "-I/data/run01/scyb672/hjr/TempName/outputs/h100/phase6/reduction-closure-validation-20261021/build/CP/include",
+        "-I/data/apps/cuda/12.8/include",
+        "-I/data/run01/scyb672/hjr/TempName/outputs/h100/phase6/reduction-closure-validation-20261021/build/CP/3rdparty/cutlass/include",
+        "-I/data/run01/scyb672/hjr/TempName/outputs/h100/phase6/reduction-closure-validation-20261021/build/CP/3rdparty/cutlass/tools/util/include",
+        "-c",
+        "/data/run01/scyb672/hjr/TempName/outputs/h100/phase6/reduction-closure-validation-20261021/build/CP/check_mapping.cu",
+        "-o",
+        "/data/run01/scyb672/hjr/TempName/outputs/h100/phase6/reduction-closure-validation-20261021/compile/CP/mapping.o"
+      ],
+      "completed": true
+    },
+    {
+      "args": [
+        "/data/apps/cuda/12.8/bin/nvcc",
+        "-std=c++17",
+        "-O2",
+        "--expt-relaxed-constexpr",
+        "--expt-extended-lambda",
+        "-DFLUX_TACO_BASELINE",
+        "-gencode=arch=compute_90,code=sm_90",
+        "-I/data/run01/scyb672/hjr/TempName/outputs/h100/phase6/reduction-closure-validation-20261021/build/CP",
+        "-I/data/run01/scyb672/hjr/TempName/outputs/h100/phase6/reduction-closure-validation-20261021/build/CP/src",
+        "-I/data/run01/scyb672/hjr/TempName/outputs/h100/phase6/reduction-closure-validation-20261021/build/CP/include",
+        "-I/data/apps/cuda/12.8/include",
+        "-I/data/run01/scyb672/hjr/TempName/outputs/h100/phase6/reduction-closure-validation-20261021/build/CP/3rdparty/cutlass/include",
+        "-I/data/run01/scyb672/hjr/TempName/outputs/h100/phase6/reduction-closure-validation-20261021/build/CP/3rdparty/cutlass/tools/util/include",
+        "-c",
+        "/data/run01/scyb672/hjr/TempName/outputs/h100/phase6/reduction-closure-validation-20261021/build/CP/src/gemm_rs/taco_runtime.cu",
+        "-o",
+        "/data/run01/scyb672/hjr/TempName/outputs/h100/phase6/reduction-closure-validation-20261021/compile/CP/runtime.o"
+      ],
+      "completed": true
+    },
+    {
+      "args": [
+        "g++",
+        "-std=c++17",
+        "-O2",
+        "-I/data/run01/scyb672/hjr/TempName/outputs/h100/phase6/reduction-closure-validation-20261021/build/CP",
+        "-I/data/run01/scyb672/hjr/TempName/outputs/h100/phase6/reduction-closure-validation-20261021/build/CP/src",
+        "-I/data/run01/scyb672/hjr/TempName/outputs/h100/phase6/reduction-closure-validation-20261021/build/CP/include",
+        "-I/data/apps/cuda/12.8/include",
+        "-I/data/run01/scyb672/hjr/TempName/outputs/h100/phase6/reduction-closure-validation-20261021/build/CP/3rdparty/cutlass/include",
+        "-I/data/run01/scyb672/hjr/TempName/outputs/h100/phase6/reduction-closure-validation-20261021/build/CP/3rdparty/cutlass/tools/util/include",
+        "-I/data/run01/scyb672/hjr/TempName/outputs/h100/phase6/reduction-closure-validation-20261021/build/CP/src/generator",
+        "/data/run01/scyb672/hjr/TempName/outputs/h100/phase6/reduction-closure-validation-20261021/build/CP/src/generator/gen_gemm_rs.cc",
+        "-o",
+        "/data/run01/scyb672/hjr/TempName/outputs/h100/phase6/reduction-closure-validation-20261021/compile/CP/generator"
+      ],
+      "completed": true
+    },
+    {
+      "args": [
+        "/data/run01/scyb672/hjr/TempName/outputs/h100/phase6/reduction-closure-validation-20261021/compile/CP/generator",
+        "--archs=80",
+        "--sm_cores=108",
+        "--dir=/data/run01/scyb672/hjr/TempName/outputs/h100/phase6/reduction-closure-validation-20261021/compile/CP/registers",
+        "--output_file=/data/run01/scyb672/hjr/TempName/outputs/h100/phase6/reduction-closure-validation-20261021/compile/CP/generated.txt"
+      ],
+      "completed": true
+    },
+    {
+      "args": [
+        "/data/apps/cuda/12.8/bin/nvcc",
+        "-std=c++17",
+        "-O2",
+        "--expt-relaxed-constexpr",
+        "--expt-extended-lambda",
+        "-DFLUX_TACO_BASELINE",
+        "-gencode=arch=compute_90,code=sm_90",
+        "-I/data/run01/scyb672/hjr/TempName/outputs/h100/phase6/reduction-closure-validation-20261021/build/CP",
+        "-I/data/run01/scyb672/hjr/TempName/outputs/h100/phase6/reduction-closure-validation-20261021/build/CP/src",
+        "-I/data/run01/scyb672/hjr/TempName/outputs/h100/phase6/reduction-closure-validation-20261021/build/CP/include",
+        "-I/data/apps/cuda/12.8/include",
+        "-I/data/run01/scyb672/hjr/TempName/outputs/h100/phase6/reduction-closure-validation-20261021/build/CP/3rdparty/cutlass/include",
+        "-I/data/run01/scyb672/hjr/TempName/outputs/h100/phase6/reduction-closure-validation-20261021/build/CP/3rdparty/cutlass/tools/util/include",
+        "-c",
+        "/data/run01/scyb672/hjr/TempName/outputs/h100/phase6/reduction-closure-validation-20261021/compile/CP/registers/flux_bf16_bf16_void_bf16_fp32_fp32_sm80_a100_reducescatter_rcr_gemmv2_false_false_intranode.cu",
+        "-o",
+        "/data/run01/scyb672/hjr/TempName/outputs/h100/phase6/reduction-closure-validation-20261021/compile/CP/gemm.o"
+      ],
+      "completed": true
+    },
+    {
+      "args": [
+        "g++",
+        "-std=c++17",
+        "-O0",
+        "-fPIC",
+        "-DFLUX_TACO_BASELINE",
+        "-D_GLIBCXX_USE_CXX11_ABI=0",
+        "-I/data/run01/scyb672/hjr/TempName/outputs/h100/phase6/reduction-closure-validation-20261021/build/CP",
+        "-I/data/run01/scyb672/hjr/TempName/outputs/h100/phase6/reduction-closure-validation-20261021/build/CP/src",
+        "-I/data/run01/scyb672/hjr/TempName/outputs/h100/phase6/reduction-closure-validation-20261021/build/CP/include",
+        "-I/data/apps/cuda/12.8/include",
+        "-I/data/run01/scyb672/hjr/TempName/outputs/h100/phase6/reduction-closure-validation-20261021/build/CP/3rdparty/cutlass/include",
+        "-I/data/run01/scyb672/hjr/TempName/outputs/h100/phase6/reduction-closure-validation-20261021/build/CP/3rdparty/cutlass/tools/util/include",
+        "-I/data/run01/scyb672/conda_envs/flux-megatron-a800/lib/python3.10/site-packages/torch/include",
+        "-I/data/run01/scyb672/conda_envs/flux-megatron-a800/lib/python3.10/site-packages/torch/include/torch/csrc/api/include",
+        "-I/data/run01/scyb672/conda_envs/flux-megatron-a800/lib/python3.10/site-packages/torch/include/TH",
+        "-I/data/run01/scyb672/conda_envs/flux-megatron-a800/lib/python3.10/site-packages/torch/include/THC",
+        "-I/data/run01/scyb672/conda_envs/flux-megatron-a800/include/python3.10",
+        "-c",
+        "/data/run01/scyb672/hjr/TempName/outputs/h100/phase6/reduction-closure-validation-20261021/build/CP/src/gemm_rs/ths_op/gemm_reduce_scatter.cc",
+        "-o",
+        "/data/run01/scyb672/hjr/TempName/outputs/h100/phase6/reduction-closure-validation-20261021/compile/CP/wrapper.o"
+      ],
+      "completed": true
+    },
+    {
+      "args": [
+        "g++",
+        "-std=c++17",
+        "-O2",
+        "-I/data/run01/scyb672/hjr/TempName/outputs/h100/phase6/reduction-closure-validation-20261021/build/SM",
+        "/data/run01/scyb672/hjr/TempName/outputs/h100/phase6/reduction-closure-validation-20261021/compile/SM/mapping.cc",
+        "-o",
+        "/data/run01/scyb672/hjr/TempName/outputs/h100/phase6/reduction-closure-validation-20261021/compile/SM/mapping"
+      ],
+      "completed": true
+    },
+    {
+      "args": [
+        "/data/run01/scyb672/hjr/TempName/outputs/h100/phase6/reduction-closure-validation-20261021/compile/SM/mapping"
+      ],
+      "completed": true
+    },
+    {
+      "args": [
+        "/data/apps/cuda/12.8/bin/nvcc",
+        "-std=c++17",
+        "-O2",
+        "--expt-relaxed-constexpr",
+        "--expt-extended-lambda",
+        "-DFLUX_TACO_BASELINE",
+        "-gencode=arch=compute_90,code=sm_90",
+        "-I/data/run01/scyb672/hjr/TempName/outputs/h100/phase6/reduction-closure-validation-20261021/build/SM",
+        "-I/data/run01/scyb672/hjr/TempName/outputs/h100/phase6/reduction-closure-validation-20261021/build/SM/src",
+        "-I/data/run01/scyb672/hjr/TempName/outputs/h100/phase6/reduction-closure-validation-20261021/build/SM/include",
+        "-I/data/apps/cuda/12.8/include",
+        "-I/data/run01/scyb672/hjr/TempName/outputs/h100/phase6/reduction-closure-validation-20261021/build/SM/3rdparty/cutlass/include",
+        "-I/data/run01/scyb672/hjr/TempName/outputs/h100/phase6/reduction-closure-validation-20261021/build/SM/3rdparty/cutlass/tools/util/include",
+        "-c",
+        "/data/run01/scyb672/hjr/TempName/outputs/h100/phase6/reduction-closure-validation-20261021/build/SM/check_mapping.cu",
+        "-o",
+        "/data/run01/scyb672/hjr/TempName/outputs/h100/phase6/reduction-closure-validation-20261021/compile/SM/mapping.o"
+      ],
+      "completed": true
+    },
+    {
+      "args": [
+        "/data/apps/cuda/12.8/bin/nvcc",
+        "-std=c++17",
+        "-O2",
+        "--expt-relaxed-constexpr",
+        "--expt-extended-lambda",
+        "-DFLUX_TACO_BASELINE",
+        "-gencode=arch=compute_90,code=sm_90",
+        "-I/data/run01/scyb672/hjr/TempName/outputs/h100/phase6/reduction-closure-validation-20261021/build/SM",
+        "-I/data/run01/scyb672/hjr/TempName/outputs/h100/phase6/reduction-closure-validation-20261021/build/SM/src",
+        "-I/data/run01/scyb672/hjr/TempName/outputs/h100/phase6/reduction-closure-validation-20261021/build/SM/include",
+        "-I/data/apps/cuda/12.8/include",
+        "-I/data/run01/scyb672/hjr/TempName/outputs/h100/phase6/reduction-closure-validation-20261021/build/SM/3rdparty/cutlass/include",
+        "-I/data/run01/scyb672/hjr/TempName/outputs/h100/phase6/reduction-closure-validation-20261021/build/SM/3rdparty/cutlass/tools/util/include",
+        "-c",
+        "/data/run01/scyb672/hjr/TempName/outputs/h100/phase6/reduction-closure-validation-20261021/build/SM/src/gemm_rs/taco_runtime.cu",
+        "-o",
+        "/data/run01/scyb672/hjr/TempName/outputs/h100/phase6/reduction-closure-validation-20261021/compile/SM/runtime.o"
+      ],
+      "completed": true
+    },
+    {
+      "args": [
+        "g++",
+        "-std=c++17",
+        "-O2",
+        "-I/data/run01/scyb672/hjr/TempName/outputs/h100/phase6/reduction-closure-validation-20261021/build/SM",
+        "-I/data/run01/scyb672/hjr/TempName/outputs/h100/phase6/reduction-closure-validation-20261021/build/SM/src",
+        "-I/data/run01/scyb672/hjr/TempName/outputs/h100/phase6/reduction-closure-validation-20261021/build/SM/include",
+        "-I/data/apps/cuda/12.8/include",
+        "-I/data/run01/scyb672/hjr/TempName/outputs/h100/phase6/reduction-closure-validation-20261021/build/SM/3rdparty/cutlass/include",
+        "-I/data/run01/scyb672/hjr/TempName/outputs/h100/phase6/reduction-closure-validation-20261021/build/SM/3rdparty/cutlass/tools/util/include",
+        "-I/data/run01/scyb672/hjr/TempName/outputs/h100/phase6/reduction-closure-validation-20261021/build/SM/src/generator",
+        "/data/run01/scyb672/hjr/TempName/outputs/h100/phase6/reduction-closure-validation-20261021/build/SM/src/generator/gen_gemm_rs.cc",
+        "-o",
+        "/data/run01/scyb672/hjr/TempName/outputs/h100/phase6/reduction-closure-validation-20261021/compile/SM/generator"
+      ],
+      "completed": true
+    },
+    {
+      "args": [
+        "/data/run01/scyb672/hjr/TempName/outputs/h100/phase6/reduction-closure-validation-20261021/compile/SM/generator",
+        "--archs=80",
+        "--sm_cores=108",
+        "--dir=/data/run01/scyb672/hjr/TempName/outputs/h100/phase6/reduction-closure-validation-20261021/compile/SM/registers",
+        "--output_file=/data/run01/scyb672/hjr/TempName/outputs/h100/phase6/reduction-closure-validation-20261021/compile/SM/generated.txt"
+      ],
+      "completed": true
+    },
+    {
+      "args": [
+        "/data/apps/cuda/12.8/bin/nvcc",
+        "-std=c++17",
+        "-O2",
+        "--expt-relaxed-constexpr",
+        "--expt-extended-lambda",
+        "-DFLUX_TACO_BASELINE",
+        "-gencode=arch=compute_90,code=sm_90",
+        "-I/data/run01/scyb672/hjr/TempName/outputs/h100/phase6/reduction-closure-validation-20261021/build/SM",
+        "-I/data/run01/scyb672/hjr/TempName/outputs/h100/phase6/reduction-closure-validation-20261021/build/SM/src",
+        "-I/data/run01/scyb672/hjr/TempName/outputs/h100/phase6/reduction-closure-validation-20261021/build/SM/include",
+        "-I/data/apps/cuda/12.8/include",
+        "-I/data/run01/scyb672/hjr/TempName/outputs/h100/phase6/reduction-closure-validation-20261021/build/SM/3rdparty/cutlass/include",
+        "-I/data/run01/scyb672/hjr/TempName/outputs/h100/phase6/reduction-closure-validation-20261021/build/SM/3rdparty/cutlass/tools/util/include",
+        "-c",
+        "/data/run01/scyb672/hjr/TempName/outputs/h100/phase6/reduction-closure-validation-20261021/compile/SM/registers/flux_bf16_bf16_void_bf16_fp32_fp32_sm80_a100_reducescatter_rcr_gemmv2_false_false_intranode.cu",
+        "-o",
+        "/data/run01/scyb672/hjr/TempName/outputs/h100/phase6/reduction-closure-validation-20261021/compile/SM/gemm.o"
+      ],
+      "completed": true
+    },
+    {
+      "args": [
+        "g++",
+        "-std=c++17",
+        "-O0",
+        "-fPIC",
+        "-DFLUX_TACO_BASELINE",
+        "-D_GLIBCXX_USE_CXX11_ABI=0",
+        "-I/data/run01/scyb672/hjr/TempName/outputs/h100/phase6/reduction-closure-validation-20261021/build/SM",
+        "-I/data/run01/scyb672/hjr/TempName/outputs/h100/phase6/reduction-closure-validation-20261021/build/SM/src",
+        "-I/data/run01/scyb672/hjr/TempName/outputs/h100/phase6/reduction-closure-validation-20261021/build/SM/include",
+        "-I/data/apps/cuda/12.8/include",
+        "-I/data/run01/scyb672/hjr/TempName/outputs/h100/phase6/reduction-closure-validation-20261021/build/SM/3rdparty/cutlass/include",
+        "-I/data/run01/scyb672/hjr/TempName/outputs/h100/phase6/reduction-closure-validation-20261021/build/SM/3rdparty/cutlass/tools/util/include",
+        "-I/data/run01/scyb672/conda_envs/flux-megatron-a800/lib/python3.10/site-packages/torch/include",
+        "-I/data/run01/scyb672/conda_envs/flux-megatron-a800/lib/python3.10/site-packages/torch/include/torch/csrc/api/include",
+        "-I/data/run01/scyb672/conda_envs/flux-megatron-a800/lib/python3.10/site-packages/torch/include/TH",
+        "-I/data/run01/scyb672/conda_envs/flux-megatron-a800/lib/python3.10/site-packages/torch/include/THC",
+        "-I/data/run01/scyb672/conda_envs/flux-megatron-a800/include/python3.10",
+        "-c",
+        "/data/run01/scyb672/hjr/TempName/outputs/h100/phase6/reduction-closure-validation-20261021/build/SM/src/gemm_rs/ths_op/gemm_reduce_scatter.cc",
+        "-o",
+        "/data/run01/scyb672/hjr/TempName/outputs/h100/phase6/reduction-closure-validation-20261021/compile/SM/wrapper.o"
+      ],
+      "completed": true
+    },
+    {
+      "args": [
+        "g++",
+        "-std=c++17",
+        "-O2",
+        "-I/data/run01/scyb672/hjr/TempName/outputs/h100/phase6/reduction-closure-validation-20261021/build/CM",
+        "/data/run01/scyb672/hjr/TempName/outputs/h100/phase6/reduction-closure-validation-20261021/compile/CM/mapping.cc",
+        "-o",
+        "/data/run01/scyb672/hjr/TempName/outputs/h100/phase6/reduction-closure-validation-20261021/compile/CM/mapping"
+      ],
+      "completed": true
+    },
+    {
+      "args": [
+        "/data/run01/scyb672/hjr/TempName/outputs/h100/phase6/reduction-closure-validation-20261021/compile/CM/mapping"
+      ],
+      "completed": true
+    },
+    {
+      "args": [
+        "/data/apps/cuda/12.8/bin/nvcc",
+        "-std=c++17",
+        "-O2",
+        "--expt-relaxed-constexpr",
+        "--expt-extended-lambda",
+        "-DFLUX_TACO_BASELINE",
+        "-gencode=arch=compute_90,code=sm_90",
+        "-I/data/run01/scyb672/hjr/TempName/outputs/h100/phase6/reduction-closure-validation-20261021/build/CM",
+        "-I/data/run01/scyb672/hjr/TempName/outputs/h100/phase6/reduction-closure-validation-20261021/build/CM/src",
+        "-I/data/run01/scyb672/hjr/TempName/outputs/h100/phase6/reduction-closure-validation-20261021/build/CM/include",
+        "-I/data/apps/cuda/12.8/include",
+        "-I/data/run01/scyb672/hjr/TempName/outputs/h100/phase6/reduction-closure-validation-20261021/build/CM/3rdparty/cutlass/include",
+        "-I/data/run01/scyb672/hjr/TempName/outputs/h100/phase6/reduction-closure-validation-20261021/build/CM/3rdparty/cutlass/tools/util/include",
+        "-c",
+        "/data/run01/scyb672/hjr/TempName/outputs/h100/phase6/reduction-closure-validation-20261021/build/CM/check_mapping.cu",
+        "-o",
+        "/data/run01/scyb672/hjr/TempName/outputs/h100/phase6/reduction-closure-validation-20261021/compile/CM/mapping.o"
+      ],
+      "completed": true
+    },
+    {
+      "args": [
+        "/data/apps/cuda/12.8/bin/nvcc",
+        "-std=c++17",
+        "-O2",
+        "--expt-relaxed-constexpr",
+        "--expt-extended-lambda",
+        "-DFLUX_TACO_BASELINE",
+        "-gencode=arch=compute_90,code=sm_90",
+        "-I/data/run01/scyb672/hjr/TempName/outputs/h100/phase6/reduction-closure-validation-20261021/build/CM",
+        "-I/data/run01/scyb672/hjr/TempName/outputs/h100/phase6/reduction-closure-validation-20261021/build/CM/src",
+        "-I/data/run01/scyb672/hjr/TempName/outputs/h100/phase6/reduction-closure-validation-20261021/build/CM/include",
+        "-I/data/apps/cuda/12.8/include",
+        "-I/data/run01/scyb672/hjr/TempName/outputs/h100/phase6/reduction-closure-validation-20261021/build/CM/3rdparty/cutlass/include",
+        "-I/data/run01/scyb672/hjr/TempName/outputs/h100/phase6/reduction-closure-validation-20261021/build/CM/3rdparty/cutlass/tools/util/include",
+        "-c",
+        "/data/run01/scyb672/hjr/TempName/outputs/h100/phase6/reduction-closure-validation-20261021/build/CM/src/gemm_rs/taco_runtime.cu",
+        "-o",
+        "/data/run01/scyb672/hjr/TempName/outputs/h100/phase6/reduction-closure-validation-20261021/compile/CM/runtime.o"
+      ],
+      "completed": true
+    },
+    {
+      "args": [
+        "g++",
+        "-std=c++17",
+        "-O2",
+        "-I/data/run01/scyb672/hjr/TempName/outputs/h100/phase6/reduction-closure-validation-20261021/build/CM",
+        "-I/data/run01/scyb672/hjr/TempName/outputs/h100/phase6/reduction-closure-validation-20261021/build/CM/src",
+        "-I/data/run01/scyb672/hjr/TempName/outputs/h100/phase6/reduction-closure-validation-20261021/build/CM/include",
+        "-I/data/apps/cuda/12.8/include",
+        "-I/data/run01/scyb672/hjr/TempName/outputs/h100/phase6/reduction-closure-validation-20261021/build/CM/3rdparty/cutlass/include",
+        "-I/data/run01/scyb672/hjr/TempName/outputs/h100/phase6/reduction-closure-validation-20261021/build/CM/3rdparty/cutlass/tools/util/include",
+        "-I/data/run01/scyb672/hjr/TempName/outputs/h100/phase6/reduction-closure-validation-20261021/build/CM/src/generator",
+        "/data/run01/scyb672/hjr/TempName/outputs/h100/phase6/reduction-closure-validation-20261021/build/CM/src/generator/gen_gemm_rs.cc",
+        "-o",
+        "/data/run01/scyb672/hjr/TempName/outputs/h100/phase6/reduction-closure-validation-20261021/compile/CM/generator"
+      ],
+      "completed": true
+    },
+    {
+      "args": [
+        "/data/run01/scyb672/hjr/TempName/outputs/h100/phase6/reduction-closure-validation-20261021/compile/CM/generator",
+        "--archs=80",
+        "--sm_cores=108",
+        "--dir=/data/run01/scyb672/hjr/TempName/outputs/h100/phase6/reduction-closure-validation-20261021/compile/CM/registers",
+        "--output_file=/data/run01/scyb672/hjr/TempName/outputs/h100/phase6/reduction-closure-validation-20261021/compile/CM/generated.txt"
+      ],
+      "completed": true
+    },
+    {
+      "args": [
+        "/data/apps/cuda/12.8/bin/nvcc",
+        "-std=c++17",
+        "-O2",
+        "--expt-relaxed-constexpr",
+        "--expt-extended-lambda",
+        "-DFLUX_TACO_BASELINE",
+        "-gencode=arch=compute_90,code=sm_90",
+        "-I/data/run01/scyb672/hjr/TempName/outputs/h100/phase6/reduction-closure-validation-20261021/build/CM",
+        "-I/data/run01/scyb672/hjr/TempName/outputs/h100/phase6/reduction-closure-validation-20261021/build/CM/src",
+        "-I/data/run01/scyb672/hjr/TempName/outputs/h100/phase6/reduction-closure-validation-20261021/build/CM/include",
+        "-I/data/apps/cuda/12.8/include",
+        "-I/data/run01/scyb672/hjr/TempName/outputs/h100/phase6/reduction-closure-validation-20261021/build/CM/3rdparty/cutlass/include",
+        "-I/data/run01/scyb672/hjr/TempName/outputs/h100/phase6/reduction-closure-validation-20261021/build/CM/3rdparty/cutlass/tools/util/include",
+        "-c",
+        "/data/run01/scyb672/hjr/TempName/outputs/h100/phase6/reduction-closure-validation-20261021/compile/CM/registers/flux_bf16_bf16_void_bf16_fp32_fp32_sm80_a100_reducescatter_rcr_gemmv2_false_false_intranode.cu",
+        "-o",
+        "/data/run01/scyb672/hjr/TempName/outputs/h100/phase6/reduction-closure-validation-20261021/compile/CM/gemm.o"
+      ],
+      "completed": true
+    },
+    {
+      "args": [
+        "g++",
+        "-std=c++17",
+        "-O0",
+        "-fPIC",
+        "-DFLUX_TACO_BASELINE",
+        "-D_GLIBCXX_USE_CXX11_ABI=0",
+        "-I/data/run01/scyb672/hjr/TempName/outputs/h100/phase6/reduction-closure-validation-20261021/build/CM",
+        "-I/data/run01/scyb672/hjr/TempName/outputs/h100/phase6/reduction-closure-validation-20261021/build/CM/src",
+        "-I/data/run01/scyb672/hjr/TempName/outputs/h100/phase6/reduction-closure-validation-20261021/build/CM/include",
+        "-I/data/apps/cuda/12.8/include",
+        "-I/data/run01/scyb672/hjr/TempName/outputs/h100/phase6/reduction-closure-validation-20261021/build/CM/3rdparty/cutlass/include",
+        "-I/data/run01/scyb672/hjr/TempName/outputs/h100/phase6/reduction-closure-validation-20261021/build/CM/3rdparty/cutlass/tools/util/include",
+        "-I/data/run01/scyb672/conda_envs/flux-megatron-a800/lib/python3.10/site-packages/torch/include",
+        "-I/data/run01/scyb672/conda_envs/flux-megatron-a800/lib/python3.10/site-packages/torch/include/torch/csrc/api/include",
+        "-I/data/run01/scyb672/conda_envs/flux-megatron-a800/lib/python3.10/site-packages/torch/include/TH",
+        "-I/data/run01/scyb672/conda_envs/flux-megatron-a800/lib/python3.10/site-packages/torch/include/THC",
+        "-I/data/run01/scyb672/conda_envs/flux-megatron-a800/include/python3.10",
+        "-c",
+        "/data/run01/scyb672/hjr/TempName/outputs/h100/phase6/reduction-closure-validation-20261021/build/CM/src/gemm_rs/ths_op/gemm_reduce_scatter.cc",
+        "-o",
+        "/data/run01/scyb672/hjr/TempName/outputs/h100/phase6/reduction-closure-validation-20261021/compile/CM/wrapper.o"
+      ],
+      "completed": true
+    }
+  ],
+  "checks": {
+    "SP": {
+      "host_mapping": true,
+      "mapping_object": true,
+      "runtime_object": true,
+      "instantiated_gemm_object": true,
+      "ths_wrapper_object": true
+    },
+    "CP": {
+      "host_mapping": true,
+      "mapping_object": true,
+      "runtime_object": true,
+      "instantiated_gemm_object": true,
+      "ths_wrapper_object": true
+    },
+    "SM": {
+      "host_mapping": true,
+      "mapping_object": true,
+      "runtime_object": true,
+      "instantiated_gemm_object": true,
+      "ths_wrapper_object": true
+    },
+    "CM": {
+      "host_mapping": true,
+      "mapping_object": true,
+      "runtime_object": true,
+      "instantiated_gemm_object": true,
+      "ths_wrapper_object": true
+    }
+  },
+  "objects": {
+    "CM/runtime.o": "060a0886081d5d3991bb66e38a800756acb32c12b9450913563ba66c4506b7f0",
+    "CM/gemm.o": "c6714489b259e397d5426f9ebe30a26bee06f626883d00aae80402bf3d140b40",
+    "CM/wrapper.o": "1ec6f5722f94b14422c823fd66c3ff0554d63f18b25d3b5e9e5b92b2e15825d4",
+    "CM/mapping.o": "c7f627bca75e170f51f12dc339ed266806973663f7be6fde2376b528a889e9e3",
+    "CP/runtime.o": "e4d90f8093845e4d585999d605dfb88eb294122c3e3a8938d206fb535c09895e",
+    "CP/gemm.o": "e0b967dc31f6260544ad3e3fffbeda4a295d8f9f088de778c0b8b3371256c772",
+    "CP/wrapper.o": "e29265a3f030ccb5a70c8f4e1cedd0f442009fa4e9b4811e40c8bc32a4f671c4",
+    "CP/mapping.o": "21fea672cb0d077d133a9cf8ccac86a9a15a28809b463062ceeaed866d942a46",
+    "SM/runtime.o": "20e41c794676ccfa6f4a54a30b3919a7820676fa626bb7bcbe0eb47e9de0ab7d",
+    "SM/gemm.o": "0974db059651603aeed78aa1a65f788b58373f84a03b0c709f6846e1779998b0",
+    "SM/wrapper.o": "d1ba3ff6eb9de043ccb6fc849507948c0af2f9f5b1e9eaa9e8fb2d63c3889a7c",
+    "SM/mapping.o": "024255c00cb8ca695bfce9eb251e1c58e8eaaa6da14499114a270f36a5f8fb6e",
+    "SP/runtime.o": "1f8b064d1e2f017b4635c06d63f207f4d368c14de1daedbc16053c41b5426b36",
+    "SP/gemm.o": "276a12ec1fe1a4b6cb3bc71e19250f4cdcc207375d74786d1a645caffc13ab31",
+    "SP/wrapper.o": "d7b9ce42c280ace1e5c0f8f801b8888b620ee173f2beb098fee36e310581f0c3",
+    "SP/mapping.o": "9cf38d7d62d2dd60ff2c4c3ba12206fcecab8ba4730715890ef1c62414a590a6"
+  }
+}
