@@ -2,7 +2,7 @@
 
 2026-10-14新增的 `native_taco＋G1–G4` 交替五组实验使用独立 [README-ablation2.md](README-ablation2.md) / `ablation2.py` 入口，默认50窗口。本页旧八组默认协议与历史产物保持兼容。
 
-分组依据是 [消融实验.md](../../../docs/design/design-h100/消融实验.md)：`native`＋G0–G6，共八组，仅比较完整 optimizer step。`remote_first`、`interleaved` 分别调度、分别报告。这里不运行旧六策略验收，不新增 E0、工程消融或算子性能对照。
+分组依据是 [消融实验.md](../../../docs/design/design-h100/消融实验/消融实验.md)：`native`＋G0–G6，共八组，仅比较完整 optimizer step。`remote_first`、`interleaved` 分别调度、分别报告。这里不运行旧六策略验收，不新增 E0、工程消融或算子性能对照。
 
 实现起点是冻结登记 `candidate` 指向的 a–h 实测源码（`ff38f5b1ff1c80cb831f58c64b95f42b0379879a`），不是维护快照提交。所有派生源码写入新会话，原始源码、动态库、计划及历史报告不改。共享 `src/`、`python/`、A800 worker、旧 H100 入口与固定 `fused_v2/` 均保持原样。
 

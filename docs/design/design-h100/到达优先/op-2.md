@@ -8,7 +8,7 @@
 
 ## 1. 对旧到达优先的判断
 
-[消融4](../base-phase6-ablation4.md)、[消融7](../base-phase6-ablation7.md)及[最新op1结果](base-op1.md)说明，主要问题不是表未生效：
+[消融4](../消融实验/base-phase6-ablation4.md)、[消融7](../消融实验/base-phase6-ablation7.md)及[最新op1结果](base-op1.md)说明，主要问题不是表未生效：
 
 | 实验 | Attention / MLP 改变槽位数，每角色4096 | 同实现 B/A 完整step耗时下降 |
 | --- | ---: | --- |

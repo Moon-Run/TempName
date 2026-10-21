@@ -1,6 +1,6 @@
 # H100 改进路线：原融合路径上的交替顺序、到达优先与选择性量化
 
-更新：2026-10-17。本文承接 [当前思路](idea.md)、[消融实验3](base-phase6-ablation3.md) 和 [Attention/MLP实测](base-phase6-mlp-attention.md)。**当前 Phase7 直接改进原融合 GemmV2 的静态到达映射；代码入口为 [fused.py](../../../tools/h100/phase7/fused.py)。新的映射已经实现，实际 H100 性能收益仍待验证。** 实现与验证状态见 [base-phase7.md](base-phase7.md)。
+更新：2026-10-17。本文承接 [当前思路](idea.md)、[消融实验3](消融实验/base-phase6-ablation3.md) 和 [Attention/MLP实测](base-phase6-mlp-attention.md)。**当前 Phase7 直接改进原融合 GemmV2 的静态到达映射；代码入口为 [fused.py](../../../tools/h100/phase7/fused.py)。新的映射已经实现，实际 H100 性能收益仍待验证。** 实现与验证状态见 [base-phase7.md](base-phase7.md)。
 
 首版保持交替目标顺序、融合编码、物理选择性量化 mask、IPC 传输、屏障和固定归约路径一致，先回答一个范围明确的问题：**利用真实 receiver 观测生成的新到达映射，能否优于原本的到达映射。** 后续再在新顺序上重采样、重新选择量化对象；分块就绪后消费属于之后的融合内核改造。
 

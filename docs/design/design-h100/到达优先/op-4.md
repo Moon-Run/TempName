@@ -1,12 +1,12 @@
 # H100 op4 v2：按归约组分配量化预算
 
-更新：2026-10-21。**本轮的新机制是“归约组闭包量化”：把有限量化预算集中到同一接收tile的多个来源，使它们共享解码中的逆变换。** 选择单位从独立的 `[source,tile]` 改为接收端归约组，不预测谁先到，也不增加提前消费协议。代码与一键入口已实现，尚无新的八卡性能结论。
+更新：2026-10-21。**本轮的新机制是“归约组闭包量化”：把有限量化预算集中到同一接收tile的多个来源，使它们共享解码中的逆变换。** 选择单位从独立的 `[source,tile]` 改为接收端归约组，不预测谁先到，也不增加提前消费协议。代码与一键入口已实现。**最新回传：算子收益的95%区间均跨零；模型在正式计时前未通过数值门禁，尚无整步性能结论。详见 [base-op4.md](base-op4.md)。** 下文保留原设计与预注册验收要求。
 
 上一版op4只优化双工作区、配置和clone，不符合本次“寻找可归纳的新机制”的要求，已归档到 [op-4-engineering.md](op-4-engineering.md)。旧实现及验证产物保留，但不再作为当前方案；新入口为 **`detach_arrival_op4_v2.py`**。
 
 ## 1. 为什么换方向，以及新的研究问题
 
-现有结果不支持继续把到达优先作为当前配置的主要收益来源：旧离线重排确实执行，但全阶段发布屏障使中间tile提前到达未必缩短算子；op3 v2已产生43/64次有效提前消费，O/A两次却分别慢0.928%、0.844%，O/S两次也显著为负。见 [最新实测](base-op3.md)、[旧调度分析](../消融实验7-改进到达优先.md)。消融7实际已完成三次，且B回退identity，应以 [结果页](../base-phase6-ablation7.md) 为准。
+现有结果不支持继续把到达优先作为当前配置的主要收益来源：旧离线重排确实执行，但全阶段发布屏障使中间tile提前到达未必缩短算子；op3 v2已产生43/64次有效提前消费，O/A两次却分别慢0.928%、0.844%，O/S两次也显著为负。见 [最新实测](base-op3.md)、[旧调度分析](../消融实验/消融实验7-改进到达优先.md)。消融7实际已完成三次，且B回退identity，应以 [结果页](../消融实验/base-phase6-ablation7.md) 为准。
 
 这不能证明所有到达感知算法不可行，但说明在本路径上，继续改变到达时刻的可兑现空间有限。新问题改为：
 
@@ -200,4 +200,4 @@ python3 tools/h100/phase6/arrival_op4_v2_fullstep.py report /path/to/batch/fulls
 - **33条真实编译/检查命令、16个对象通过。** 四组分别覆盖host mapping、SM90 mapping/runtime、完整GEMM模板实例及C++ wrapper；`gpu_used=false,linked_runtime=false`。见 [编译登记](../../../../outputs/h100/phase6/reduction-closure-validation-20261021/compile/validation.json)、[日志](../../../../outputs/h100/phase6/reduction-closure-validation-20261021/compile/compile.log)、[四组源码登记](../../../../outputs/h100/phase6/reduction-closure-validation-20261021/build/arrival-op4-v2-manifest.json)。
 - 新入口的无副作用预览、Python语法和文档链接检查通过；预览不导入Torch/Flux或启动GPU。见 [启动预览](../../../../outputs/h100/phase6/reduction-closure-validation-20261021/launch-preview.txt)。
 
-以上不等于八卡GPU数值验证、完整动态库链接或训练性能验收。**当前没有新GPU加速结论；需要另一台服务器实测，保留正、零及负结果。**
+以上是运行前的本地验证，不等于八卡GPU数值验证、完整动态库链接或训练性能验收。2026-10-21回传实测已整理至 [base-op4.md](base-op4.md)：算子阶段完成，模型数值门禁失败，正式训练计时未开始，仍无已验证的整步加速结论。

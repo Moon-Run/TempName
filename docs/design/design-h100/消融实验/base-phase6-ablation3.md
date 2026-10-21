@@ -82,7 +82,7 @@ Attention 为 `[2048,4096,4096]`（本地 K512），MLP 为 `[2048,4096,16384]`�
 
 75 采用 Python3.10.20、torch2.6.0+cu124、运行 CUDA12.4/NCCL2.21.5，构建 CUDA12.8、GCC11、`DEBUG=0`。Megatron 固定 `3ea68ad6042cc1204386ae9364358f7c4de1bc37`，共同候选来源 `ff38f5b1ff1c80cb831f58c64b95f42b0379879a`。
 
-本批启动配置为 **`NCCL_NVLS_ENABLE=0`**，依据 [会话环境](../../../logs/h100/phase6/ablation3-gpt67-tp8-scope-20261017-163146/handoff/session-paths.json) 与 [恢复 supervisor](../../../logs/h100/phase6/ablation3-gpt67-tp8-scope-20261017-163146/handoff/recovery-supervisor.sh)。此前默认 NVLS 的 CUDA401 已由纯 NCCL 对照定位，见 [通信诊断](diagnose-gxn75-nccl.md)。这些脚本与登记提供运行配置证据，但旧 rank/report 指纹没有逐窗口冻结 NVLS 值，不能把报告通过当作该开关的独立核验。消融4将冻结并检查通信环境。
+本批启动配置为 **`NCCL_NVLS_ENABLE=0`**，依据 [会话环境](../../../../logs/h100/phase6/ablation3-gpt67-tp8-scope-20261017-163146/handoff/session-paths.json) 与 [恢复 supervisor](../../../../logs/h100/phase6/ablation3-gpt67-tp8-scope-20261017-163146/handoff/recovery-supervisor.sh)。此前默认 NVLS 的 CUDA401 已由纯 NCCL 对照定位，见 [通信诊断](../diagnose-gxn75-nccl.md)。这些脚本与登记提供运行配置证据，但旧 rank/report 指纹没有逐窗口冻结 NVLS 值，不能把报告通过当作该开关的独立核验。消融4将冻结并检查通信环境。
 
 74 的 NVLS 历史有效值未完整记录，机器、驱动与校准也不同。本页不把 74→75 的绝对耗时变化归因于算法或关闭 NVLS。
 
@@ -90,11 +90,11 @@ Attention 为 `[2048,4096,4096]`（本地 K512），MLP 为 `[2048,4096,16384]`�
 
 | 目录 | 回传状态 | 正式结果 | 本页使用 |
 | --- | --- | --- | --- |
-| [compare-recovery1](../../../logs/h100/phase6/ablation3-gpt67-tp8-scope-20261017-163146/compare-recovery1/report.md) | 完成，独立单轮报告 | 81 窗口 / 648 rank | 纳入 |
-| [compare-repeat1](../../../logs/h100/phase6/ablation3-gpt67-tp8-scope-20261017-163146/compare-repeat1/report.md) | 完成，独立单轮报告 | 81 窗口 / 648 rank | 纳入 |
-| [compare-repeat2](../../../logs/h100/phase6/ablation3-gpt67-tp8-scope-20261017-163146/compare-repeat2/report.md) | 完成，独立单轮报告 | 81 窗口 / 648 rank | 纳入 |
-| [compare-repeat3](../../../logs/h100/phase6/ablation3-gpt67-tp8-scope-20261017-163146/compare-repeat3/report.md) | 完成，独立单轮报告 | 81 窗口 / 648 rank | 纳入 |
-| [compare-repeat4](../../../logs/h100/phase6/ablation3-gpt67-tp8-scope-20261017-163146/compare-repeat4/report.md) | 完成，独立单轮报告 | 81 窗口 / 648 rank | 纳入 |
+| [compare-recovery1](../../../../logs/h100/phase6/ablation3-gpt67-tp8-scope-20261017-163146/compare-recovery1/report.md) | 完成，独立单轮报告 | 81 窗口 / 648 rank | 纳入 |
+| [compare-repeat1](../../../../logs/h100/phase6/ablation3-gpt67-tp8-scope-20261017-163146/compare-repeat1/report.md) | 完成，独立单轮报告 | 81 窗口 / 648 rank | 纳入 |
+| [compare-repeat2](../../../../logs/h100/phase6/ablation3-gpt67-tp8-scope-20261017-163146/compare-repeat2/report.md) | 完成，独立单轮报告 | 81 窗口 / 648 rank | 纳入 |
+| [compare-repeat3](../../../../logs/h100/phase6/ablation3-gpt67-tp8-scope-20261017-163146/compare-repeat3/report.md) | 完成，独立单轮报告 | 81 窗口 / 648 rank | 纳入 |
+| [compare-repeat4](../../../../logs/h100/phase6/ablation3-gpt67-tp8-scope-20261017-163146/compare-repeat4/report.md) | 完成，独立单轮报告 | 81 窗口 / 648 rank | 纳入 |
 
 2026-10-18 按要求清理当前仓库中 75 回传的失败和未完成会话：
 
@@ -133,7 +133,7 @@ Attention 为 `[2048,4096,4096]`（本地 K512），MLP 为 `[2048,4096,16384]`�
 | Attention | 821.555 | 569.514 | 569.527 | 566.730 |
 | MLP＋Attention | 1052.654 | 547.801 | 549.597 | 547.043 |
 
-“Megatron＋量化历史汇总”三项取自 [MLP/Attention实测汇总](base-phase6-mlp-attention.md#配对耗时下降)：Attention和双模块分别是a–d两轮共8个逐轮中位耗时的算术平均，MLP沿用 [base-phase6.md](base-phase6.md) 的a–h轮均值。这一列保留原文历史汇总值，本次未重新筛选或重算，其统计口径与本次候选的原始窗口算术平均不同。
+“Megatron＋量化历史汇总”三项取自 [MLP/Attention实测汇总](../base-phase6-mlp-attention.md#配对耗时下降)：Attention和双模块分别是a–d两轮共8个逐轮中位耗时的算术平均，MLP沿用 [base-phase6.md](../base-phase6.md) 的a–h轮均值。这一列保留原文历史汇总值，本次未重新筛选或重算，其统计口径与本次候选的原始窗口算术平均不同。
 
 历史完整候选取同一旧表的 **Attention＋MLP、Attention、MLP** 三列，按作用范围对应为545.541、563.627、537.642 ms/step。其中Attention和双模块来自旧作用范围实验a–d两轮共8行，MLP来自旧交替组合a–h轮。最后一列按 `（本次C筛选后平均 + 历史完整候选汇总）/ 2` 计算：两项汇总值各占50%，使用各项汇总值保留三位小数后的数值作算术平均，不按原始窗口数加权，也不重新筛选历史样本。
 
@@ -263,13 +263,13 @@ B对A衡量全远端量化条件下到达优先的增量；C对B衡量相同到�
 
 失败日志记录多个rank在预热阶段的原生embedding `all_reduce` 初始化NCCL communicator时，无法从rank0侧store取得 `ncclUniqueId`，报 `failed to recv, got 0 bytes`。这是异常窗口而非慢窗口，不能仅凭这些日志认定是候选算子、量化精度或显存不足导致。回传 `all-state.json` 仍为 `running`，没有整套完成报告；状态不作为正常推进的证据。repeat1/2/3在该提交中仅完成准备，没有实测记录。
 
-- [原始submission与完整调度](../../../logs/h100/phase6/ablation3-gpt67-tp8-scope-20261016-221018-release1/compare/submission.json)、[schedule](../../../logs/h100/phase6/ablation3-gpt67-tp8-scope-20261016-221018-release1/compare/schedule.json)。
-- [原会话预检证据](../../../logs/h100/phase6/ablation3-gpt67-tp8-scope-20261016-221018-release1/compare/preflight.json)、[状态文件](../../../logs/h100/phase6/ablation3-gpt67-tp8-scope-20261016-221018-release1/compare/all-state.json)。
-- [第一轮81窗口原始记录](../../../logs/h100/phase6/ablation3-gpt67-tp8-scope-20261016-221018-release1/compare/results/round1/)、[第二轮原始记录](../../../logs/h100/phase6/ablation3-gpt67-tp8-scope-20261016-221018-release1/compare/results/round2/)。
-- [异常窗口process.log](../../../logs/h100/phase6/ablation3-gpt67-tp8-scope-20261016-221018-release1/compare/results/round2/window-043-interleaved_arrival_selective_attn/process.log)。
-- [环境、编译器与计划登记](../../../logs/h100/phase6/ablation3-gpt67-tp8-scope-20261016-221018-release1/handoff/session-and-inputs.json)、[NCCL开发库哈希](../../../logs/h100/phase6/ablation3-gpt67-tp8-scope-20261016-221018-release1/handoff/nccl-release-hashes.txt)。
-- [双shape构建登记](../../../outputs/h100/phase6/ablation3-gpt67-tp8-scope-20261016-221018-release1/candidates/ablation3-manifest.json)、[base构建](../../../outputs/h100/phase6/ablation3-gpt67-tp8-scope-20261016-221018-release1/candidates/base/manifest.json)、[arrival构建](../../../outputs/h100/phase6/ablation3-gpt67-tp8-scope-20261016-221018-release1/candidates/arrival/manifest.json)。
-- [冻结计时worker](../../../logs/h100/phase6/ablation3-gpt67-tp8-scope-20261016-221018-release1/compare/scripts/worker.py)、[冻结统计实现](../../../logs/h100/phase6/ablation3-gpt67-tp8-scope-20261016-221018-release1/compare/provenance/controllers/ablation3_report.py)、[协议方案](消融实验3.md)。
+- [原始submission与完整调度](../../../../logs/h100/phase6/ablation3-gpt67-tp8-scope-20261016-221018-release1/compare/submission.json)、[schedule](../../../../logs/h100/phase6/ablation3-gpt67-tp8-scope-20261016-221018-release1/compare/schedule.json)。
+- [原会话预检证据](../../../../logs/h100/phase6/ablation3-gpt67-tp8-scope-20261016-221018-release1/compare/preflight.json)、[状态文件](../../../../logs/h100/phase6/ablation3-gpt67-tp8-scope-20261016-221018-release1/compare/all-state.json)。
+- [第一轮81窗口原始记录](../../../../logs/h100/phase6/ablation3-gpt67-tp8-scope-20261016-221018-release1/compare/results/round1/)、[第二轮原始记录](../../../../logs/h100/phase6/ablation3-gpt67-tp8-scope-20261016-221018-release1/compare/results/round2/)。
+- [异常窗口process.log](../../../../logs/h100/phase6/ablation3-gpt67-tp8-scope-20261016-221018-release1/compare/results/round2/window-043-interleaved_arrival_selective_attn/process.log)。
+- [环境、编译器与计划登记](../../../../logs/h100/phase6/ablation3-gpt67-tp8-scope-20261016-221018-release1/handoff/session-and-inputs.json)、[NCCL开发库哈希](../../../../logs/h100/phase6/ablation3-gpt67-tp8-scope-20261016-221018-release1/handoff/nccl-release-hashes.txt)。
+- [双shape构建登记](../../../../outputs/h100/phase6/ablation3-gpt67-tp8-scope-20261016-221018-release1/candidates/ablation3-manifest.json)、[base构建](../../../../outputs/h100/phase6/ablation3-gpt67-tp8-scope-20261016-221018-release1/candidates/base/manifest.json)、[arrival构建](../../../../outputs/h100/phase6/ablation3-gpt67-tp8-scope-20261016-221018-release1/candidates/arrival/manifest.json)。
+- [冻结计时worker](../../../../logs/h100/phase6/ablation3-gpt67-tp8-scope-20261016-221018-release1/compare/scripts/worker.py)、[冻结统计实现](../../../../logs/h100/phase6/ablation3-gpt67-tp8-scope-20261016-221018-release1/compare/provenance/controllers/ablation3_report.py)、[协议方案](消融实验3.md)。
 
 本次使用 `ablation3_report.verify_inputs(..., offline=True)` 核对冻结文本，核对预检证据哈希，并用 `ablation3_report.window` 与 `fingerprints` 逐窗口检查117个正式窗口的936份rank：八rank完整、实际库记录、角色路由、模型/输入/环境指纹、20步有效轨迹、零skip及零意外fallback均通过。第1、3节A/B直接对完整块内全部原始窗口取算术平均，C按固定1.10倍慢窗口阈值筛选后取平均；第4–6节的配对指标与敏感性沿用 `summarize`、`sensitivity` 复算结果。未执行会写入原会话的完整 `report/preflight` 入口，未修改原始记录或状态，也未在开发端使用GPU或重新读取H100运行库。
 
@@ -288,7 +288,7 @@ B对A衡量全远端量化条件下到达优先的增量；C对B衡量相同到�
 
 九组smoke共72份rank记录，包含3072项已启用投影/rank的数值检查，全部 `passed=true`。记录中的最大相对BF16 L2误差约 **2.5460%**，最大相对独立codec参考L2误差约 **0.018735%**，均在既定5%和1%门槛内。正式计时文件的 `forward_checks` 为空是预期行为，逐模块误差检查放在smoke阶段，避免干扰正式计时。
 
-可直接查看 [C双模块正式窗口的loss和梯度记录](../../../logs/h100/phase6/ablation3-gpt67-tp8-scope-20261016-221018-release1/compare/results/round1/window-003-interleaved_arrival_selective_attn_mlp/rank0.json) 和 [C·Attention的smoke数值检查](../../../logs/h100/phase6/ablation3-gpt67-tp8-scope-20261016-221018-release1/compare/results/smoke-interleaved_arrival_selective_attn/rank0.json)。另已抽查旧a/b会话、消融2及MLP/Attention实验的原始rank记录，均保留了loss、梯度及smoke检查信息。
+可直接查看 [C双模块正式窗口的loss和梯度记录](../../../../logs/h100/phase6/ablation3-gpt67-tp8-scope-20261016-221018-release1/compare/results/round1/window-003-interleaved_arrival_selective_attn_mlp/rank0.json) 和 [C·Attention的smoke数值检查](../../../../logs/h100/phase6/ablation3-gpt67-tp8-scope-20261016-221018-release1/compare/results/smoke-interleaved_arrival_selective_attn/rank0.json)。另已抽查旧a/b会话、消融2及MLP/Attention实验的原始rank记录，均保留了loss、梯度及smoke检查信息。
 
 这些是合成token上的短程训练和投影数值校验；每窗口重新建立模型并执行预热/计时，不能把不同窗口串接成长期训练曲线。当前记录不提供真实验证集准确率、验证集困惑度或长期收敛结论。
 

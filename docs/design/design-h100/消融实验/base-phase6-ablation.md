@@ -100,13 +100,13 @@ S_X,b = T_native,b / T_X,b
 | G5 | B | 开 | 与G4同数量、同来源/目的分区分布的随机量化 |
 | G6 | B | 开 | 全部远端贡献量化，本地仍为BF16 |
 
-G0–G6统一使用候选侧GemmV2的MLP实现，在H100上编译为SM90代码；保持Attention投影的Hopper V3路径及共同的解码、工作区、模型适配。G0是候选内部对照，与原生Megatron或原生Flux不同。G6保留B和到达优先，不能视为旧实验中的固定 `taco_fused` 融合v2基线。本次没有重新测量 `original`、`native_taco`、`taco_fused`，其结果不能替代 [base-phase6.md](base-phase6.md) 中的基线比较。
+G0–G6统一使用候选侧GemmV2的MLP实现，在H100上编译为SM90代码；保持Attention投影的Hopper V3路径及共同的解码、工作区、模型适配。G0是候选内部对照，与原生Megatron或原生Flux不同。G6保留B和到达优先，不能视为旧实验中的固定 `taco_fused` 融合v2基线。本次没有重新测量 `original`、`native_taco`、`taco_fused`，其结果不能替代 [base-phase6.md](../base-phase6.md) 中的基线比较。
 
 G5用三个固定seed分别执行，因而八个算法组实际对应十个测量配置。每种B下G3/G4的物理量化mask一致；G0/G1/G2为全零mask，G5匹配G4的实际选择量，G6每个来源rank选择全部448个远端tile。G3/G4各来源rank选择量为：远端优先 `[2,6,7,3,4,7,7,3]`，交替 `[7,7,7,0,7,7,7,3]`。
 
-所有消融构建以a–h复用的冻结候选 `h100-phase6-candidate-v1-20261013` 为起点，其已测候选源码提交为 `ff38f5b1ff1c80cb831f58c64b95f42b0379879a`。本轮另建18个消融变体，记录在 [ablation-manifest.json](../../../outputs/h100/phase6/ablation-gpt67-tp8-20261013-233551/candidates/ablation-manifest.json)，派生计划沿用父计划SHA256 `2d8eee0ffaf2c86fdd1719950c7a5ed5eb0c93d5803b7deaf1e65caad752d167`，没有重新选择有利mask。
+所有消融构建以a–h复用的冻结候选 `h100-phase6-candidate-v1-20261013` 为起点，其已测候选源码提交为 `ff38f5b1ff1c80cb831f58c64b95f42b0379879a`。本轮另建18个消融变体，记录在 [ablation-manifest.json](../../../../outputs/h100/phase6/ablation-gpt67-tp8-20261013-233551/candidates/ablation-manifest.json)，派生计划沿用父计划SHA256 `2d8eee0ffaf2c86fdd1719950c7a5ed5eb0c93d5803b7deaf1e65caad752d167`，没有重新选择有利mask。
 
-独立复测复用首测远端优先的全部构建、库与计划；冻结worker的Python源码一致，worker配置的 `repetitions` 从2改为1。复测使用支持“仅远端优先、仅一轮”的独立控制脚本快照，见 [复用登记](../../../logs/h100/phase6/ablation-gpt67-tp8-20261014-014818-remote-single-repeat1/handoff/repeat-inputs.json) 和 [控制脚本目录](../../../outputs/h100/phase6/ablation-gpt67-tp8-20261014-014818-remote-single-queue/controllers/)。本页保留各会话自身的统计，不将不同轮次范围、控制脚本及配置身份的两个会话直接合成一个总体收益。
+独立复测复用首测远端优先的全部构建、库与计划；冻结worker的Python源码一致，worker配置的 `repetitions` 从2改为1。复测使用支持“仅远端优先、仅一轮”的独立控制脚本快照，见 [复用登记](../../../../logs/h100/phase6/ablation-gpt67-tp8-20261014-014818-remote-single-repeat1/handoff/repeat-inputs.json) 和 [控制脚本目录](../../../../outputs/h100/phase6/ablation-gpt67-tp8-20261014-014818-remote-single-queue/controllers/)。本页保留各会话自身的统计，不将不同轮次范围、控制脚本及配置身份的两个会话直接合成一个总体收益。
 
 ## 3. 计时与统计方式
 
@@ -224,10 +224,10 @@ gain(X 对 Y) = 100 × [1 − exp(mean_b(log(T_X,b / T_Y,b)))]
 
 | 内容 | 首测 | 独立单轮复测 |
 | --- | --- | --- |
-| 原始汇总 | [report.md](../../../logs/h100/phase6/ablation-gpt67-tp8-20261013-233551/compare/report.md) / [report.json](../../../logs/h100/phase6/ablation-gpt67-tp8-20261013-233551/compare/report.json) | [report.md](../../../logs/h100/phase6/ablation-gpt67-tp8-20261014-014818-remote-single-repeat1/compare/report.md) / [report.json](../../../logs/h100/phase6/ablation-gpt67-tp8-20261014-014818-remote-single-repeat1/compare/report.json) |
-| 冻结输入与调度 | [submission.json](../../../logs/h100/phase6/ablation-gpt67-tp8-20261013-233551/compare/submission.json) / [schedule.json](../../../logs/h100/phase6/ablation-gpt67-tp8-20261013-233551/compare/schedule.json) | [submission.json](../../../logs/h100/phase6/ablation-gpt67-tp8-20261014-014818-remote-single-repeat1/compare/submission.json) / [schedule.json](../../../logs/h100/phase6/ablation-gpt67-tp8-20261014-014818-remote-single-repeat1/compare/schedule.json) |
-| 预检与原始rank | [preflight.json](../../../logs/h100/phase6/ablation-gpt67-tp8-20261013-233551/compare/preflight.json) / [results/](../../../logs/h100/phase6/ablation-gpt67-tp8-20261013-233551/compare/results/) | [preflight.json](../../../logs/h100/phase6/ablation-gpt67-tp8-20261014-014818-remote-single-repeat1/compare/preflight.json) / [results/](../../../logs/h100/phase6/ablation-gpt67-tp8-20261014-014818-remote-single-repeat1/compare/results/) |
-| 执行交接 | [handoff/README.md](../../../logs/h100/phase6/ablation-gpt67-tp8-20261013-233551/handoff/README.md) | [handoff/README.md](../../../logs/h100/phase6/ablation-gpt67-tp8-20261014-014818-remote-single-repeat1/handoff/README.md) |
+| 原始汇总 | [report.md](../../../../logs/h100/phase6/ablation-gpt67-tp8-20261013-233551/compare/report.md) / [report.json](../../../../logs/h100/phase6/ablation-gpt67-tp8-20261013-233551/compare/report.json) | [report.md](../../../../logs/h100/phase6/ablation-gpt67-tp8-20261014-014818-remote-single-repeat1/compare/report.md) / [report.json](../../../../logs/h100/phase6/ablation-gpt67-tp8-20261014-014818-remote-single-repeat1/compare/report.json) |
+| 冻结输入与调度 | [submission.json](../../../../logs/h100/phase6/ablation-gpt67-tp8-20261013-233551/compare/submission.json) / [schedule.json](../../../../logs/h100/phase6/ablation-gpt67-tp8-20261013-233551/compare/schedule.json) | [submission.json](../../../../logs/h100/phase6/ablation-gpt67-tp8-20261014-014818-remote-single-repeat1/compare/submission.json) / [schedule.json](../../../../logs/h100/phase6/ablation-gpt67-tp8-20261014-014818-remote-single-repeat1/compare/schedule.json) |
+| 预检与原始rank | [preflight.json](../../../../logs/h100/phase6/ablation-gpt67-tp8-20261013-233551/compare/preflight.json) / [results/](../../../../logs/h100/phase6/ablation-gpt67-tp8-20261013-233551/compare/results/) | [preflight.json](../../../../logs/h100/phase6/ablation-gpt67-tp8-20261014-014818-remote-single-repeat1/compare/preflight.json) / [results/](../../../../logs/h100/phase6/ablation-gpt67-tp8-20261014-014818-remote-single-repeat1/compare/results/) |
+| 执行交接 | [handoff/README.md](../../../../logs/h100/phase6/ablation-gpt67-tp8-20261013-233551/handoff/README.md) | [handoff/README.md](../../../../logs/h100/phase6/ablation-gpt67-tp8-20261014-014818-remote-single-repeat1/handoff/README.md) |
 | run_id | `a41d4e5c61ae4685bcb10d3af7fec3d1` | `4c15084179a14b139b0ee850925ddf51` |
 
 2026-10-14在开发端进行CPU核对：500个正式窗口的4000份计时rank记录，以及480份smoke/profile rank记录，完成状态、模型/设备/运行身份、10/20步协议、零skip/fallback、输入及初始化指纹、记录中的动态库路径和哈希均通过检查。冻结输入、构建manifest、控制脚本及preflight证据文件的哈希匹配；27份映射CSV与冻结物理tile坐标、目的分区一致。

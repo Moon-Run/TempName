@@ -169,7 +169,7 @@ GPU mapping与冻结坐标逐项匹配；每来源仍为physical 0—511的完�
 
 ### H100 GPT6.7B TP8 到达优先 op1：联合排列新版消融7的四次50步实测
 
-更新：2026-10-20。依据回传提交 `e3c0e94e`（Finish New Ablation-7），汇总批次 `ablation7-new-4x-50steps-20261019-235424-435064` 的 `compare1`—`compare4`。**四次全部完成：每次36个正式窗口、每窗口10步预热＋50步正式计时，共144窗口、7200个正式optimizer step、1152份正式rank记录。** 四份预检及严格报告均通过CPU离线复算。本页记录 `tail_assignment` 新版；算法与启动方案见 [op-1.md](op-1.md)，此前 `tail_residual` 版本的三次结果见 [旧消融7总结](../base-phase6-ablation7.md)。
+更新：2026-10-20。依据回传提交 `e3c0e94e`（Finish New Ablation-7），汇总批次 `ablation7-new-4x-50steps-20261019-235424-435064` 的 `compare1`—`compare4`。**四次全部完成：每次36个正式窗口、每窗口10步预热＋50步正式计时，共144窗口、7200个正式optimizer step、1152份正式rank记录。** 四份预检及严格报告均通过CPU离线复算。本页记录 `tail_assignment` 新版；算法与启动方案见 [op-1.md](op-1.md)，此前 `tail_residual` 版本的三次结果见 [旧消融7总结](../消融实验/base-phase6-ablation7.md)。
 
 ### 1. 实测结论
 

@@ -1,6 +1,6 @@
 # H100 单节点 TP8：Attention与MLP作用范围对比
 
-更新：2026-10-14。**状态：四组范围对比代码已实现，71项CPU回归、校准及32窗口dry-run通过；采样库与共同候选库完成无GPU编译和链接（含Python binding及mapping程序）。尚未执行真实Attention校准或本方案GPU验证。** 独立入口、验证摘要与实际校准/测试命令见 [README-mlp-attention.md](../../../tools/h100/phase6/README-mlp-attention.md)。已有 [交替五组入口](../../../tools/h100/phase6/README-ablation2.md) 的CPU/编译检查只覆盖其MLP范围，不能作为本方案的Attention验证。本文独立于 [消融实验2.md](消融实验2.md)，不改写旧分组、旧会话或旧结果。
+更新：2026-10-14。**状态：四组范围对比代码已实现，71项CPU回归、校准及32窗口dry-run通过；采样库与共同候选库完成无GPU编译和链接（含Python binding及mapping程序）。尚未执行真实Attention校准或本方案GPU验证。** 独立入口、验证摘要与实际校准/测试命令见 [README-mlp-attention.md](../../../tools/h100/phase6/README-mlp-attention.md)。已有 [交替五组入口](../../../tools/h100/phase6/README-ablation2.md) 的CPU/编译检查只覆盖其MLP范围，不能作为本方案的Attention验证。本文独立于 [消融实验2.md](消融实验/消融实验2.md)，不改写旧分组、旧会话或旧结果。
 
 ## 1. 测什么：只保留用户指定的四组
 

@@ -2,7 +2,7 @@
 
 Attention-only/Attention＋MLP四组范围对比使用独立 [README-mlp-attention.md](README-mlp-attention.md) / `mlp_attention.py`。本页 `native_taco` 和G1–G4仍保留旧MLP范围含义。
 
-实现对应 [消融实验2.md](../../../docs/design/design-h100/消融实验2.md)，协议为 `h100-gpt67-tp8-ablation2-v1`。独立入口是 `ablation2.py`，复用原消融的候选构建、物理计划、完整训练 worker、预检与 rank 核验。旧 [八组入口](README-ablation.md)、冻结源码、构建、计划和报告保留。
+实现对应 [消融实验2.md](../../../docs/design/design-h100/消融实验/消融实验2.md)，协议为 `h100-gpt67-tp8-ablation2-v1`。独立入口是 `ablation2.py`，复用原消融的候选构建、物理计划、完整训练 worker、预检与 rank 核验。旧 [八组入口](README-ablation.md)、冻结源码、构建、计划和报告保留。
 
 | 策略 | 路径 | 到达优先 | 物理量化 mask |
 | --- | --- | --- | --- |

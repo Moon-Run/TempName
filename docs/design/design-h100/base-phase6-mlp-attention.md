@@ -43,7 +43,7 @@ Attention候选为 `interleaved_full_attn`，Attention＋MLP候选为 `interleav
 
 历史Attention、Attention＋MLP及对应两个Megatron＋量化列各使用a–d两轮共32个窗口、640个正式step；历史MLP、Megatron＋量化MLP、原生Megatron和原生Flux各使用a–h共48个窗口、960个正式step。这些历史loss使用对应全部正式窗口，不按耗时筛选，也不只取产生中位耗时的窗口。
 
-补充 [消融实验3的策略与平均耗时对照](base-phase6-ablation3.md#1-当前结论)：
+补充 [消融实验3的策略与平均耗时对照](消融实验/base-phase6-ablation3.md#1-当前结论)：
 
 | 策略 | 基础顺序 | 到达优先 | 远端量化 |
 | --- | --- | --- | --- |
@@ -88,7 +88,7 @@ Attention候选为 `interleaved_full_attn`，Attention＋MLP候选为 `interleav
 
 ## 数据来源
 
-原始 `results/.../rank*.json` 还保留正式step的 `losses`、`grad_norms`、预热首末loss，以及smoke阶段的 `forward_checks` 数值误差；字段含义及消融3核验情况见 [loss与数值精度记录](base-phase6-ablation3.md#8-已保留的loss与数值精度记录)。这些记录用于短程训练和数值检查，不等同于真实验证集准确率。
+原始 `results/.../rank*.json` 还保留正式step的 `losses`、`grad_norms`、预热首末loss，以及smoke阶段的 `forward_checks` 数值误差；字段含义及消融3核验情况见 [loss与数值精度记录](消融实验/base-phase6-ablation3.md#8-已保留的loss与数值精度记录)。这些记录用于短程训练和数值检查，不等同于真实验证集准确率。
 
 本次loss复算共核对437个窗口、3496份rank记录：旧a–h四套会话中取交替组合与三个参考组，共192个窗口；旧作用范围a–d四套会话四组共128个窗口；消融3取13个完整配对块、九组共117个窗口。完成标记、运行身份、20步loss/梯度长度及有限值检查通过，同一窗口八rank的loss序列完全相同，统计时只计一次。A/B对应作用范围的loss均值相同来自原始记录，并非复制耗时或沿用另一组数值。未启动GPU实验，也未修改原始报告。
 

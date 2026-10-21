@@ -1,10 +1,10 @@
 # 新服务器：单机 8 张 H100 部署与九组消融实验3
 
-更新：2026-10-17。本文用于在**新服务器**配置环境、检查运行条件，并按任务范围执行 [消融实验3](消融实验3.md)：三种策略 × MLP、Attention、MLP＋Attention 三种作用范围，共九组。模型为 GPT 6.7B、单节点8×H100、TP8，每卡必须为132 SM。无需Slurm；受调度器管理时，在已分配的计算节点内执行GPU步骤。
+更新：2026-10-17。本文用于在**新服务器**配置环境、检查运行条件，并按任务范围执行 [消融实验3](消融实验/消融实验3.md)：三种策略 × MLP、Attention、MLP＋Attention 三种作用范围，共九组。模型为 GPT 6.7B、单节点8×H100、TP8，每卡必须为132 SM。无需Slurm；受调度器管理时，在已分配的计算节点内执行GPU步骤。
 
-**本指南已替换原六策略运行流程，全程使用 `ablation3.py`。本次按用户要求只跑一轮：`prepare --blocks 9 --rounds 1`，81个正式窗口，另有18个预检窗口。** CLI不传`--rounds`时仍默认两轮162窗口，以兼容旧入口；本页启动命令均显式选择一轮。详细分组和统计口径见 [消融实验3](消融实验3.md)，CLI说明及开发验证见 [README-ablation3.md](../../../tools/h100/phase6/README-ablation3.md)。
+**本指南已替换原六策略运行流程，全程使用 `ablation3.py`。本次按用户要求只跑一轮：`prepare --blocks 9 --rounds 1`，81个正式窗口，另有18个预检窗口。** CLI不传`--rounds`时仍默认两轮162窗口，以兼容旧入口；本页启动命令均显式选择一轮。详细分组和统计口径见 [消融实验3](消融实验/消融实验3.md)，CLI说明及开发验证见 [README-ablation3.md](../../../tools/h100/phase6/README-ablation3.md)。
 
-新服务器必须重新校准 Attention 和 MLP，重新编译实际运行库。本文不复用旧机器的到达计划、mask或二进制。原H100服务器已完成完整构建、九组预检，并回传124个完整正式窗口；第二轮异常中断，尚未完成162窗口，见 [已回传结果及边界](base-phase6-ablation3.md)。因此“尚无GPU验证”已不是当前状态，但旧结果不能代替新机器的预检。模型定义见 [模型说明](../model-gpt-6.7b.md)，交付规范见 [执行端说明](instruction-h100.md)。
+新服务器必须重新校准 Attention 和 MLP，重新编译实际运行库。本文不复用旧机器的到达计划、mask或二进制。原H100服务器已完成完整构建、九组预检，并回传124个完整正式窗口；第二轮异常中断，尚未完成162窗口，见 [已回传结果及边界](消融实验/base-phase6-ablation3.md)。因此“尚无GPU验证”已不是当前状态，但旧结果不能代替新机器的预检。模型定义见 [模型说明](../model-gpt-6.7b.md)，交付规范见 [执行端说明](instruction-h100.md)。
 
 ## 阅读顺序与任务范围
 
@@ -12,7 +12,7 @@
 | --- | --- |
 | 本文 `deploy-tp8.md` | 环境、源码、双角色校准、Release构建和九组运行的主流程 |
 | [env.md](../env.md) | 公共依赖与固定Megatron提交；H100编译版本及命令以本文为准 |
-| [消融实验3.md](消融实验3.md)、[README-ablation3.md](../../../tools/h100/phase6/README-ablation3.md) | 九组定义、CLI、计时和报告协议 |
+| [消融实验3.md](消融实验/消融实验3.md)、[README-ablation3.md](../../../tools/h100/phase6/README-ablation3.md) | 九组定义、CLI、计时和报告协议 |
 | [instruction-h100.md](instruction-h100.md) | H100执行端的数据保存与回传约定 |
 | [instruction.md](instruction.md)、[A800说明](../design-a800/instruction.md) | 开发分析入口、历史实现背景；不作为本次部署或启动命令 |
 
@@ -20,7 +20,7 @@
 
 ## 可直接交给新服务器执行者的指令
 
-> 在实际TempName仓库根目录工作，先阅读 `docs/design/design-h100/deploy-tp8.md`、`docs/design/env.md`、`docs/design/design-h100/消融实验3.md`、`tools/h100/phase6/README-ablation3.md` 和 `docs/design/design-h100/instruction-h100.md`。配置新服务器的实验环境，然后实际运行消融3，本次只跑一轮。允许GPU身份检查、双角色BF16校准、mapping、九组smoke/profile及正式计时。核对固定软件版本、源码和子模块、单节点8张132 SM H100、拓扑及空闲状态。新建独立会话，本机重新校准Attention和MLP，显式使用两份新计划；按部署指南以 `DEBUG=0` 构建并共用NCCL Release开发库，完整编译采样库与base/arrival候选库，不复用旧机器二进制。使用 `ablation3.py prepare --blocks 9 --rounds 1`，dry-run确认九组、18个预检和81个正式窗口，共99个worker窗口，再用 `run --stage all --execute` 完成预检及一轮计时。生成严格报告，交付648份正式rank、144份预检rank、72份profile trace和12项角色mapping。不追加第二轮或独立复测；GPU忙时说明原因，不终止其他任务、不创建自动等待队列；运行期间不周期查询GPU占用。失败保留日志、状态和原始记录，不降低检查标准。最后报告环境、会话路径、完成数量、结果摘要及缺项。
+> 在实际TempName仓库根目录工作，先阅读 `docs/design/design-h100/deploy-tp8.md`、`docs/design/env.md`、`docs/design/design-h100/消融实验/消融实验3.md`、`tools/h100/phase6/README-ablation3.md` 和 `docs/design/design-h100/instruction-h100.md`。配置新服务器的实验环境，然后实际运行消融3，本次只跑一轮。允许GPU身份检查、双角色BF16校准、mapping、九组smoke/profile及正式计时。核对固定软件版本、源码和子模块、单节点8张132 SM H100、拓扑及空闲状态。新建独立会话，本机重新校准Attention和MLP，显式使用两份新计划；按部署指南以 `DEBUG=0` 构建并共用NCCL Release开发库，完整编译采样库与base/arrival候选库，不复用旧机器二进制。使用 `ablation3.py prepare --blocks 9 --rounds 1`，dry-run确认九组、18个预检和81个正式窗口，共99个worker窗口，再用 `run --stage all --execute` 完成预检及一轮计时。生成严格报告，交付648份正式rank、144份预检rank、72份profile trace和12项角色mapping。不追加第二轮或独立复测；GPU忙时说明原因，不终止其他任务、不创建自动等待队列；运行期间不周期查询GPU占用。失败保留日志、状态和原始记录，不降低检查标准。最后报告环境、会话路径、完成数量、结果摘要及缺项。
 
 若只做可运行性检查，将上述执行阶段改为`run --stage preflight --execute`及`report --preflight`后停止。若以后明确要求两轮，在新compare准备时改为`--rounds 2`；不能对已冻结的一轮或两轮compare修改schedule/manifest切换轮数。第7节给出实际命令。
 

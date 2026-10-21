@@ -104,7 +104,7 @@ C/B四个逐轮下降为3.180%、3.508%、3.255%、3.793%，对应区间全部�
 
 两次smoke预检的最大相对BF16 L2误差：C为0.439100%，A/B/Flux为2.545994%，Megatron＋量化为2.546476%；各组均低于既定5%门槛，相对独立codec参考也低于1%门槛。这是预检投影输出误差，不能直接当作全模型任务准确率。
 
-冻结的 [worker](../../../logs/h100/phase6/ablation5-then4-60steps-20261018-230611-029519/ablation4/compare1/scripts/worker.py) 在每个窗口初始化模型，并一次生成固定的4个合成微批；每个optimizer step都重新遍历同一组 `batches`。60步末尾接近零的loss反映这一固定训练输入上的拟合，不能据此判断真实语料泛化、验证困惑度或长期收敛。两次重复计时也不等于不同训练种子的重复质量评估；20步历史均值/末步loss不与本批混合。
+冻结的 [worker](../../../../logs/h100/phase6/ablation5-then4-60steps-20261018-230611-029519/ablation4/compare1/scripts/worker.py) 在每个窗口初始化模型，并一次生成固定的4个合成微批；每个optimizer step都重新遍历同一组 `batches`。60步末尾接近零的loss反映这一固定训练输入上的拟合，不能据此判断真实语料泛化、验证困惑度或长期收敛。两次重复计时也不等于不同训练种子的重复质量评估；20步历史均值/末步loss不与本批混合。
 
 ## 6. 核验与原始证据
 
@@ -112,13 +112,13 @@ C/B四个逐轮下降为3.180%、3.508%、3.255%、3.793%，对应区间全部�
 
 另从全部800份正式rank记录核验60步loss/grad_norm、完成身份与有限值，确认每窗口八rank的loss序列完全一致，并用rank0复算两项loss均值。两次输入、模型/输入/运行环境指纹、运行库登记、冻结worker、角色计划与通信配置一致；run_id和预检各自独立。未修改原始报告、rank、日志或状态，未启动新的GPU实验。离线核验依据回传证据，不声称重新加载执行端动态库。
 
-- compare1：[报告JSON](../../../logs/h100/phase6/ablation5-then4-60steps-20261018-230611-029519/ablation4/compare1/report.json)、[报告Markdown](../../../logs/h100/phase6/ablation5-then4-60steps-20261018-230611-029519/ablation4/compare1/report.md)、[submission](../../../logs/h100/phase6/ablation5-then4-60steps-20261018-230611-029519/ablation4/compare1/submission.json)、[预检](../../../logs/h100/phase6/ablation5-then4-60steps-20261018-230611-029519/ablation4/compare1/preflight.json)、[完成状态](../../../logs/h100/phase6/ablation5-then4-60steps-20261018-230611-029519/ablation4/compare1/all-state.json)、[原始窗口](../../../logs/h100/phase6/ablation5-then4-60steps-20261018-230611-029519/ablation4/compare1/results/)。
-- compare2：[报告JSON](../../../logs/h100/phase6/ablation5-then4-60steps-20261018-230611-029519/ablation4/compare2/report.json)、[报告Markdown](../../../logs/h100/phase6/ablation5-then4-60steps-20261018-230611-029519/ablation4/compare2/report.md)、[submission](../../../logs/h100/phase6/ablation5-then4-60steps-20261018-230611-029519/ablation4/compare2/submission.json)、[预检](../../../logs/h100/phase6/ablation5-then4-60steps-20261018-230611-029519/ablation4/compare2/preflight.json)、[完成状态](../../../logs/h100/phase6/ablation5-then4-60steps-20261018-230611-029519/ablation4/compare2/all-state.json)、[原始窗口](../../../logs/h100/phase6/ablation5-then4-60steps-20261018-230611-029519/ablation4/compare2/results/)。
-- [本实验批次状态](../../../logs/h100/phase6/ablation5-then4-60steps-20261018-230611-029519/ablation4/batch-state.json)、[四次实验总状态](../../../logs/h100/phase6/ablation5-then4-60steps-20261018-230611-029519/batch-state.json)、[启动参数](../../../logs/h100/phase6/ablation5-then4-60steps-20261018-230611-029519/handoff/launch.json)、[监督进程身份](../../../logs/h100/phase6/ablation5-then4-60steps-20261018-230611-029519/handoff/supervisor.json)。
+- compare1：[报告JSON](../../../../logs/h100/phase6/ablation5-then4-60steps-20261018-230611-029519/ablation4/compare1/report.json)、[报告Markdown](../../../../logs/h100/phase6/ablation5-then4-60steps-20261018-230611-029519/ablation4/compare1/report.md)、[submission](../../../../logs/h100/phase6/ablation5-then4-60steps-20261018-230611-029519/ablation4/compare1/submission.json)、[预检](../../../../logs/h100/phase6/ablation5-then4-60steps-20261018-230611-029519/ablation4/compare1/preflight.json)、[完成状态](../../../../logs/h100/phase6/ablation5-then4-60steps-20261018-230611-029519/ablation4/compare1/all-state.json)、[原始窗口](../../../../logs/h100/phase6/ablation5-then4-60steps-20261018-230611-029519/ablation4/compare1/results/)。
+- compare2：[报告JSON](../../../../logs/h100/phase6/ablation5-then4-60steps-20261018-230611-029519/ablation4/compare2/report.json)、[报告Markdown](../../../../logs/h100/phase6/ablation5-then4-60steps-20261018-230611-029519/ablation4/compare2/report.md)、[submission](../../../../logs/h100/phase6/ablation5-then4-60steps-20261018-230611-029519/ablation4/compare2/submission.json)、[预检](../../../../logs/h100/phase6/ablation5-then4-60steps-20261018-230611-029519/ablation4/compare2/preflight.json)、[完成状态](../../../../logs/h100/phase6/ablation5-then4-60steps-20261018-230611-029519/ablation4/compare2/all-state.json)、[原始窗口](../../../../logs/h100/phase6/ablation5-then4-60steps-20261018-230611-029519/ablation4/compare2/results/)。
+- [本实验批次状态](../../../../logs/h100/phase6/ablation5-then4-60steps-20261018-230611-029519/ablation4/batch-state.json)、[四次实验总状态](../../../../logs/h100/phase6/ablation5-then4-60steps-20261018-230611-029519/batch-state.json)、[启动参数](../../../../logs/h100/phase6/ablation5-then4-60steps-20261018-230611-029519/handoff/launch.json)、[监督进程身份](../../../../logs/h100/phase6/ablation5-then4-60steps-20261018-230611-029519/handoff/supervisor.json)。
 
 ## 7. 复测入口
 
-使用 [`ablation4_repeat.py`](../../../tools/h100/phase6/ablation4_repeat.py)，在原75容器、仓库根目录执行：
+使用 [`ablation4_repeat.py`](../../../../tools/h100/phase6/ablation4_repeat.py)，在原75容器、仓库根目录执行：
 
 ```bash
 cd /workspace/TempName
@@ -140,7 +140,7 @@ cd /workspace/TempName
 
 输出包括 `compare1/report.{json,md}`、`compare2/report.{json,md}`、各阶段日志和 `batch-state.json`。只有两套严格报告均通过且运行身份一致，批次状态才为 `completed`，登记100个正式窗口/800份正式rank。指定的 `--out` 必须不存在；省略 `--execute` 只打印完整命令计划，不创建目录、不启动子进程或查询GPU。脚本前台执行，不自动建立后台服务；需要独立托管时可由既有容器监督进程调用。
 
-需要按本批顺序再执行“消融5两次→消融4两次”时，使用 [`detach_ablation5_then4.py`](../../../tools/h100/phase6/detach_ablation5_then4.py)；参数和输出目录说明见 [消融5方案第9节](消融实验5-选择性量化.md#9-先消融5两次再消融4两次统一60步)。本页总结的是已经回传并核验完成的批次。
+需要按本批顺序再执行“消融5两次→消融4两次”时，使用 [`detach_ablation5_then4.py`](../../../../tools/h100/phase6/detach_ablation5_then4.py)；参数和输出目录说明见 [消融5方案第9节](消融实验5-选择性量化.md#9-先消融5两次再消融4两次统一60步)。本页总结的是已经回传并核验完成的批次。
 
 ## 8. 历史20步记录（2026-10-18）
 
@@ -179,7 +179,7 @@ cd /workspace/TempName
 
 Attention shape为 `[2048,4096,4096]`、本地K512；MLP为 `[2048,4096,16384]`、本地K2048。全量组每来源量化448个远端tile；本次C的Attention每来源选择数为 `[7,7,7,7,4,7,7,7]`，MLP为 `[7,7,7,7,1,7,7,7]`。本地贡献、GEMM及既定反向路径保持BF16/STE；“完整量化”不表示整网FP8或权重量化。
 
-**C的选择性量化预算上限是远端贡献的 `1/64 = 1.5625%`，不是 `1/16 = 6.25%`。** [冻结配置](../../../logs/h100/phase6/ablation4-gpt67-tp8-both-20261018-hostservice/compare1/submission.json)中的 `fraction=0.015625`；每来源448个远端tile最多选择 `448/64=7` 个，并不要求用满预算。选择单位是 `[source rank, physical tile]` 的来源贡献：本次 [实际mask](../../../logs/h100/phase6/ablation4-gpt67-tp8-both-20261018-hostservice/compare1/scripts/selection-plan.json) 中，Attention合计53/3584（约1.479%），MLP合计50/3584（约1.395%）；两角色按相同调用次数合计103/7168（约1.437%）。这是远端通信贡献的量化比例，不是模型权重的量化比例；其余远端贡献和本地贡献仍为BF16。
+**C的选择性量化预算上限是远端贡献的 `1/64 = 1.5625%`，不是 `1/16 = 6.25%`。** [冻结配置](../../../../logs/h100/phase6/ablation4-gpt67-tp8-both-20261018-hostservice/compare1/submission.json)中的 `fraction=0.015625`；每来源448个远端tile最多选择 `448/64=7` 个，并不要求用满预算。选择单位是 `[source rank, physical tile]` 的来源贡献：本次 [实际mask](../../../../logs/h100/phase6/ablation4-gpt67-tp8-both-20261018-hostservice/compare1/scripts/selection-plan.json) 中，Attention合计53/3584（约1.479%），MLP合计50/3584（约1.395%）；两角色按相同调用次数合计103/7168（约1.437%）。这是远端通信贡献的量化比例，不是模型权重的量化比例；其余远端贡献和本地贡献仍为BF16。
 
 两次均冻结 `NCCL_NVLS_ENABLE=0`、`NCCL_DEBUG=WARN`、`TORCH_NCCL_ASYNC_ERROR_HANDLING=1`；通信快照中的 `/etc/nccl.conf` 和 `/root/.nccl.conf` 均不存在。完整五组定义、构建隔离及通信快照规则见 [消融实验4](消融实验4.md)。
 
@@ -264,6 +264,6 @@ Attention shape为 `[2048,4096,4096]`、本地K512；MLP为 `[2048,4096,16384]`�
 
 60步改动后的兼容性复核也已完成：再次在临时目录复算这两套20步历史报告，除新增的 `execution_timing={warmup_steps:10,timed_steps:20}`、每次 `formal_optimizer_steps=1000` 以及离线标志外，全部原有JSON字段仍与回传报告一致。
 
-- compare1：[报告JSON](../../../logs/h100/phase6/ablation4-gpt67-tp8-both-20261018-hostservice/compare1/report.json)、[报告Markdown](../../../logs/h100/phase6/ablation4-gpt67-tp8-both-20261018-hostservice/compare1/report.md)、[submission](../../../logs/h100/phase6/ablation4-gpt67-tp8-both-20261018-hostservice/compare1/submission.json)、[预检](../../../logs/h100/phase6/ablation4-gpt67-tp8-both-20261018-hostservice/compare1/preflight.json)、[完成状态](../../../logs/h100/phase6/ablation4-gpt67-tp8-both-20261018-hostservice/compare1/all-state.json)。
-- compare2：[报告JSON](../../../logs/h100/phase6/ablation4-gpt67-tp8-both-20261018-hostservice/compare2/report.json)、[报告Markdown](../../../logs/h100/phase6/ablation4-gpt67-tp8-both-20261018-hostservice/compare2/report.md)、[submission](../../../logs/h100/phase6/ablation4-gpt67-tp8-both-20261018-hostservice/compare2/submission.json)、[预检](../../../logs/h100/phase6/ablation4-gpt67-tp8-both-20261018-hostservice/compare2/preflight.json)、[完成状态](../../../logs/h100/phase6/ablation4-gpt67-tp8-both-20261018-hostservice/compare2/all-state.json)。
-- [原始compare1窗口](../../../logs/h100/phase6/ablation4-gpt67-tp8-both-20261018-hostservice/compare1/results/)、[原始compare2窗口](../../../logs/h100/phase6/ablation4-gpt67-tp8-both-20261018-hostservice/compare2/results/)、[执行端路径/环境登记](../../../logs/h100/phase6/ablation4-gpt67-tp8-both-20261018-hostservice/handoff/session-paths.json)、[构建登记快照](../../../logs/h100/phase6/ablation4-gpt67-tp8-both-20261018-hostservice/compare1/provenance/build-manifest.json)。
+- compare1：[报告JSON](../../../../logs/h100/phase6/ablation4-gpt67-tp8-both-20261018-hostservice/compare1/report.json)、[报告Markdown](../../../../logs/h100/phase6/ablation4-gpt67-tp8-both-20261018-hostservice/compare1/report.md)、[submission](../../../../logs/h100/phase6/ablation4-gpt67-tp8-both-20261018-hostservice/compare1/submission.json)、[预检](../../../../logs/h100/phase6/ablation4-gpt67-tp8-both-20261018-hostservice/compare1/preflight.json)、[完成状态](../../../../logs/h100/phase6/ablation4-gpt67-tp8-both-20261018-hostservice/compare1/all-state.json)。
+- compare2：[报告JSON](../../../../logs/h100/phase6/ablation4-gpt67-tp8-both-20261018-hostservice/compare2/report.json)、[报告Markdown](../../../../logs/h100/phase6/ablation4-gpt67-tp8-both-20261018-hostservice/compare2/report.md)、[submission](../../../../logs/h100/phase6/ablation4-gpt67-tp8-both-20261018-hostservice/compare2/submission.json)、[预检](../../../../logs/h100/phase6/ablation4-gpt67-tp8-both-20261018-hostservice/compare2/preflight.json)、[完成状态](../../../../logs/h100/phase6/ablation4-gpt67-tp8-both-20261018-hostservice/compare2/all-state.json)。
+- [原始compare1窗口](../../../../logs/h100/phase6/ablation4-gpt67-tp8-both-20261018-hostservice/compare1/results/)、[原始compare2窗口](../../../../logs/h100/phase6/ablation4-gpt67-tp8-both-20261018-hostservice/compare2/results/)、[执行端路径/环境登记](../../../../logs/h100/phase6/ablation4-gpt67-tp8-both-20261018-hostservice/handoff/session-paths.json)、[构建登记快照](../../../../logs/h100/phase6/ablation4-gpt67-tp8-both-20261018-hostservice/compare1/provenance/build-manifest.json)。

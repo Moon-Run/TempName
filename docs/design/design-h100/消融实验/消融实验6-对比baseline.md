@@ -1,6 +1,6 @@
 # H100 消融实验6：对齐朴素量化的Flux与Megatron baseline
 
-更新：2026-10-19。入口为 [`ablation6.py`](../../../tools/h100/phase6/ablation6.py)，协议 `h100-gpt67-tp8-ablation6-v1`。按确认的方案，C/A/B沿用消融4实现，将Flux baseline改为 **原生Flux GemmOnly＋与Megatron共用的朴素Tensor TACO**。每窗口 **预热10步、正式50步**。本页记录源码核对和执行方案，尚无消融6 GPU结果。
+更新：2026-10-19。入口为 [`ablation6.py`](../../../../tools/h100/phase6/ablation6.py)，协议 `h100-gpt67-tp8-ablation6-v1`。按确认的方案，C/A/B沿用消融4实现，将Flux baseline改为 **原生Flux GemmOnly＋与Megatron共用的朴素Tensor TACO**。每窗口 **预热10步、正式50步**。本页记录源码核对和执行方案，尚无消融6 GPU结果。
 
 ## 1. 核对结论：同一量化协议，不是同一执行实现
 
@@ -19,9 +19,9 @@
 
 源码依据：
 
-- 朴素路径：[TensorTacoRS、pack_rows、unpack_rows](../../../tools/a800/phase5/e2e/megatron_taco.py)，[Hadamard/独立参考](../../../tools/a800/phase4/reference.py)。
-- 融合v2：[CUDA codec](../../../tools/h100/phase6/fused_v2/src/gemm_rs/taco_codec.cuh)、[融合epilogue](../../../tools/h100/phase6/fused_v2/src/gemm_rs/epilogue_evt.hpp)、[解码/环形累加](../../../tools/h100/phase6/fused_v2/src/gemm_rs/taco_runtime.cu)、[固定Python前端](../../../tools/h100/phase6/fused_v2/python/flux/gemm_rs_taco.py)。
-- A/B共用融合v2、C沿用候选实现的分派：[ablation4_sources.py](../../../tools/h100/phase6/ablation4_sources.py)。H100构建只做既定SM90适配，并保留冻结来源核验。
+- 朴素路径：[TensorTacoRS、pack_rows、unpack_rows](../../../../tools/a800/phase5/e2e/megatron_taco.py)，[Hadamard/独立参考](../../../../tools/a800/phase4/reference.py)。
+- 融合v2：[CUDA codec](../../../../tools/h100/phase6/fused_v2/src/gemm_rs/taco_codec.cuh)、[融合epilogue](../../../../tools/h100/phase6/fused_v2/src/gemm_rs/epilogue_evt.hpp)、[解码/环形累加](../../../../tools/h100/phase6/fused_v2/src/gemm_rs/taco_runtime.cu)、[固定Python前端](../../../../tools/h100/phase6/fused_v2/python/flux/gemm_rs_taco.py)。
+- A/B共用融合v2、C沿用候选实现的分派：[ablation4_sources.py](../../../../tools/h100/phase6/ablation4_sources.py)。H100构建只做既定SM90适配，并保留冻结来源核验。
 
 这说明原消融4中Flux/Megatron的性能与loss差异同时包含GEMM和量化/通信执行实现的差异，不能仅归因于GEMM，也不能仅归因于量化误差。本实验把两个baseline的量化/通信代码对齐。
 
@@ -37,7 +37,7 @@
 
 五组均覆盖MLP＋Attention：32个 `mlp.linear_fc2` 与32个 `self_attention.linear_proj`。C的1/64是每来源448个远端tile的预算上限，最多7个，保留原校准mask和到达表；不使用消融5中更大的预算。A/B/C共用已验证的原消融4构建，未重写其CUDA实现。
 
-新Flux组不调用 `GemmRS`：不能先完成一次BF16 ReduceScatter再调用Tensor TACO，那会重复通信并改变量化对象。实际实现见 [ablation6_flux_tensor.py](../../../tools/h100/phase6/ablation6_flux_tensor.py)。两个baseline从同一会话文件导入同一个 `TensorTacoRS` 类、`pack_rows`、`unpack_rows` 和同一份 `reference.py`；除了TP8适配和调用计数，朴素codec规则保持原样。
+新Flux组不调用 `GemmRS`：不能先完成一次BF16 ReduceScatter再调用Tensor TACO，那会重复通信并改变量化对象。实际实现见 [ablation6_flux_tensor.py](../../../../tools/h100/phase6/ablation6_flux_tensor.py)。两个baseline从同一会话文件导入同一个 `TensorTacoRS` 类、`pack_rows`、`unpack_rows` 和同一份 `reference.py`；除了TP8适配和调用计数，朴素codec规则保持原样。
 
 **相同codec不等于整步结果必然逐位一致。** 两种GEMM可能产生不同的BF16 partial；Flux采用公共GEMM/RS反向适配，Megatron保留原生linear路径。新的Flux/Megatron对比固定了量化/通信实现，仍包含GEMM与接入路径差异。B/A继续比较到达优先；C/B仍同时改变mask与候选实现；A/新Flux同时改变GEMM算法、融合方式和排序，不是纯交替顺序的单因素比较。本次不把消融4的融合v2作为第六组。
 
@@ -64,13 +64,13 @@
 
 现有消融4运行库的构建脚本只保留 `gemm_rs` 及公共组件，没有编译 `comm_none/GemmOnly`。不能直接拿旧融合库当作GemmOnly库，也不能悄悄回退成 `torch.matmul`。
 
-[ablation6_build.py](../../../tools/h100/phase6/ablation6_build.py) 在**新目录**准备独立源码快照，只编译 `comm_none` 与公共CUDA/THS组件，注册原生SM90、132 SM、BF16 RCR GemmV3，保留上游cooperative/ping-pong与default/StreamK选择。它不启用TACO宏或ReduceScatter算子；不更改上游GemmOnly计算代码。构建来源、注册器、源码、二进制及Python扩展均记录哈希。新库只供Flux朴素组使用。
+[ablation6_build.py](../../../../tools/h100/phase6/ablation6_build.py) 在**新目录**准备独立源码快照，只编译 `comm_none` 与公共CUDA/THS组件，注册原生SM90、132 SM、BF16 RCR GemmV3，保留上游cooperative/ping-pong与default/StreamK选择。它不启用TACO宏或ReduceScatter算子；不更改上游GemmOnly计算代码。构建来源、注册器、源码、二进制及Python扩展均记录哈希。新库只供Flux朴素组使用。
 
 构建CUDA默认12.8，运行CUDA默认12.4，与原容器约定一致。第一次执行需要编译这一个新库；A/B/C沿用已有库。可用 `--flux-build` 复用已经成功编译的消融6专用构建，不能指定原消融4的 `fused/taco_fused`。
 
 ## 5. 容器内一键先执行消融6三次，再执行消融7三次
 
-总入口为 [detach_ablation6_then7.py](../../../tools/h100/phase6/detach_ablation6_then7.py)。先将本次 `tools/h100/phase6/` 的新增和修改代码同步到原75容器。在仓库根目录执行：
+总入口为 [detach_ablation6_then7.py](../../../../tools/h100/phase6/detach_ablation6_then7.py)。先将本次 `tools/h100/phase6/` 的新增和修改代码同步到原75容器。在仓库根目录执行：
 
 ```bash
 cd /workspace/TempName
@@ -122,7 +122,7 @@ ablation7/compare{1,2,3}-controller.log
 
 采用与前批相同的双重fork托管，确认PPID=1后返回启动状态；stdin接 `/dev/null`，stdout/stderr写监督日志，关闭VS Code或终端不影响已托管的进程。启动成功不表示实验完成，以顶层 `batch-state.json.status=completed` 和六份严格报告为准。`--foreground --execute` 可用于前台诊断。运行仍依赖容器和主机存活。
 
-原 [detach_ablation6_run_two.py](../../../tools/h100/phase6/detach_ablation6_run_two.py) 保留原来的“仅消融6两次”行为；本次3＋3批次请使用新总入口。
+原 [detach_ablation6_run_two.py](../../../../tools/h100/phase6/detach_ablation6_run_two.py) 保留原来的“仅消融6两次”行为；本次3＋3批次请使用新总入口。
 
 ## 6. 分步入口
 
@@ -178,9 +178,9 @@ export H100_A6_PARENT=/workspace/TempName/outputs/h100/phase6/ablation4-gpt67-tp
 
 当时的GemmOnly构建日志显示：`gen_comm_none.cc:29` 向 `main_template` 传参时出现 `invalid initialization of reference`。日志已识别 GNU11.4.0 和 CUDA12.8.93；编译环境检查通过后，新增生成器中的未限定 `make_tuple(...)` 因 `std::vector/std::string` 参数触发ADL，选中了 `std::make_tuple`，而接口要求 `cute::tuple`。该失败会话目录已按用户要求清理，根因保留在本节。
 
-[ablation6_gemm_only_generator.cc](../../../tools/h100/phase6/ablation6_gemm_only_generator.cc) 已显式使用 `cute::make_tuple(...)`，与上游生成器一致。这是构建注册器的类型修复，保留原BF16/GemmV3参数空间、共享Tensor TACO、A/B/C实现、10＋50步和3＋3执行顺序。
+[ablation6_gemm_only_generator.cc](../../../../tools/h100/phase6/ablation6_gemm_only_generator.cc) 已显式使用 `cute::make_tuple(...)`，与上游生成器一致。这是构建注册器的类型修复，保留原BF16/GemmV3参数空间、共享Tensor TACO、A/B/C实现、10＋50步和3＋3执行顺序。
 
-此前Python模拟测试没有覆盖真实C++编译。新增 [test_ablation6_generator.py](../../../tools/h100/phase6/test_ablation6_generator.py) 使用实际CUDA头文件和C++编译器，编译并运行生成器，核验仅生成一个SM90/H800/BF16/RCR注册文件及6个GemmOnly配置；不调用GPU。修复前错误已在本地GCC11重现，修复后该编译测试通过。可在容器复核：
+此前Python模拟测试没有覆盖真实C++编译。新增 [test_ablation6_generator.py](../../../../tools/h100/phase6/test_ablation6_generator.py) 使用实际CUDA头文件和C++编译器，编译并运行生成器，核验仅生成一个SM90/H800/BF16/RCR注册文件及6个GemmOnly配置；不调用GPU。修复前错误已在本地GCC11重现，修复后该编译测试通过。可在容器复核：
 
 ```bash
 CUDA_HOME=/usr/local/cuda-12.8 CXX=/usr/bin/g++-11 \
@@ -211,9 +211,9 @@ cd /workspace/TempName
 | `scope_calibrate.py` | `c215e1926c928b2fc3189ee19b8adc10edd75ac6be07fb8fe15c437d4c894c00` |
 | `plan.py` | `e110229caedff76e28110271c7a468d4dd3d18f000b1c7a59b73d57c293715f1` |
 
-修复位于 [ablation_plan.py](../../../tools/h100/phase6/ablation_plan.py) 和 [scope_plan.py](../../../tools/h100/phase6/scope_plan.py)：校验当前文件或最早冻结版本失败时，可使用**同一旧计划已登记、同名且期望SHA256相同**的 `controllers/` 副本，并重新计算文件SHA256。只允许phase6控制器源码使用此路径；测量数据、运行库、未知文件以及缺失/被修改的副本仍拒绝。历史副本只用于核对证据，不导入执行；当前消融7仍运行新的到达调度代码。未改写旧计划、旧源码、二进制或预检门槛。
+修复位于 [ablation_plan.py](../../../../tools/h100/phase6/ablation_plan.py) 和 [scope_plan.py](../../../../tools/h100/phase6/scope_plan.py)：校验当前文件或最早冻结版本失败时，可使用**同一旧计划已登记、同名且期望SHA256相同**的 `controllers/` 副本，并重新计算文件SHA256。只允许phase6控制器源码使用此路径；测量数据、运行库、未知文件以及缺失/被修改的副本仍拒绝。历史副本只用于核对证据，不导入执行；当前消融7仍运行新的到达调度代码。未改写旧计划、旧源码、二进制或预检门槛。
 
-新增 [test_frozen_input_resolution.py](../../../tools/h100/phase6/test_frozen_input_resolution.py) 覆盖7项检查：已登记副本的精确解析、当前文件优先、本地路径迁移、旧冻结源兼容、未登记/错误名称/错误哈希/缺失副本拒绝、篡改拒绝及原始数据不得借用控制器副本，并核对真实Attention/MLP历史记录中的两份源码。
+新增 [test_frozen_input_resolution.py](../../../../tools/h100/phase6/test_frozen_input_resolution.py) 覆盖7项检查：已登记副本的精确解析、当前文件优先、本地路径迁移、旧冻结源兼容、未登记/错误名称/错误哈希/缺失副本拒绝、篡改拒绝及原始数据不得借用控制器副本，并核对真实Attention/MLP历史记录中的两份源码。
 
 本次7项新增检查及56项既有回归全部通过，合计 **63项**。另外逐项审计两角色各79份登记输入：本地各78份通过，包括先前失败的两份控制器；对实际raw数据进行CPU重放后，原Attention/MLP mask保持一致，改进到达算法仍均为0个接受交换组。
 
