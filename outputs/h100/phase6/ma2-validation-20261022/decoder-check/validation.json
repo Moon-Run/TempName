@@ -1,0 +1,441 @@
+{
+  "schema": "h100-ma2-packed-prefetch-decoder-check-v1",
+  "completed": true,
+  "working_directory": "/data/run01/scyb672/hjr/TempName",
+  "gpu_used": false,
+  "gpu_kernel_executed": false,
+  "linked_runtime": false,
+  "cuda": "12.8.61",
+  "host_compiler": "GCC11.4.0",
+  "architecture": "sm_90",
+  "fmad": "compiler default enabled; no --fmad=false or fast-math flag",
+  "cpu_tests_passed": 9,
+  "host_intrinsic_conversion": {
+    "pairs_checked": 65536,
+    "finite_pairs_checked": 64516,
+    "bitwise_equal": true,
+    "gpu_used": false
+  },
+  "commands": [
+    {
+      "argv": [
+        "/data/apps/cuda/12.8/bin/nvcc",
+        "-std=c++17",
+        "-O3",
+        "--expt-relaxed-constexpr",
+        "-arch=sm_90",
+        "-ccbin",
+        "/data/apps/gcc/11.4.0/bin/g++",
+        "-I",
+        "tools/h100/phase6/fused_v2/src",
+        "-I",
+        "tools/h100/phase6",
+        "-Xptxas=-v,-warn-spills",
+        "-c",
+        "/tmp/h100-ma2-compile-20261022/compare.cu",
+        "-o",
+        "/tmp/h100-ma2-compile-20261022/compare.o"
+      ],
+      "stderr": "compare-ptxas.log",
+      "exit_code": 0
+    },
+    {
+      "argv": [
+        "/data/apps/cuda/12.8/bin/nvcc",
+        "-std=c++17",
+        "-O3",
+        "--expt-relaxed-constexpr",
+        "-arch=sm_90",
+        "-ccbin",
+        "/data/apps/gcc/11.4.0/bin/g++",
+        "-I",
+        "tools/h100/phase6/fused_v2/src",
+        "-I",
+        "tools/h100/phase6",
+        "--ptx",
+        "/tmp/h100-ma2-compile-20261022/compare.cu",
+        "-o",
+        "/tmp/h100-ma2-compile-20261022/compare.ptx"
+      ],
+      "exit_code": 0
+    },
+    {
+      "argv": [
+        "/data/apps/cuda/12.8/bin/cuobjdump",
+        "--dump-sass",
+        "/tmp/h100-ma2-compile-20261022/compare.o"
+      ],
+      "stdout": "compare.sass",
+      "exit_code": 0
+    },
+    {
+      "argv": [
+        "/data/apps/gcc/11.4.0/bin/g++",
+        "-std=c++17",
+        "-O2",
+        "-I/data/apps/cuda/12.8/include",
+        "/tmp/h100-ma2-compile-20261022/fp8x2-host.cc",
+        "-o",
+        "/tmp/h100-ma2-compile-20261022/fp8x2-host"
+      ],
+      "exit_code": 0
+    },
+    {
+      "argv": [
+        "/tmp/h100-ma2-compile-20261022/fp8x2-host"
+      ],
+      "stdout": "fp8x2-host.json",
+      "exit_code": 0
+    },
+    {
+      "argv": [
+        "python3",
+        "-m",
+        "unittest",
+        "tools.h100.phase6.test_ma2_decode",
+        "-v"
+      ],
+      "stdout_stderr": "cpu-tests.log",
+      "exit_code": 0
+    }
+  ],
+  "same_compilation_unit_and_options": true,
+  "old_ma1_header_unchanged": true,
+  "zero_stack": true,
+  "zero_spill": true,
+  "sass_observations": {
+    "P": {
+      "symbol": "_Z22taco_ma1_decode_kernelILb1EEv14FluxTacoConfigPK13__nv_bfloat16PS1_",
+      "registers_per_thread": 40,
+      "stack_bytes": 0,
+      "spill_store_bytes": 0,
+      "spill_load_bytes": 0,
+      "barriers": 0,
+      "first_butterfly": {
+        "pc": "0x0410",
+        "instruction": "SHFL.BFLY PT, R24, R31, 0x1, 0x1f"
+      },
+      "initial_and_next_source_loads_before_first_butterfly": [
+        {
+          "pc": "0x0150",
+          "instruction": "LDG.E.U8 R29, desc[UR4][R14.64]"
+        },
+        {
+          "pc": "0x0160",
+          "instruction": "LDG.E.U8 R2, desc[UR4][R14.64+0x20]"
+        },
+        {
+          "pc": "0x0170",
+          "instruction": "LDG.E.U8 R0, desc[UR4][R14.64+0x40]"
+        },
+        {
+          "pc": "0x0180",
+          "instruction": "LDG.E.U8 R28, desc[UR4][R14.64+0x60]"
+        },
+        {
+          "pc": "0x0190",
+          "instruction": "LDG.E R26, desc[UR4][R16.64+0x100000]"
+        },
+        {
+          "pc": "0x01a0",
+          "instruction": "LDG.E R27, desc[UR4][R16.64+0x108000]"
+        },
+        {
+          "pc": "0x02f0",
+          "instruction": "LDG.E.U8 R14, desc[UR4][R24.64]"
+        },
+        {
+          "pc": "0x0320",
+          "instruction": "LDG.E.U8 R15, desc[UR4][R24.64+0x20]"
+        },
+        {
+          "pc": "0x0350",
+          "instruction": "LDG.E.U8 R16, desc[UR4][R24.64+0x40]"
+        },
+        {
+          "pc": "0x0370",
+          "instruction": "LDG.E.U8 R17, desc[UR4][R24.64+0x60]"
+        },
+        {
+          "pc": "0x0380",
+          "instruction": "LDG.E R20, desc[UR4][R22.64+0x100000]"
+        },
+        {
+          "pc": "0x0390",
+          "instruction": "LDG.E R21, desc[UR4][R22.64+0x108000]"
+        }
+      ],
+      "next_source_register_liveness": [
+        {
+          "register": "R14",
+          "load": {
+            "pc": "0x02f0",
+            "instruction": "LDG.E.U8 R14, desc[UR4][R24.64]"
+          },
+          "first_later_register_reference": {
+            "pc": "0x0d80",
+            "instruction": "IMAD.MOV.U32 R29, RZ, RZ, R14"
+          }
+        },
+        {
+          "register": "R15",
+          "load": {
+            "pc": "0x0320",
+            "instruction": "LDG.E.U8 R15, desc[UR4][R24.64+0x20]"
+          },
+          "first_later_register_reference": {
+            "pc": "0x0e30",
+            "instruction": "MOV R2, R15"
+          }
+        },
+        {
+          "register": "R16",
+          "load": {
+            "pc": "0x0350",
+            "instruction": "LDG.E.U8 R16, desc[UR4][R24.64+0x40]"
+          },
+          "first_later_register_reference": {
+            "pc": "0x0e60",
+            "instruction": "IMAD.MOV.U32 R0, RZ, RZ, R16"
+          }
+        },
+        {
+          "register": "R17",
+          "load": {
+            "pc": "0x0370",
+            "instruction": "LDG.E.U8 R17, desc[UR4][R24.64+0x60]"
+          },
+          "first_later_register_reference": {
+            "pc": "0x0e10",
+            "instruction": "MOV R28, R17"
+          }
+        },
+        {
+          "register": "R20",
+          "load": {
+            "pc": "0x0380",
+            "instruction": "LDG.E R20, desc[UR4][R22.64+0x100000]"
+          },
+          "first_later_register_reference": {
+            "pc": "0x0d70",
+            "instruction": "IMAD.MOV.U32 R26, RZ, RZ, R20"
+          }
+        },
+        {
+          "register": "R21",
+          "load": {
+            "pc": "0x0390",
+            "instruction": "LDG.E R21, desc[UR4][R22.64+0x108000]"
+          },
+          "first_later_register_reference": {
+            "pc": "0x0de0",
+            "instruction": "IMAD.MOV.U32 R27, RZ, RZ, R21"
+          }
+        }
+      ],
+      "fp8_convert_instructions_per_source": 4,
+      "local_load_instructions": [
+        {
+          "pc": "0x0fb0",
+          "instruction": "LDG.E.U16 R10, desc[UR4][R18.64]"
+        },
+        {
+          "pc": "0x1000",
+          "instruction": "LDG.E.U16 R11, desc[UR4][R18.64+0x40]"
+        },
+        {
+          "pc": "0x1080",
+          "instruction": "LDG.E.U16 R12, desc[UR4][R18.64+0x80]"
+        },
+        {
+          "pc": "0x10a0",
+          "instruction": "LDG.E.U16 R13, desc[UR4][R18.64+0xc0]"
+        }
+      ],
+      "output_store_instructions": [
+        {
+          "pc": "0x1b50",
+          "instruction": "STG.E.U16 desc[UR4][R2.64], R0"
+        },
+        {
+          "pc": "0x1b70",
+          "instruction": "STG.E.U16 desc[UR4][R2.64+0x40], R4"
+        },
+        {
+          "pc": "0x1b90",
+          "instruction": "STG.E.U16 desc[UR4][R2.64+0x80], R8"
+        },
+        {
+          "pc": "0x1ba0",
+          "instruction": "STG.E.U16 desc[UR4][R2.64+0xc0], R5"
+        }
+      ],
+      "shuffle_instructions_per_source": 20,
+      "remote_load_instructions_per_source": 6,
+      "static_counts_are_not_runtime_counters": true
+    },
+    "V": {
+      "symbol": "_Z22taco_ma2_decode_kernel14FluxTacoConfigPK13__nv_bfloat16PS0_",
+      "registers_per_thread": 34,
+      "stack_bytes": 0,
+      "spill_store_bytes": 0,
+      "spill_load_bytes": 0,
+      "barriers": 0,
+      "first_butterfly": {
+        "pc": "0x0380",
+        "instruction": "SHFL.BFLY PT, R20, R19, 0x1, 0x1f"
+      },
+      "initial_and_next_source_loads_before_first_butterfly": [
+        {
+          "pc": "0x0150",
+          "instruction": "LDG.E R15, desc[UR4][R12.64]"
+        },
+        {
+          "pc": "0x0160",
+          "instruction": "LDG.E R0, desc[UR4][R2.64+0x100000]"
+        },
+        {
+          "pc": "0x0170",
+          "instruction": "LDG.E R14, desc[UR4][R2.64+0x108000]"
+        },
+        {
+          "pc": "0x0290",
+          "instruction": "LDG.E R12, desc[UR4][R2.64+0x100000]"
+        },
+        {
+          "pc": "0x02a0",
+          "instruction": "LDG.E R13, desc[UR4][R2.64+0x108000]"
+        },
+        {
+          "pc": "0x02d0",
+          "instruction": "LDG.E R11, desc[UR4][R18.64]"
+        }
+      ],
+      "next_source_register_liveness": [
+        {
+          "register": "R12",
+          "load": {
+            "pc": "0x0290",
+            "instruction": "LDG.E R12, desc[UR4][R2.64+0x100000]"
+          },
+          "first_later_register_reference": {
+            "pc": "0x0d50",
+            "instruction": "IMAD.MOV.U32 R0, RZ, RZ, R12"
+          }
+        },
+        {
+          "register": "R13",
+          "load": {
+            "pc": "0x02a0",
+            "instruction": "LDG.E R13, desc[UR4][R2.64+0x108000]"
+          },
+          "first_later_register_reference": {
+            "pc": "0x0e00",
+            "instruction": "IMAD.MOV.U32 R14, RZ, RZ, R13"
+          }
+        },
+        {
+          "register": "R11",
+          "load": {
+            "pc": "0x02d0",
+            "instruction": "LDG.E R11, desc[UR4][R18.64]"
+          },
+          "first_later_register_reference": {
+            "pc": "0x0d70",
+            "instruction": "MOV R15, R11"
+          }
+        }
+      ],
+      "fp8_convert_instructions_per_source": 2,
+      "local_load_instructions": [
+        {
+          "pc": "0x0ea0",
+          "instruction": "LDG.E.64 R16, desc[UR4][R16.64]"
+        }
+      ],
+      "output_store_instructions": [
+        {
+          "pc": "0x1b30",
+          "instruction": "STG.E.64 desc[UR4][R4.64], R2"
+        }
+      ],
+      "shuffle_instructions_per_source": 20,
+      "remote_load_instructions_per_source": 3,
+      "static_counts_are_not_runtime_counters": true,
+      "q_product_fma_contraction_absent_in_loop_and_epilogue": true,
+      "q_product_rounding_sites": {
+        "loop": [
+          {
+            "pc": "0x0310",
+            "instruction": "FMUL R29, R29, R0.reuse"
+          },
+          {
+            "pc": "0x0320",
+            "instruction": "FMUL R15, R15, R0.reuse"
+          },
+          {
+            "pc": "0x0330",
+            "instruction": "FMUL R18, R27, R0.reuse"
+          },
+          {
+            "pc": "0x0340",
+            "instruction": "FMUL R0, R31, R0"
+          }
+        ],
+        "epilogue": [
+          {
+            "pc": "0x0f40",
+            "instruction": "FMUL R3, R12.reuse, R3"
+          },
+          {
+            "pc": "0x0f60",
+            "instruction": "FMUL R0, R12.reuse, R11"
+          },
+          {
+            "pc": "0x0f70",
+            "instruction": "FMUL R15, R12.reuse, R15"
+          },
+          {
+            "pc": "0x0f80",
+            "instruction": "FMUL R12, R12, R19"
+          }
+        ]
+      }
+    }
+  },
+  "contraction_regression": {
+    "q_bits": "0x3e902d75",
+    "fp8_codes": [
+      246,
+      233
+    ],
+    "separate_stage1_bits": "0xc2a6b490",
+    "contracted_stage1_bits": "0xc2a6b48f",
+    "fix": "Four explicit __fmul_rn q products; SASS verifies four FMUL and no FFMA before the first shuffle in loop and epilogue.",
+    "invalid_candidate_discarded": true
+  },
+  "limitations": [
+    "No GPU kernel, eight-rank correctness, memory race, training trajectory or performance run was executed.",
+    "Reduced registers and static instruction counts do not establish increased occupancy, hidden latency or one-percent full-step improvement.",
+    "Register allocation granularity may leave occupancy unchanged.",
+    "Host vector intrinsic checks do not execute the device conversion instruction.",
+    "Both variants retain the original producer, packet format, publication/reuse barriers, source order and two BF16 rounding points."
+  ],
+  "sha256": {
+    "tools/h100/phase6/ma2_decode.cuh": "62245cb13575e2d5149907ff1ea6725665dfdc2077cb3bf6d02799c1db17a7d8",
+    "tools/h100/phase6/ma1_decode.cuh": "9666a1c5cb1ec180f0412b2b11c0e0088597b99142f852dcc04c0cd3c14ccdc5",
+    "tools/h100/phase6/test_ma2_decode.py": "27467cd98001a1884d7b90a2fb94953d620a6cf8414e5deb103ff3d4e26b9cab",
+    "tools/h100/phase6/test_arrival_op3_v2_decode.py": "68a7362a4686a16640b8552de4de6971462b9150ae89c96f63efd0fa9217abb6",
+    "tools/h100/phase6/fused_v2/src/gemm_rs/taco_codec.cuh": "e5b7c704974bf58b334e67b5c7436bbd7d5fa65d1a1331aab5d89da6c7c159e9",
+    "tools/h100/phase6/fused_v2/src/gemm_rs/taco_runtime.h": "63b15670cdb99e29156e073b5e03cfe32be56a4f89f77116240443341c483d6c",
+    "outputs/h100/phase6/ma2-validation-20261022/decoder-check/compare-ptxas.log": "2386ca255f66b19e984c717f4c18fd854c71eb8705282a27e29fed9b8a9a9cd6",
+    "outputs/h100/phase6/ma2-validation-20261022/decoder-check/compare.cu": "d243bde517047e1344febf3158da02a13d75589cb1da1e60ca5478271caf57f9",
+    "outputs/h100/phase6/ma2-validation-20261022/decoder-check/compare.o": "a1f156ddad23e0dd2a800524a2d9fb42ca6e8fd1fe48f34a1061466fd0b20482",
+    "outputs/h100/phase6/ma2-validation-20261022/decoder-check/compare.ptx": "16cea2df0050b82ac59fcb1332c710a219d42e8a7cc8d08bb3bc87615ac2b158",
+    "outputs/h100/phase6/ma2-validation-20261022/decoder-check/compare.sass": "f5cee326704fe17ce95f777b1a4cc443c17974dfb9390eaab90c4756a948520a",
+    "outputs/h100/phase6/ma2-validation-20261022/decoder-check/cpu-tests.log": "c0749a1b302b9ef879545f6874e9bb93f0143bac2f1466a69fd404962c852fe0",
+    "outputs/h100/phase6/ma2-validation-20261022/decoder-check/fp8x2-host": "64129af9e0dd7863dd70e9951ed26e1905b21661b8a7001ae3832546dd6a16e8",
+    "outputs/h100/phase6/ma2-validation-20261022/decoder-check/fp8x2-host.cc": "6f1487e385e58316b02c8d1918e27d2e918113040e18d2a2ed51e15249e9d97a",
+    "outputs/h100/phase6/ma2-validation-20261022/decoder-check/fp8x2-host.json": "5168649874ddf7ba77695f217c2e75963201179158285f7bdafea427eedd7e98"
+  }
+}
