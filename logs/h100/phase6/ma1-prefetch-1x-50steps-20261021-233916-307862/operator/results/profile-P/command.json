@@ -1,0 +1,30 @@
+{
+  "command": [
+    "/workspace/conda-envs/flux-h100-ablation3-20261017/bin/python",
+    "-m",
+    "torch.distributed.run",
+    "--standalone",
+    "--nproc_per_node=8",
+    "/workspace/TempName/logs/h100/phase6/ma1-prefetch-1x-50steps-20261021-233916-307862/operator/scripts/bench.py",
+    "worker",
+    "/workspace/TempName/logs/h100/phase6/ma1-prefetch-1x-50steps-20261021-233916-307862/operator",
+    "--job",
+    "{\"arm\": \"P\", \"block\": -1, \"directory\": \"profile-P\", \"index\": 2}",
+    "--profile"
+  ],
+  "job": {
+    "arm": "P",
+    "block": -1,
+    "index": 2,
+    "directory": "profile-P"
+  },
+  "execution_environment": {
+    "NCCL_NVLS_ENABLE": "0",
+    "NCCL_DEBUG": "WARN",
+    "TORCH_NCCL_ASYNC_ERROR_HANDLING": "1",
+    "CUDA_DEVICE_MAX_CONNECTIONS": "1",
+    "FLUX_GEMM_RS_GEMM_ONLY": "1",
+    "H100_MA1_PROTOCOL": "h100-ma1-source-prefetch-v1",
+    "H100_MA1_ARM": "P"
+  }
+}
