@@ -1,0 +1,78 @@
+{
+  "completed": true,
+  "gpu_used": false,
+  "gpu_validated": false,
+  "target_validated": false,
+  "linked_runtime": false,
+  "cpu_unit_tests": 21,
+  "build": "outputs/h100/phase6/ma3-source-parallel-cpu-20261022/build",
+  "compile_checks": {
+    "A": {
+      "host_mapping": true,
+      "runtime_object": true
+    },
+    "D": {
+      "host_mapping": true,
+      "runtime_object": true
+    },
+    "S": {
+      "host_mapping": true,
+      "runtime_object": true
+    }
+  },
+  "kernel_resources": {
+    "_Z23taco_decode_ring_kernel14FluxTacoConfigPK13__nv_bfloat16PS0_": {
+      "registers": 36,
+      "barrier_resources": 1,
+      "shared_bytes": 536,
+      "stack_bytes": 88,
+      "spill_store_bytes": 0,
+      "spill_load_bytes": 0
+    },
+    "_Z24taco_ma3_parallel_kernel14FluxTacoConfigPK13__nv_bfloat16PS0_": {
+      "registers": 31,
+      "barrier_resources": 1,
+      "shared_bytes": 4096,
+      "stack_bytes": 0,
+      "spill_store_bytes": 0,
+      "spill_load_bytes": 0,
+      "static_sass_instructions": {
+        "BAR.SYNC": 1,
+        "SHFL": 40,
+        "STS": 8,
+        "LDS": 8,
+        "LDL": 0,
+        "STL": 0
+      },
+      "output_store": "STG.E.U16"
+    },
+    "_Z22taco_ma3_serial_kernel14FluxTacoConfigPK13__nv_bfloat16PS0_": {
+      "registers": 30,
+      "barrier_resources": 0,
+      "shared_bytes": 0,
+      "stack_bytes": 0,
+      "spill_store_bytes": 0,
+      "spill_load_bytes": 0,
+      "static_sass_instructions": {
+        "BAR.SYNC": 0,
+        "SHFL": 20,
+        "STS": 0,
+        "LDS": 0,
+        "LDL": 0,
+        "STL": 0
+      },
+      "output_store": "STG.E.64"
+    }
+  },
+  "evidence_sha256": {
+    "cpu-tests.log": "67dedbfde951e7dee98dbc601c6141242a453d49426816092bf9bd4536a78503",
+    "baseline-comparison.json": "9491e5b377713db04662e6dc953af8e1fea9116e4cedf67fa1b380830f86d19b",
+    "compile-check/validation.json": "adad45a2506db7e348d134a9f7ab369a1ff6fba457b9198b91a61f4e2462889f",
+    "compile-check/compile.log": "5064a1848b5f414888ce6e1204ac52e6ad2c8a46495fa5ff4232bb8c80ea1b0e"
+  },
+  "limitations": [
+    "Actual A/D/S runtime object/PTX/SASS compiled for SM90; no final shared-library link or GPU launch.",
+    "Static instruction counts and resource usage do not establish speedup.",
+    "Both MA3 entry points are intentionally compiled into each D/S object; only the dispatcher selected by the arm is launched."
+  ]
+}
