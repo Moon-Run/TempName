@@ -1,4 +1,4 @@
-"""CPU-only checks for read-only preview and two-comparison completion gates."""
+"""CPU-only checks for read-only preview and one/two-comparison completion gates."""
 import contextlib
 import copy
 import io
@@ -63,13 +63,33 @@ class LauncherTests(unittest.TestCase):
     def test_negative_ordering_finishes_both_comparisons(self):
         self.exercise(False)
 
+    def test_single_comparison_finishes_without_compare2(self):
+        self.exercise(False, trials=1)
+
+    def test_single_preview_and_directory_describe_one_comparison(self):
+        args = launch.arguments(['--trials', '1'])
+        self.assertIn('a-baseline-fusion-1x-50steps-', args.out.name)
+        commands = dict(launch.commands(args))
+        self.assertFalse(any(key.startswith('compare2-') for key in commands))
+        self.assertEqual(sum(key.endswith('-controller') for key in commands), 1)
+        prepare = commands['compare1-prepare']
+        self.assertEqual(prepare[prepare.index('--rounds')+1], '2')
+        self.assertEqual(prepare[prepare.index('--blocks')+1], '6')
+        with tempfile.TemporaryDirectory() as tmp:
+            out = Path(tmp)/'single-preview'
+            with contextlib.redirect_stdout(io.StringIO()) as output:
+                launch.main(['--out', str(out), '--trials', '1'])
+            self.assertIn('36 windows / 1800 formal steps', output.getvalue())
+            self.assertNotIn('compare2', output.getvalue())
+            self.assertFalse(out.exists())
+
     def test_incomplete_first_report_prevents_second_training(self):
         self.exercise(True)
 
-    def exercise(self, broken):
+    def exercise(self, broken, trials=2):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
-            args = launch.arguments(['--out', str(root), '--fused-build', '/CPU/fused',
+            args = launch.arguments(['--out', str(root), '--trials', str(trials), '--fused-build', '/CPU/fused',
                                      '--flux-build', '/CPU/flux', '--codec-build', '/CPU/codec'])
             seen = []
 
@@ -99,8 +119,15 @@ class LauncherTests(unittest.TestCase):
                 else:
                     result = launch.supervise(args)
                     self.assertEqual(result['status'], 'completed')
-                    self.assertEqual(result['formal_optimizer_steps'], 3600)
-                    self.assertEqual(seen[-1], 'compare2-report')
+                    self.assertEqual(result['trials'], trials)
+                    self.assertEqual(result['formal_optimizer_steps'], 1800 * trials)
+                    self.assertEqual(result['timing_windows'], 36 * trials)
+                    self.assertEqual(result['timing_rank_records'], 288 * trials)
+                    self.assertEqual(seen[-1], f'compare{trials}-report')
+                    self.assertEqual(set(result['comparisons']), set(launch.TRIALS[:trials]))
+                    if trials == 1:
+                        self.assertFalse((root/'compare2').exists())
+                        self.assertFalse(any(s.startswith('compare2-') for s in seen))
 
     def test_repeated_inputs_reject_changed_codec_or_shared_environment(self):
         first, second = submission('first'), submission('second')

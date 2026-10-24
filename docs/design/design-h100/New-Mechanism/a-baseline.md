@@ -21,7 +21,7 @@
 T(Flux+改进量化) < T(Flux＋基础量化) < T(Flux＋CUDA量化)
 ```
 
-这是实验假设，不是必须实现的排序。基础版的来源解码可并行，CUDA 组使用不同 GEMM 后端；中间访存、GPU 并发和主机提交之间存在权衡，不能仅凭融合数量保证上述关系。报告保留全部窗口及负收益，性能排序不成立也继续完成两次比较；正确性或执行证据不通过则停止。
+这是实验假设，不是必须实现的排序。基础版的来源解码可并行，CUDA 组使用不同 GEMM 后端；中间访存、GPU 并发和主机提交之间存在权衡，不能仅凭融合数量保证上述关系。报告保留全部窗口及负收益，性能排序不成立也继续完成所选次数的比较；正确性或执行证据不通过则停止。
 
 ## 1. 为什么这样定义“基础版”
 
@@ -82,11 +82,11 @@ Flux+改进量化：
 
 训练固定 GPT6.7B：32 层、H4096、FFN16384、32 heads、S2048、TP8，micro batch1/global batch4，BF16，seed1234/token_seed4321。每个 optimizer step 为四个微批、8192 token，覆盖 32 个 Attention 输出投影及 32 个 MLP 输出投影；本地 K 分别为 512、2048。统一 `NCCL_NVLS_ENABLE=0`、`CUDA_DEVICE_MAX_CONNECTIONS=1`。
 
-## 4. 两次完整训练与结果判定
+## 4. 完整训练次数与结果判定
 
-默认依次执行 `compare1`、`compare2`。每次包含两轮、每轮六个完整三组块，组内顺序平衡，第二轮反转；每个窗口独立初始化，10 步预热＋50 步正式计时。
+`--trials 1` 只执行 `compare1`；默认 `--trials 2`，依次执行 `compare1`、`compare2`。每次完整比较内部仍包含两轮、每轮六个完整三组块，组内顺序平衡，第二轮反转；每个窗口独立初始化，10 步预热＋50 步正式计时。**这里的 trials 是独立比较次数，不是每次比较内部的 rounds；选择一次不会取消内部第二轮的顺序平衡。**
 
-| 项目 | 每次比较 | 两次合计 |
+| 项目 | 单次（`--trials 1`） | 两次合计（默认） |
 | --- | ---: | ---: |
 | 完整三组块 | 12 | 24 |
 | 正式窗口 | 36 | **72** |
@@ -96,7 +96,7 @@ Flux+改进量化：
 | 独立 smoke/profile 窗口 | 6 | 12 |
 | 训练 profile trace | 24 | 48 |
 
-3600 步是独立窗口的累计工作量，不是同一个模型连续训练 3600 步。profile 单独执行，不混入正式计时。每个窗口以八 rank 最大墙钟除以 50 得到步时。
+1800 / 3600 步分别是一次 / 两次比较中独立窗口的累计工作量，不是同一个模型连续训练这些步数。profile 单独执行，不混入正式计时。每个窗口以八 rank 最大墙钟除以 50 得到步时。只运行一次时，结果支持本次比较，不声称已完成两次独立重复验证。
 
 完整报告三项配对：
 
@@ -116,7 +116,13 @@ smoke/profile 检查需确认：
 
 ## 5. 一行启动
 
-将本次新增 `a_baseline*`、`detach_a_baseline.py` 与现有 `tools/h100/phase6` 依赖同步到原服务器，在 `/workspace/TempName` 仓库根目录执行：
+将本次新增 `a_baseline*`、`detach_a_baseline.py` 与现有 `tools/h100/phase6` 依赖同步到原服务器，在 `/workspace/TempName` 仓库根目录执行。**只测一次完整比较，36 个窗口、1800 个正式 optimizer step：**
+
+```bash
+/workspace/conda-envs/flux-h100-ablation3-20261017/bin/python tools/h100/phase6/detach_a_baseline.py --trials 1 --execute
+```
+
+不传 `--trials` 时仍默认测两次，共 72 个窗口、3600 个正式步；原命令保持有效：
 
 ```bash
 /workspace/conda-envs/flux-h100-ablation3-20261017/bin/python tools/h100/phase6/detach_a_baseline.py --execute
@@ -128,10 +134,10 @@ smoke/profile 检查需确认：
 
 沿用已有双 fork 容器后台托管流程，确认监督进程由容器 PID1 接管后才开始工作。`--foreground --execute` 可用于有意前台诊断。启动成功只表示后台进程建立，实验完成需要检查批次状态；容器和主机必须保持运行。
 
-默认输出目录：
+默认输出目录随所选次数使用 `1x` 或 `2x`：
 
 ```text
-logs/h100/phase6/a-baseline-fusion-2x-50steps-<北京时间戳>/
+logs/h100/phase6/a-baseline-fusion-<1x或2x>-50steps-<北京时间戳>/
   batch-state.json
   handoff/container-supervisor.log
   handoff/supervisor.json
@@ -144,17 +150,20 @@ logs/h100/phase6/a-baseline-fusion-2x-50steps-<北京时间戳>/
     results/                      每窗口的进程日志、八 rank JSON 和 profile
     preflight.json
     report.json / report.md
-  compare2/                       第二次独立比较，同上
+  compare2/                       仅 --trials 2 时生成，第二次独立比较
 ```
 
-各阶段命令与日志同时保存在批次根目录。`status=completed` 表示两个完整比较及正确性检查完成，不表示预期速度排序一定成立。离线复核入口为：
+各阶段命令与日志同时保存在批次根目录。`status=completed` 表示所选次数的完整比较及正确性检查完成，不表示预期速度排序一定成立。离线复核入口为：
 
 ```bash
 python3 tools/h100/phase6/a_baseline.py report /path/to/batch/compare1 --offline
+# 仅测两次时执行：
 python3 tools/h100/phase6/a_baseline.py report /path/to/batch/compare2 --offline
 ```
 
 ## 6. 本地验证状态
+
+新增 `--trials 1` 后，启动器 **7 项 CPU 回归通过**，覆盖一次比较完成状态、36/1800/288 计数、无 compare2、默认两次流程和失败停止规则；一次比较的命令预览未创建批次目录。见 [单次比较验证](../../../../outputs/h100/phase6/a-baseline-validation-20261024/single-trial-validation.json)、[测试日志](../../../../outputs/h100/phase6/a-baseline-validation-20261024/cpu-single-trial-tests.log)及[命令预览](../../../../outputs/h100/phase6/a-baseline-validation-20261024/launch-preview-single-trial.txt)。本次只调整启动次数，以下保留原实现的完整验证记录。
 
 本次已完成以下检查，汇总见 [validation.json](../../../../outputs/h100/phase6/a-baseline-validation-20261024/validation.json)：
 

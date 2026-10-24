@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
-"""Two fresh basic/improved/standalone-CUDA fusion comparisons on H100 TP8.
+"""One or two basic/improved/standalone-CUDA fusion comparisons on H100 TP8.
 
 Default is a read-only preview. --execute builds isolated implementations,
-double-forks under container PID 1, and measures 72 windows / 3600 formal steps.
+double-forks under container PID 1; each comparison measures 36 windows / 1800
+formal steps. Default: two comparisons; --trials 1 runs only compare1.
 Performance ordering is an experimental outcome, never a gate for continuing.
 """
 import argparse
@@ -32,6 +33,8 @@ def arguments(argv=None):
     p.add_argument('--flux-build', type=Path, help='Reuse a verified native GemmOnly build')
     p.add_argument('--codec-build', type=Path, help='Reuse a verified standalone CUDA codec build')
     p.add_argument('--out', type=Path)
+    p.add_argument('--trials', type=int, choices=(1, 2), default=2,
+                   help='Independent comparisons; 1 runs only compare1 (36 windows / 1800 steps)')
     p.add_argument('--python', type=Path, default=Path(sys.executable))
     p.add_argument('--megatron', type=Path, default=REPO.parent / 'Megatron-LM')
     p.add_argument('--cuda-home', type=Path, default=Path('/usr/local/cuda-12.4'))
@@ -46,7 +49,7 @@ def arguments(argv=None):
     require(args.worker_timeout > 0, 'worker-timeout must be positive')
     if args.out is None:
         stamp = datetime.now(ZoneInfo('Asia/Shanghai')).strftime('%Y%m%d-%H%M%S-%f')
-        args.out = REPO / 'logs/h100/phase6' / ('a-baseline-fusion-2x-50steps-' + stamp)
+        args.out = REPO / 'logs/h100/phase6' / (f'a-baseline-fusion-{args.trials}x-50steps-' + stamp)
     for key, value in vars(args).items():
         if isinstance(value, Path):
             # Keep the selected environment's interpreter spelling intact.
@@ -78,7 +81,7 @@ def commands(args):
         steps += [('codec-prepare', cli + ['codec-prepare', str(codec)]),
                   ('codec-compile', cli + ['codec-compile', str(codec),
                                          '--cuda-home', str(args.build_cuda_home)])]
-    for trial in TRIALS:
+    for trial in TRIALS[:args.trials]:
         root = str(args.out / trial)
         run = cli + ['run', root, '--python', str(args.python), '--cuda-home', str(args.cuda_home),
                      '--worker-timeout', str(args.worker_timeout)]
@@ -145,8 +148,11 @@ def check_report(root, info):
 
 def supervise(args):
     state_path = args.out / 'batch-state.json'
+    windows = args.trials * WINDOWS_PER_COMPARE
+    formal_steps = args.trials * STEPS_PER_COMPARE
     state = dict(status='preparing', protocol=routing.PROTOCOL,
-                 expected_timing_windows=72, expected_formal_optimizer_steps=3600,
+                 trials=args.trials, expected_timing_windows=windows,
+                 expected_formal_optimizer_steps=formal_steps,
                  execution_timing=routing.TIMING, comparisons={},
                  expected_order='improved < basic < cuda (hypothesis, not execution gate)')
     env = dict(os.environ, PYTHONNOUSERSITE='1', NCCL_NVLS_ENABLE='0',
@@ -176,11 +182,12 @@ def supervise(args):
                     formal_optimizer_steps=1800, report=str(args.out / trial / 'report.json'),
                     report_sha256=sha(args.out / trial / 'report.json'))
             write(state_path, state)
-        require(len(reports) == len(TRIALS), 'Both complete comparison reports are required')
-        state.update(status='completed', stage='done', timing_windows=72,
-                     timing_rank_records=576, formal_optimizer_steps=3600)
+        require(len(reports) == args.trials, 'All requested complete comparison reports are required')
+        state.update(status='completed', stage='done', timing_windows=windows,
+                     timing_rank_records=windows * 8, formal_optimizer_steps=formal_steps)
         write(state_path, state)
-        print('Completed: two comparisons, 72 windows / 3600 formal optimizer steps.', flush=True)
+        print(f'Completed: {args.trials} comparison(s), {windows} windows / '
+              f'{formal_steps} formal optimizer steps.', flush=True)
         return state
     except BaseException as error:
         state.update(status='failed', error=f'{type(error).__name__}: {error}')
@@ -196,7 +203,8 @@ def main(argv=None):
         print('PLAN ONLY: no directories, subprocesses, compilation, forks or GPU queries.')
         for _, command in commands(args):
             print(shlex.join(command))
-        print('Two comparisons, 72 windows / 3600 formal steps; each window 10 warmup + 50 timed steps.')
+        print(f'{args.trials} comparison(s), {args.trials * WINDOWS_PER_COMPARE} windows / '
+              f'{args.trials * STEPS_PER_COMPARE} formal steps; each window 10 warmup + 50 timed steps.')
         print('All performance outcomes are retained; the proposed speed ordering is not guaranteed.')
         return
     require(args.python.is_file() and args.megatron.is_dir(), 'Training Python / Megatron source missing')
@@ -212,7 +220,8 @@ def main(argv=None):
     args.out.mkdir(parents=True, exist_ok=False)
     (args.out / 'handoff').mkdir()
     write(args.out / 'batch-state.json', dict(status='launching', protocol=routing.PROTOCOL,
-          expected_timing_windows=72, expected_formal_optimizer_steps=3600))
+          trials=args.trials, expected_timing_windows=args.trials * WINDOWS_PER_COMPARE,
+          expected_formal_optimizer_steps=args.trials * STEPS_PER_COMPARE))
     write(args.out / 'handoff/launch.json',
           {k: str(v) if isinstance(v, Path) else v for k, v in vars(args).items()})
     if args.foreground:
