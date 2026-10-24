@@ -116,6 +116,8 @@ smoke/profile 检查需确认：
 
 ## 5. 一行启动
 
+若重建容器后出现 `Build CUDA Toolkit missing`，先按 [新容器环境恢复](../restore-container.md) 运行恢复脚本。它复用持久化 conda、补齐缺失 Toolkit 与构建依赖，并生成加载固定环境变量的实验启动包装脚本。
+
 将本次新增 `a_baseline*`、`detach_a_baseline.py` 与现有 `tools/h100/phase6` 依赖同步到原服务器，在 `/workspace/TempName` 仓库根目录执行。**只测一次完整比较，36 个窗口、1800 个正式 optimizer step：**
 
 ```bash
