@@ -1,0 +1,19 @@
+Batch: /tmp/a-baseline-preview-no-create-20261024
+Basic producer fusion / original two-sided fusion / standalone CUDA codec; Attention + MLP.
+PLAN ONLY: no directories, subprocesses, compilation, forks or GPU queries.
+/usr/bin/python3 /data/run01/scyb672/hjr/TempName/tools/h100/phase6/a_baseline.py fused-prepare /tmp/a-baseline-preview-no-create-20261024/fused-build
+/usr/bin/python3 /data/run01/scyb672/hjr/TempName/tools/h100/phase6/a_baseline.py fused-compile /tmp/a-baseline-preview-no-create-20261024/fused-build --cuda-home /usr/local/cuda-12.8 --jobs 2
+/usr/bin/python3 /data/run01/scyb672/hjr/TempName/tools/h100/phase6/a_baseline.py flux-prepare /tmp/a-baseline-preview-no-create-20261024/flux-build
+/usr/bin/python3 /data/run01/scyb672/hjr/TempName/tools/h100/phase6/a_baseline.py flux-compile /tmp/a-baseline-preview-no-create-20261024/flux-build --cuda-home /usr/local/cuda-12.8 --jobs 2 --nccl-root /tmp/a-baseline-preview-no-create-20261024/fused-build/nccl-source/build
+/usr/bin/python3 /data/run01/scyb672/hjr/TempName/tools/h100/phase6/a_baseline.py codec-prepare /tmp/a-baseline-preview-no-create-20261024/codec-build
+/usr/bin/python3 /data/run01/scyb672/hjr/TempName/tools/h100/phase6/a_baseline.py codec-compile /tmp/a-baseline-preview-no-create-20261024/codec-build --cuda-home /usr/local/cuda-12.8
+/usr/bin/python3 /data/run01/scyb672/hjr/TempName/tools/h100/phase6/a_baseline.py prepare /tmp/a-baseline-preview-no-create-20261024/compare1 --build /tmp/a-baseline-preview-no-create-20261024/fused-build --flux-build /tmp/a-baseline-preview-no-create-20261024/flux-build --codec-build /tmp/a-baseline-preview-no-create-20261024/codec-build --megatron /data/run01/scyb672/hjr/Megatron-LM --blocks 6 --rounds 2 --nvls-enable 0
+/usr/bin/python3 /data/run01/scyb672/hjr/TempName/tools/h100/phase6/a_baseline.py run /tmp/a-baseline-preview-no-create-20261024/compare1 --python /usr/bin/python3 --cuda-home /usr/local/cuda-12.4 --worker-timeout 1800
+/usr/bin/python3 /data/run01/scyb672/hjr/TempName/tools/h100/phase6/a_baseline.py run /tmp/a-baseline-preview-no-create-20261024/compare1 --python /usr/bin/python3 --cuda-home /usr/local/cuda-12.4 --worker-timeout 1800 --stage all --execute
+/usr/bin/python3 /data/run01/scyb672/hjr/TempName/tools/h100/phase6/a_baseline.py report /tmp/a-baseline-preview-no-create-20261024/compare1
+/usr/bin/python3 /data/run01/scyb672/hjr/TempName/tools/h100/phase6/a_baseline.py prepare /tmp/a-baseline-preview-no-create-20261024/compare2 --build /tmp/a-baseline-preview-no-create-20261024/fused-build --flux-build /tmp/a-baseline-preview-no-create-20261024/flux-build --codec-build /tmp/a-baseline-preview-no-create-20261024/codec-build --megatron /data/run01/scyb672/hjr/Megatron-LM --blocks 6 --rounds 2 --nvls-enable 0
+/usr/bin/python3 /data/run01/scyb672/hjr/TempName/tools/h100/phase6/a_baseline.py run /tmp/a-baseline-preview-no-create-20261024/compare2 --python /usr/bin/python3 --cuda-home /usr/local/cuda-12.4 --worker-timeout 1800
+/usr/bin/python3 /data/run01/scyb672/hjr/TempName/tools/h100/phase6/a_baseline.py run /tmp/a-baseline-preview-no-create-20261024/compare2 --python /usr/bin/python3 --cuda-home /usr/local/cuda-12.4 --worker-timeout 1800 --stage all --execute
+/usr/bin/python3 /data/run01/scyb672/hjr/TempName/tools/h100/phase6/a_baseline.py report /tmp/a-baseline-preview-no-create-20261024/compare2
+Two comparisons, 72 windows / 3600 formal steps; each window 10 warmup + 50 timed steps.
+All performance outcomes are retained; the proposed speed ordering is not guaranteed.

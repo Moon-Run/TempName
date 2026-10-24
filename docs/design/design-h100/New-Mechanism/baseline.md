@@ -12,7 +12,7 @@
 | **Flux+改进量化** | **Flux 融合 v2：GEMM 内融合编码＋非模板 CTA 解码归约** |
 | **Flux＋CUDA量化** | **原生 Flux GEMM＋独立 TACO CUDA 编解码＋NCCL All-to-All**。 |
 | **Megatron＋CUDA量化** | **原生 Megatron GEMM＋独立 TACO CUDA 编解码＋NCCL All-to-All**。 |
-| **Megatron+朴素量化** | **原生 Megatron GEMM＋PyTorch 张量版 TACO 编解码＋NCCL All-to-All**，量化范围为 Attention＋MLP。 |
+| **Megatron+朴素量化** | **原生 Megatron GEMM＋PyTorch 张量版 TACO 编解码＋NCCL All-to-All** |
 | **原生Megatron** | **原生 Megatron BF16 训练路径**，Attention/MLP 不量化。 |
 | **原始Flux** | **原生 Hopper Flux BF16 GEMM＋Reduce-Scatter**，Attention/MLP 不量化。 |
 
