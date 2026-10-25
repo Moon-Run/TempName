@@ -1,0 +1,18 @@
+yp_bind_client_create_v3: RPC: Remote system error - Operation not permitted
+yp_bind_client_create_v3: RPC: Remote system error - Operation not permitted
+yp_bind_client_create_v3: RPC: Remote system error - Operation not permitted
+yp_bind_client_create_v3: RPC: Remote system error - Operation not permitted
+yp_bind_client_create_v3: RPC: Remote system error - Operation not permitted
+yp_bind_client_create_v3: RPC: Remote system error - Operation not permitted
+yp_bind_client_create_v3: RPC: Remote system error - Operation not permitted
+Batch: /tmp/ma6-final-preview-only
+PLAN ONLY: no directories, GPU queries, builds or workers.
+/usr/bin/python3 /data/run01/scyb672/hjr/TempName/tools/h100/phase6/ma6_build.py prepare --out /tmp/ma6-final-preview-only/build --attn-threads 256 --attn-blocks 528 --mlp-threads 128 --mlp-blocks 2048
+/usr/bin/python3 /data/run01/scyb672/hjr/TempName/tools/h100/phase6/ma6_build.py build --build /tmp/ma6-final-preview-only/build --cuda-home /usr/local/cuda-12.8 --jobs 2
+/usr/bin/python3 /data/run01/scyb672/hjr/TempName/tools/h100/phase6/ma6_bench.py prepare /tmp/ma6-final-preview-only/operator --build /tmp/ma6-final-preview-only/build --blocks 12
+/usr/bin/python3 /data/run01/scyb672/hjr/TempName/tools/h100/phase6/ma6_bench.py run /tmp/ma6-final-preview-only/operator --python /usr/bin/python3 --cuda-home /usr/local/cuda-12.4 --worker-timeout 1800 --execute
+/usr/bin/python3 /data/run01/scyb672/hjr/TempName/tools/h100/phase6/ma6_bench.py run /tmp/ma6-final-preview-only/operator --python /usr/bin/python3 --cuda-home /usr/local/cuda-12.4 --worker-timeout 1800 --profile --execute
+/usr/bin/python3 /data/run01/scyb672/hjr/TempName/tools/h100/phase6/ma6_fullstep.py prepare /tmp/ma6-final-preview-only/fullstep --build /tmp/ma6-final-preview-only/build --megatron /data/run01/scyb672/hjr/Megatron-LM --trials 1 --blocks 12
+/usr/bin/python3 /data/run01/scyb672/hjr/TempName/tools/h100/phase6/ma6_fullstep.py run /tmp/ma6-final-preview-only/fullstep --stage all --python /usr/bin/python3 --cuda-home /usr/local/cuda-12.4 --worker-timeout 1800 --execute
+/usr/bin/python3 /data/run01/scyb672/hjr/TempName/tools/h100/phase6/ma6_fullstep.py run /tmp/ma6-final-preview-only/fullstep --stage profile --python /usr/bin/python3 --cuda-home /usr/local/cuda-12.4 --worker-timeout 1800 --execute
+F4 / F4-tile / F4-gather; 1 trial(s), 36 windows, 1800 formal optimizer steps. Each window: 10 warmup + 50 measured steps. Negative and slow windows are retained. Gather forward timings do not measure its backward optimization.
