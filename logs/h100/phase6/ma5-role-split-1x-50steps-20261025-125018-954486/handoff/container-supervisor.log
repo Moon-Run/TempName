@@ -1,0 +1,124 @@
+/workspace/conda-envs/flux-h100-ablation3-20261017/bin/python /workspace/TempName/tools/h100/phase6/ma5r_build.py prepare --out /workspace/TempName/logs/h100/phase6/ma5-role-split-1x-50steps-20261025-125018-954486/attn-t256-b528-mlp-cr2/build --attn-threads 256 --attn-blocks 528
+Log: /workspace/TempName/logs/h100/phase6/ma5-role-split-1x-50steps-20261025-125018-954486/attn-t256-b528-mlp-cr2/build-prepare.log
+/workspace/conda-envs/flux-h100-ablation3-20261017/bin/python /workspace/TempName/tools/h100/phase6/ma5r_build.py build --build /workspace/TempName/logs/h100/phase6/ma5-role-split-1x-50steps-20261025-125018-954486/attn-t256-b528-mlp-cr2/build --cuda-home /usr/local/cuda-12.8 --jobs 2
+Log: /workspace/TempName/logs/h100/phase6/ma5-role-split-1x-50steps-20261025-125018-954486/attn-t256-b528-mlp-cr2/compile.log
+/workspace/conda-envs/flux-h100-ablation3-20261017/bin/python /workspace/TempName/tools/h100/phase6/ma5r_bench.py prepare /workspace/TempName/logs/h100/phase6/ma5-role-split-1x-50steps-20261025-125018-954486/attn-t256-b528-mlp-cr2/operator --build /workspace/TempName/logs/h100/phase6/ma5-role-split-1x-50steps-20261025-125018-954486/attn-t256-b528-mlp-cr2/build --blocks 8
+Log: /workspace/TempName/logs/h100/phase6/ma5-role-split-1x-50steps-20261025-125018-954486/attn-t256-b528-mlp-cr2/operator-prepare.log
+/workspace/conda-envs/flux-h100-ablation3-20261017/bin/python /workspace/TempName/tools/h100/phase6/ma5r_bench.py run /workspace/TempName/logs/h100/phase6/ma5-role-split-1x-50steps-20261025-125018-954486/attn-t256-b528-mlp-cr2/operator --python /workspace/conda-envs/flux-h100-ablation3-20261017/bin/python --cuda-home /usr/local/cuda-12.4 --worker-timeout 1800 --execute
+Log: /workspace/TempName/logs/h100/phase6/ma5-role-split-1x-50steps-20261025-125018-954486/attn-t256-b528-mlp-cr2/operator-timing.log
+/workspace/conda-envs/flux-h100-ablation3-20261017/bin/python /workspace/TempName/tools/h100/phase6/ma5r_bench.py run /workspace/TempName/logs/h100/phase6/ma5-role-split-1x-50steps-20261025-125018-954486/attn-t256-b528-mlp-cr2/operator --python /workspace/conda-envs/flux-h100-ablation3-20261017/bin/python --cuda-home /usr/local/cuda-12.4 --worker-timeout 1800 --profile --execute
+Log: /workspace/TempName/logs/h100/phase6/ma5-role-split-1x-50steps-20261025-125018-954486/attn-t256-b528-mlp-cr2/operator-profile.log
+/workspace/conda-envs/flux-h100-ablation3-20261017/bin/python /workspace/TempName/tools/h100/phase6/ma5r_fullstep.py prepare /workspace/TempName/logs/h100/phase6/ma5-role-split-1x-50steps-20261025-125018-954486/attn-t256-b528-mlp-cr2/fullstep --build /workspace/TempName/logs/h100/phase6/ma5-role-split-1x-50steps-20261025-125018-954486/attn-t256-b528-mlp-cr2/build --megatron /workspace/Megatron-LM --trials 1 --blocks 8
+Log: /workspace/TempName/logs/h100/phase6/ma5-role-split-1x-50steps-20261025-125018-954486/attn-t256-b528-mlp-cr2/fullstep-prepare.log
+/workspace/conda-envs/flux-h100-ablation3-20261017/bin/python /workspace/TempName/tools/h100/phase6/ma5r_fullstep.py run /workspace/TempName/logs/h100/phase6/ma5-role-split-1x-50steps-20261025-125018-954486/attn-t256-b528-mlp-cr2/fullstep --stage all --python /workspace/conda-envs/flux-h100-ablation3-20261017/bin/python --cuda-home /usr/local/cuda-12.4 --worker-timeout 1800 --execute
+Log: /workspace/TempName/logs/h100/phase6/ma5-role-split-1x-50steps-20261025-125018-954486/attn-t256-b528-mlp-cr2/fullstep-run.log
+/workspace/conda-envs/flux-h100-ablation3-20261017/bin/python /workspace/TempName/tools/h100/phase6/ma5r_fullstep.py run /workspace/TempName/logs/h100/phase6/ma5-role-split-1x-50steps-20261025-125018-954486/attn-t256-b528-mlp-cr2/fullstep --stage profile --python /workspace/conda-envs/flux-h100-ablation3-20261017/bin/python --cuda-home /usr/local/cuda-12.4 --worker-timeout 1800 --execute
+Log: /workspace/TempName/logs/h100/phase6/ma5-role-split-1x-50steps-20261025-125018-954486/attn-t256-b528-mlp-cr2/fullstep-profile.log
+{
+  "protocol": "h100-ma5-role-split-detached-v1",
+  "status": "completed",
+  "trials": 1,
+  "expected_timing_windows": 16,
+  "expected_formal_optimizer_steps": 800,
+  "selection_is_exploratory": true,
+  "candidates": {
+    "attn-t256-b528-mlp-cr2": {
+      "status": "completed",
+      "tuning": {
+        "attn": {
+          "decoder_threads": 256,
+          "decoder_blocks": 528,
+          "gemm_sms": -1,
+          "gemm_tile_k": 32
+        },
+        "mlp": {
+          "decoder_threads": 128,
+          "decoder_blocks": 2048,
+          "gemm_sms": -1,
+          "gemm_tile_k": 32
+        }
+      },
+      "operator_correctness_passed": true,
+      "operator_execution_path_validated": true,
+      "report": "/workspace/TempName/logs/h100/phase6/ma5-role-split-1x-50steps-20261025-125018-954486/attn-t256-b528-mlp-cr2/fullstep/report.json",
+      "report_sha256": "6b305992328689ef7a9646742e0d851ce8ce3bcbc6972247906c9288aef414db",
+      "comparisons": {
+        "compare1": {
+          "run_id": "a3ef98ced4834a78a83d6f183afb692a",
+          "rounds": {
+            "round1": {
+              "mean_ms": {
+                "T": 510.55715739013976,
+                "CR2": 508.67464126000414
+              },
+              "median_ms": {
+                "T": 511.120621059963,
+                "CR2": 508.88982206990477
+              },
+              "comparisons": {
+                "T/CR2": {
+                  "percent": -0.37099856101083795,
+                  "ci95": [
+                    -1.0034962812435877,
+                    0.28434906905013824
+                  ],
+                  "paired_blocks": 4
+                }
+              }
+            },
+            "round2": {
+              "mean_ms": {
+                "T": 4337.379011355079,
+                "CR2": 4381.155652489833
+              },
+              "median_ms": {
+                "T": 5586.126991420169,
+                "CR2": 5637.906357779866
+              },
+              "comparisons": {
+                "T/CR2": {
+                  "percent": 4.211888516107509,
+                  "ci95": [
+                    -0.1961287413867252,
+                    11.26573872386204
+                  ],
+                  "paired_blocks": 4
+                }
+              }
+            },
+            "combined": {
+              "mean_ms": {
+                "T": 2423.968084372609,
+                "CR2": 2444.9151468749187
+              },
+              "median_ms": {
+                "T": 511.44604783999966,
+                "CR2": 553.4699195396388
+              },
+              "comparisons": {
+                "T/CR2": {
+                  "percent": 1.9472162561831263,
+                  "ci95": [
+                    -0.4560708556529347,
+                    5.854313608189765
+                  ],
+                  "paired_blocks": 8
+                }
+              }
+            }
+          },
+          "increment_over_CR2_validated": false,
+          "absolute_500ms_observed": false,
+          "target_validated": false
+        }
+      },
+      "increment_over_CR2_validated": false,
+      "absolute_500ms_observed": false,
+      "target_validated": false,
+      "fullstep_execution_path_validated": true
+    }
+  },
+  "candidate": "attn-t256-b528-mlp-cr2",
+  "stage": "done",
+  "formal_optimizer_steps": 800
+}

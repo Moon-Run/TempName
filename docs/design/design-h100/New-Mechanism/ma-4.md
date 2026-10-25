@@ -1,10 +1,10 @@
 # MA4：从主机提交优化转向投影消费链融合
 
-更新：2026-10-25。**旧 MA4-G 没有证实端到端增量；新的 MA4-F 直接把 decoder 后的 bias 和 residual 两次加法融合进 decoder。** 新候选记为 **F4**，同场对照为原 **CR2**，不叠加 CUDA Graph。MA4-F 已实现，尚无新的八卡性能结果。
+更新：2026-10-25，已拉取 MA4-F 八卡结果。**这次有端到端提升：F4 相比同期 CR2 的完整 optimizer step 快 1.652%，95% CI 为 [1.297%, 2.034%]；平均步时从 509.852 ms 降至 501.433 ms，减少 8.419 ms。** 8 个配对块全部更快，正确性与融合路径检查通过。结果限于本次一轮、当前配置；没有同期 C/R，原“相对 C/R 达到 2%”目标仍未评估。详细结果见第 6 节。
 
-重新检查时间线后，用户提出的 overlap 问题有明确证据：多数 rank 的提交工作已经提前排队数毫秒，减少其 CPU 区间并不等于缩短整步。也有少数供给较晚的 rank，且迟到者随方案变化，不能说所有主机优化始终被隐藏。下面把测到的事实、此次删除的依赖链工作及仍待验证的全局收益分开。
+旧 MA4-G 没有证实端到端增量。重新检查时间线后，用户提出的 overlap 问题有明确证据：多数 rank 的提交工作已经提前排队数毫秒，减少其 CPU 区间并不等于缩短整步。新的 **MA4-F（候选 F4）直接在 CR2 上融合 decoder 后的 bias 和 residual 两次加法**，不叠加 CUDA Graph。本轮同时观察到消费链缩短和无 profiler 整步正收益；但尚未把整步节省逐项归因到前向、反向调度或跨 rank 等待。
 
-在目标八卡 H100 容器的仓库根目录启动新实验：
+在目标八卡 H100 容器的仓库根目录复现本轮实验：
 
 ```bash
 /workspace/conda-envs/flux-h100-ablation3-20261017/bin/python tools/h100/phase6/detach_ma4_f.py --execute
@@ -124,7 +124,7 @@ bias 和 residual 是自定义 autograd 的显式输入。`grad_bias=grad_output
 - CR2 的 decoder 后仍有两个 add 再进入原 LayerNorm；F4 的融合 decoder 直接进入同一 LayerNorm，后继 LayerNorm 由 CPU External ID 与 GPU kernel 共同确认。
 - 两组都记录 **decoder 开始→LayerNorm 结束**、**GEMM 结束→LayerNorm 结束**。不能只比较“decoder 结束→LayerNorm 结束”，否则会漏算 F4 移入 decoder 的新增工作。
 
-路径检查证明改动执行以及消费链形态；profile 的时长不充当正式性能结果。编译诊断也显示融合会增加资源占用：当前 F4 decoder 为 **51 registers**，CR2 为 **44 registers**，均无 spill。它可能抵消部分 add 删除收益，必须让完整测量回答。
+路径检查证明改动执行以及消费链形态；profile 的时长不充当正式性能结果。编译诊断也显示融合会增加资源占用：当前 F4 decoder 为 **51 registers**，CR2 为 **44 registers**，均无 spill。新增工作可能抵消部分 add 删除收益，第 6 节同时报告 decoder 本体、完整消费链与正式整步测量。
 
 ## 5. 启动、工作量与结果判定
 
@@ -150,10 +150,70 @@ bash tools/h100/phase6/run_ma4_f.sh --execute
 
 本轮只判断 CR2 上的新增量，不测 C/R，所以 `target_evaluated=false`、`target_validated=false`；这两个字段不代表批次运行失败。原相对 C/R 的 2% 目标必须另做同期比较，不能把多个批次的百分比相加。
 
-## 6. 当前完成范围
+## 6. 本轮 MA4-F 结果：相对 CR2 有端到端增量
 
-已完成旧 trace 的队列/消费链重分析、F4 原生 decoder 与显式 autograd 接入、独立 F4/CR2 构建和测试启动器。没有启动新八卡实验，也没有 F4 端到端收益结论。
+本轮批次为 `ma4-f-1x-50steps-20261025-115124-977713`，状态为 **`completed/done`**。已完成构建、算子正确性与性能、完整训练、独立 profile；批次记录 `increment_over_CR2_validated=true`、`acceptance_status=positive_CR2_increment`。证据见[批次状态](../../../../logs/h100/phase6/ma4-f-1x-50steps-20261025-115124-977713/batch-state.json)、[训练报告](../../../../logs/h100/phase6/ma4-f-1x-50steps-20261025-115124-977713/fullstep/report.json)。
 
-本地 **32 项 CPU 检查全部通过、零跳过**，包含真实 PyTorch CPU 的完整梯度及三步更新对照、输出独立性、实例上下文错误拒绝、冻结脚本独立导入与单/双轮报告验证。F4/CR2 的两种 K 主机映射、SM90 runtime/PTX、GPU mapping 程序，以及 F4 的真实 C++ wrapper 与 pybind 对象编译通过；GPU mapping 程序只编译未运行，尚未进行完整动态库链接或 F4 八卡测试。见[验证汇总](../../../../outputs/h100/phase6/ma4-f-validation-20261025/validation.json)、[CPU 日志](../../../../outputs/h100/phase6/ma4-f-validation-20261025/cpu-tests.log)、[编译记录](../../../../outputs/h100/phase6/ma4-f-validation-20261025/final/compile-check/validation.json)和[命令预览](../../../../outputs/h100/phase6/ma4-f-validation-20261025/launch-preview.txt)。
+### 6.1. 完整训练：8 个配对块全部更快
 
-原始 G 结果和诊断 trace 保留。最终应同时看到消费链变短与无 profiler 整步的可靠增量，才能认定新实现改善了本配置的全局关键路径。若只有局部链变短、整步区间仍跨零，继续保留 CR2 为已验证基线，并如实记录负结果。
+同场八卡 H100、TP8、32 层、hidden=4096、sequence=2048、micro batch=1、global batch=4。共一轮 **8 个平衡配对块、16 个窗口、128 份正式 rank 记录、800 个正式 optimizer step**，无窗口丢弃。每窗口独立进程，10 步预热＋50 步正式；完整 step 包含前向、反向、通信、optimizer 更新和清梯度。
+
+步时取每窗口八 rank 最大墙钟 / 50；收益和区间沿用完整块配对对数比、10000 次 bootstrap。正数表示 F4 更快，前后半程属于同一 trial，不能当成两轮独立复测。
+
+| 范围 | 配对块 | F4 平均 ms/step | CR2 平均 ms/step | F4/CR2 收益 %［95% CI］ |
+| --- | ---: | ---: | ---: | --- |
+| 前半程 | 4 | 503.197 | 509.196 | +1.179 [+1.016, +1.369] |
+| 后半程 | 4 | 499.670 | 510.507 | +2.123 [+1.832, +2.413] |
+| **完整一轮** | **8** | **501.433** | **509.852** | **+1.652 [+1.297, +2.034]** |
+
+8 个块均为正收益，两种运行先后顺序下均观察到 F4 更快。算术均值差 **8.419 ms/step**；正式验收使用表中的配对估计，区间下界大于零。这次已经观察到整体训练时间缩短，不能再仅描述成“算子变快但整步未改善”。
+
+仍保留单轮限制：后半程 F4 变快、CR2 略变慢，增量从 1.179% 增至 2.123%，说明收益幅度随窗口变化。报告的 `exploratory=true` 应保留；需要独立复测确认跨批次稳定性，不能只挑后半程宣称达到 2%。本批没有 C/R，`target_evaluated=false`、`target_validated=false` 是未评估原目标，不是本轮 F4/CR2 验收失败。
+
+### 6.2. 正确性与实际调用覆盖
+
+算子输出逐位一致，完整 input/weight/bias/residual 梯度和三步参数更新检查通过。训练 smoke 对每个 rank 的 **389 个可训练参数张量**，逐项比较三步更新前梯度与更新后参数指纹，包含全部 64 个目标模块的 weight/bias；F4/CR2 对应 rank 一致。正式窗口的 loss/grad_norm 轨迹及最终全部参数指纹也一致。
+
+两组正式结果的 mean loss 均为 `3.793363792030723`，final loss 为 `0.00030573460389859974`，final grad norm 为 `0.01800245891878419`；验收不仅比较这些汇总数，还比较完整轨迹和指纹。`consumer_gradients_validated`、`consumer_parameter_gradients_validated` 均为 true。
+
+F4 的 64 份正式 rank 记录中，每份均覆盖 64 个目标模块、每模块两个槽。共 **4096 份模块记录、8192 份槽记录**，每槽 `initializations=1`、`successful_calls=bias_residual_calls=120`、`failed=false`，每模块 `projection_calls=bda_calls=240`，包含预热。CR2 保留原路径，consumer 状态为空；两组没有 skip/fallback。不是绕过计算、遗漏 bias/residual 或不同训练轨迹造成的快。
+
+### 6.3. 局部消费链确实缩短，但不能直接分摊整步收益
+
+[独立算子报告](../../../../logs/h100/phase6/ma4-f-1x-50steps-20261025-115124-977713/operator/report.json)测量完整 `projection + bias + residual` API；它与旧 G 的裸投影微测范围不同，不能直接横向比较百分比。
+
+| 角色 | F4 平均 μs | CR2 平均 μs | F4/CR2 收益 %［95% CI］ |
+| --- | ---: | ---: | --- |
+| Attention | 93.258 | 104.647 | +10.883 [+10.605, +11.079] |
+| MLP | 140.096 | 150.577 | +6.961 [+6.758, +7.157] |
+
+[训练 profile](../../../../logs/h100/phase6/ma4-f-1x-50steps-20261025-115124-977713/fullstep/profile-summary.json)共 16 份 trace；每个 rank、每个角色均匹配 128 次投影、128 次原发布屏障和 128 个后继 LayerNorm。CR2 每角色有 256 个消费 add kernel，F4 为 0，即 **每个 rank 每步删除 512 个独立 add kernel**，后继仍为原 LayerNorm。另有 [32 份算子 profile](../../../../logs/h100/phase6/ma4-f-1x-50steps-20261025-115124-977713/operator/profile-summary.json)确认相同路径。
+
+下表先取每 rank 的角色中位数，再取八 rank 中位数；均为本次独立 profile 的 μs，不能作为正式步时差直接相加。
+
+| 指标 | CR2：Attention / MLP | F4：Attention / MLP |
+| --- | ---: | ---: |
+| 投影 CPU 区间 | 98.781 / 99.337 | 107.225 / 107.410 |
+| decoder 本体 | 10.688 / 11.168 | 11.296 / 11.776 |
+| **decoder 开始→LayerNorm 结束** | **40.088 / 40.104** | **30.568 / 30.896** |
+| GEMM 结束→LayerNorm 结束 | 520.752 / 267.736 | 515.112 / 271.712 |
+
+融合使 decoder 本体增加约 **0.608 μs**，但把这部分新增工作计入后，完整消费链仍缩短约 **9.520 / 9.208 μs**。投影 CPU 区间反而增加约 8 μs；此次收益证据来自消费链和正式整步，而不是再次把 CPU 区间缩短当作收益。
+
+更长区间并非全部改善：Attention 的 GEMM 结束→LayerNorm 结束约缩短 5.640 μs，MLP 则增加约 3.976 μs。rank 间也不均匀：CR2 rank6 的 decoder 开始→LayerNorm 结束为 **131.760 / 108.208 μs**，F4 同 rank 为 **30.560 / 30.896 μs**。这些记录支持消费链形态改变、局部迟到现象减轻，但还不能证明该 rank 决定了无 profiler 的整步时间。
+
+因此，本轮可以确认 **F4 在当前配置上有正的端到端增量，且完整消费链变短**。不能把 `9 μs × 256` 当作 8.419 ms 的分解，也不能把全部收益归因于删除 add：融合还改变提交、autograd 调度和跨 rank 等待的相互作用；这部分归因尚未完成。
+
+### 6.4. 离线复核与证据边界
+
+本次在拉取的数据上离线重新生成算子报告、完整训练报告、算子 profile 汇总和训练 profile 汇总，**四份结果均与原报告逐字段一致**。冻结控制器及 **55 个本地依赖**哈希一致；原始报告、plan、preflight、batch-state 的 SHA256 在复核前后不变。复核重新读取原始 rank 记录与全部 48 份 trace，未重跑 GPU，也未重新加载或校验服务器动态库本体。
+
+复核脚本、结构化结果与日志见 [audit.py](../../../../outputs/h100/phase6/ma4-f-results-audit-20261025/audit.py)、[audit.json](../../../../outputs/h100/phase6/ma4-f-results-audit-20261025/audit.json)、[audit.log](../../../../outputs/h100/phase6/ma4-f-results-audit-20261025/audit.log)。复现离线复核：
+
+```bash
+python3 outputs/h100/phase6/ma4-f-results-audit-20261025/audit.py
+```
+
+实现阶段的 **32 项 CPU 检查、零跳过**及编译记录继续保留：[验证汇总](../../../../outputs/h100/phase6/ma4-f-validation-20261025/validation.json)、[CPU 日志](../../../../outputs/h100/phase6/ma4-f-validation-20261025/cpu-tests.log)、[编译记录](../../../../outputs/h100/phase6/ma4-f-validation-20261025/final/compile-check/validation.json)。它们记录的是当时尚未运行 GPU 的状态；本节新批次补充了实际八卡运行证据。旧 G 负结果也继续保留，不以本轮结果覆盖。
+
+后续若继续验证，优先用第 5 节同一入口加 `--trials 2` 做独立复测；原 2% 目标需要 F4/CR2/C/R 同期比较。本轮的 CI 上界超过 2%，既不表示相对 CR2 已达到 2%，也不表示相对 C/R 已达到 2%。
