@@ -1,0 +1,595 @@
+{
+  "protocol": "h100-basic-receiver-fusion-fullstep-v2",
+  "run_id": "1d72fad1053f4396b304796da9596430",
+  "config": {
+    "tp": 8,
+    "sm_count": 132,
+    "layers": 32,
+    "hidden": 4096,
+    "ffn": 16384,
+    "heads": 32,
+    "sequence": 2048,
+    "micro_batch": 1,
+    "global_batch": 4,
+    "seed": 1234,
+    "token_seed": 4321,
+    "vocab": 32768
+  },
+  "execution_timing": {
+    "warmup_steps": 10,
+    "timed_steps": 50
+  },
+  "comparison_scope": "both",
+  "source_only": false,
+  "executable": true,
+  "gpu_validated": false,
+  "rounds": 2,
+  "blocks_per_round": 6,
+  "schedule_seed": 20261025,
+  "schedule": [
+    {
+      "round": 1,
+      "block": 0,
+      "index": 0,
+      "policy": "basic",
+      "directory": "round1/window-000-basic"
+    },
+    {
+      "round": 1,
+      "block": 0,
+      "index": 1,
+      "policy": "cuda",
+      "directory": "round1/window-001-cuda"
+    },
+    {
+      "round": 1,
+      "block": 1,
+      "index": 2,
+      "policy": "cuda",
+      "directory": "round1/window-002-cuda"
+    },
+    {
+      "round": 1,
+      "block": 1,
+      "index": 3,
+      "policy": "basic",
+      "directory": "round1/window-003-basic"
+    },
+    {
+      "round": 1,
+      "block": 2,
+      "index": 4,
+      "policy": "basic",
+      "directory": "round1/window-004-basic"
+    },
+    {
+      "round": 1,
+      "block": 2,
+      "index": 5,
+      "policy": "cuda",
+      "directory": "round1/window-005-cuda"
+    },
+    {
+      "round": 1,
+      "block": 3,
+      "index": 6,
+      "policy": "cuda",
+      "directory": "round1/window-006-cuda"
+    },
+    {
+      "round": 1,
+      "block": 3,
+      "index": 7,
+      "policy": "basic",
+      "directory": "round1/window-007-basic"
+    },
+    {
+      "round": 1,
+      "block": 4,
+      "index": 8,
+      "policy": "basic",
+      "directory": "round1/window-008-basic"
+    },
+    {
+      "round": 1,
+      "block": 4,
+      "index": 9,
+      "policy": "cuda",
+      "directory": "round1/window-009-cuda"
+    },
+    {
+      "round": 1,
+      "block": 5,
+      "index": 10,
+      "policy": "cuda",
+      "directory": "round1/window-010-cuda"
+    },
+    {
+      "round": 1,
+      "block": 5,
+      "index": 11,
+      "policy": "basic",
+      "directory": "round1/window-011-basic"
+    },
+    {
+      "round": 2,
+      "block": 0,
+      "index": 0,
+      "policy": "basic",
+      "directory": "round2/window-000-basic"
+    },
+    {
+      "round": 2,
+      "block": 0,
+      "index": 1,
+      "policy": "cuda",
+      "directory": "round2/window-001-cuda"
+    },
+    {
+      "round": 2,
+      "block": 1,
+      "index": 2,
+      "policy": "cuda",
+      "directory": "round2/window-002-cuda"
+    },
+    {
+      "round": 2,
+      "block": 1,
+      "index": 3,
+      "policy": "basic",
+      "directory": "round2/window-003-basic"
+    },
+    {
+      "round": 2,
+      "block": 2,
+      "index": 4,
+      "policy": "basic",
+      "directory": "round2/window-004-basic"
+    },
+    {
+      "round": 2,
+      "block": 2,
+      "index": 5,
+      "policy": "cuda",
+      "directory": "round2/window-005-cuda"
+    },
+    {
+      "round": 2,
+      "block": 3,
+      "index": 6,
+      "policy": "cuda",
+      "directory": "round2/window-006-cuda"
+    },
+    {
+      "round": 2,
+      "block": 3,
+      "index": 7,
+      "policy": "basic",
+      "directory": "round2/window-007-basic"
+    },
+    {
+      "round": 2,
+      "block": 4,
+      "index": 8,
+      "policy": "basic",
+      "directory": "round2/window-008-basic"
+    },
+    {
+      "round": 2,
+      "block": 4,
+      "index": 9,
+      "policy": "cuda",
+      "directory": "round2/window-009-cuda"
+    },
+    {
+      "round": 2,
+      "block": 5,
+      "index": 10,
+      "policy": "cuda",
+      "directory": "round2/window-010-cuda"
+    },
+    {
+      "round": 2,
+      "block": 5,
+      "index": 11,
+      "policy": "basic",
+      "directory": "round2/window-011-basic"
+    }
+  ],
+  "timing_windows": 24,
+  "variants": {
+    "basic": {
+      "policy": "basic",
+      "family": "flux_tensor",
+      "scope": "attn_mlp",
+      "roles": [
+        "attn",
+        "mlp"
+      ],
+      "implementation": "flux-sm90-receiver-only-fusion-v2",
+      "workspace": "gemm_output",
+      "output_clone": false,
+      "base": "original",
+      "order": "gemm_only",
+      "arrival": false,
+      "quantization": "all_remote",
+      "prefetch": false,
+      "graph": false,
+      "root": "/workspace/TempName/logs/h100/phase6/basic-quant-receiver-1x-50steps-20261025-090410-798870/flux-build/flux-gemm-only",
+      "sampling": false,
+      "libraries": {
+        "libflux_cuda.so": {
+          "path": "/workspace/TempName/logs/h100/phase6/basic-quant-receiver-1x-50steps-20261025-090410-798870/flux-build/flux-gemm-only/python/flux/lib/libflux_cuda.so",
+          "sha256": "6e44fc62b262e44aa4744e7628fbb5aba55fb40444b43f0fd5fd12143a0f0e3a"
+        },
+        "libflux_cuda_ths_op.so": {
+          "path": "/workspace/TempName/logs/h100/phase6/basic-quant-receiver-1x-50steps-20261025-090410-798870/flux-build/flux-gemm-only/python/flux/lib/libflux_cuda_ths_op.so",
+          "sha256": "c5041cd0e746f91d54c6b03e7ca19f5869c6cb08e614aae30d266d0da906923c"
+        }
+      }
+    },
+    "cuda": {
+      "policy": "cuda",
+      "family": "flux_tensor",
+      "scope": "attn_mlp",
+      "roles": [
+        "attn",
+        "mlp"
+      ],
+      "implementation": "flux-sm90-gemm-only-upstream-taco-cuda-h128-e4m3-ca717e05-v1",
+      "workspace": "gemm_output",
+      "output_clone": false,
+      "base": "original",
+      "order": "gemm_only",
+      "arrival": false,
+      "quantization": "all_remote",
+      "prefetch": false,
+      "graph": false,
+      "root": "/workspace/TempName/logs/h100/phase6/basic-quant-receiver-1x-50steps-20261025-090410-798870/flux-build/flux-gemm-only",
+      "sampling": false,
+      "libraries": {
+        "libflux_cuda.so": {
+          "path": "/workspace/TempName/logs/h100/phase6/basic-quant-receiver-1x-50steps-20261025-090410-798870/flux-build/flux-gemm-only/python/flux/lib/libflux_cuda.so",
+          "sha256": "6e44fc62b262e44aa4744e7628fbb5aba55fb40444b43f0fd5fd12143a0f0e3a"
+        },
+        "libflux_cuda_ths_op.so": {
+          "path": "/workspace/TempName/logs/h100/phase6/basic-quant-receiver-1x-50steps-20261025-090410-798870/flux-build/flux-gemm-only/python/flux/lib/libflux_cuda_ths_op.so",
+          "sha256": "c5041cd0e746f91d54c6b03e7ca19f5869c6cb08e614aae30d266d0da906923c"
+        }
+      }
+    }
+  },
+  "communication": {
+    "environment": {
+      "NCCL_VERSION": "2.21.5-1",
+      "NCCL_NVLS_ENABLE": "0",
+      "NCCL_DEBUG": "WARN",
+      "TORCH_NCCL_ASYNC_ERROR_HANDLING": "1"
+    },
+    "config_files": {
+      "/etc/nccl.conf": null,
+      "/root/.nccl.conf": null
+    },
+    "nvls_request": "0"
+  },
+  "shared_environment": {
+    "CUDA_DEVICE_MAX_CONNECTIONS": "1",
+    "FLUX_GEMM_RS_GEMM_ONLY": "1"
+  },
+  "hardware": {
+    "host": "gxn75",
+    "devices": [
+      {
+        "name": "NVIDIA H100 80GB HBM3",
+        "uuid": "1706d57e-5c35-8a8e-3e54-162cd2813cd1",
+        "sm_count": 132,
+        "capability": [
+          9,
+          0
+        ]
+      },
+      {
+        "name": "NVIDIA H100 80GB HBM3",
+        "uuid": "f5a032d7-653f-36c5-d45f-6b7fee264e5a",
+        "sm_count": 132,
+        "capability": [
+          9,
+          0
+        ]
+      },
+      {
+        "name": "NVIDIA H100 80GB HBM3",
+        "uuid": "aaa779c1-00d2-231c-584b-73505b36ca09",
+        "sm_count": 132,
+        "capability": [
+          9,
+          0
+        ]
+      },
+      {
+        "name": "NVIDIA H100 80GB HBM3",
+        "uuid": "3d4c9ce1-d3f4-deb1-2583-54edf8a7828a",
+        "sm_count": 132,
+        "capability": [
+          9,
+          0
+        ]
+      },
+      {
+        "name": "NVIDIA H100 80GB HBM3",
+        "uuid": "47f842a7-68bd-1e86-5dc3-65c9db5ec042",
+        "sm_count": 132,
+        "capability": [
+          9,
+          0
+        ]
+      },
+      {
+        "name": "NVIDIA H100 80GB HBM3",
+        "uuid": "0f4d8136-f3b3-6fb0-e8f4-9491251b829e",
+        "sm_count": 132,
+        "capability": [
+          9,
+          0
+        ]
+      },
+      {
+        "name": "NVIDIA H100 80GB HBM3",
+        "uuid": "93b43235-1c0c-7b47-4c95-f3f677600bd8",
+        "sm_count": 132,
+        "capability": [
+          9,
+          0
+        ]
+      },
+      {
+        "name": "NVIDIA H100 80GB HBM3",
+        "uuid": "d45e5e56-238c-7cf7-c09f-45e539028049",
+        "sm_count": 132,
+        "capability": [
+          9,
+          0
+        ]
+      }
+    ]
+  },
+  "calibration_hardware": {
+    "host": "gxn75",
+    "devices": [
+      {
+        "name": "NVIDIA H100 80GB HBM3",
+        "uuid": "1706d57e-5c35-8a8e-3e54-162cd2813cd1",
+        "sm_count": 132,
+        "capability": [
+          9,
+          0
+        ]
+      },
+      {
+        "name": "NVIDIA H100 80GB HBM3",
+        "uuid": "f5a032d7-653f-36c5-d45f-6b7fee264e5a",
+        "sm_count": 132,
+        "capability": [
+          9,
+          0
+        ]
+      },
+      {
+        "name": "NVIDIA H100 80GB HBM3",
+        "uuid": "aaa779c1-00d2-231c-584b-73505b36ca09",
+        "sm_count": 132,
+        "capability": [
+          9,
+          0
+        ]
+      },
+      {
+        "name": "NVIDIA H100 80GB HBM3",
+        "uuid": "3d4c9ce1-d3f4-deb1-2583-54edf8a7828a",
+        "sm_count": 132,
+        "capability": [
+          9,
+          0
+        ]
+      },
+      {
+        "name": "NVIDIA H100 80GB HBM3",
+        "uuid": "47f842a7-68bd-1e86-5dc3-65c9db5ec042",
+        "sm_count": 132,
+        "capability": [
+          9,
+          0
+        ]
+      },
+      {
+        "name": "NVIDIA H100 80GB HBM3",
+        "uuid": "0f4d8136-f3b3-6fb0-e8f4-9491251b829e",
+        "sm_count": 132,
+        "capability": [
+          9,
+          0
+        ]
+      },
+      {
+        "name": "NVIDIA H100 80GB HBM3",
+        "uuid": "93b43235-1c0c-7b47-4c95-f3f677600bd8",
+        "sm_count": 132,
+        "capability": [
+          9,
+          0
+        ]
+      },
+      {
+        "name": "NVIDIA H100 80GB HBM3",
+        "uuid": "d45e5e56-238c-7cf7-c09f-45e539028049",
+        "sm_count": 132,
+        "capability": [
+          9,
+          0
+        ]
+      }
+    ]
+  },
+  "hardware_identity_kind": "runtime identity only; no arrival calibration",
+  "megatron": "/workspace/Megatron-LM",
+  "megatron_commit": "3ea68ad6042cc1204386ae9364358f7c4de1bc37",
+  "codec_identity": {
+    "implementation": "upstream-taco-cuda-h128-e4m3-ca717e05-v1",
+    "source_sha256": "d51f82006f0bcb6bfbab71eb289d680cc097227048669e1cdc17c0d65a324546",
+    "reference_sha256": "1a6f8e4ef7a7a20b1709d2a91eeed55832c0cf7d73f351b4dc6e8f152be60b5b",
+    "cuda_source_identity": {
+      "baseline_upstream/LICENSE.txt": "36e053d82c9ff1384a1045bb4cda1f5b569aa6a0e2faa1f9a42e16eb4c13ac78",
+      "baseline_upstream/provenance.json": "ed3ffb67ca7cd7045b796ff9a21e880a8de0b62b1937a1283471892cb2a7a107",
+      "baseline_upstream/taco.cu": "15a9fa3b41f59333c03170a886d1c5d596415cebbc3642447cfcfdd93dffad8e",
+      "baseline_upstream/taco_RS.config": "c5bef55bf028d4e9e4b11b3b580f0214b7d724105e385c9d1f0bb2f47b51f24d",
+      "baseline_codec.cu": "cea609bbefd96135aa4bd08a7db7bb8722880c8f382fa29dc979b42ec054efb9",
+      "basic_quant_receiver.cuh": "bde1ff6b18ab1362d0dccdc2cd7c09cef8f652edfb8bf728f91088468875c3dc"
+    },
+    "receiver_implementation": "basic-serial-h128-decode-bf16-fold-v2"
+  },
+  "codec_library": {
+    "path": "/workspace/TempName/logs/h100/phase6/basic-quant-receiver-1x-50steps-20261025-090410-798870/codec-build/libbasic_quant.so",
+    "sha256": "a358abab6e5840264ea91c9f8f3ab09ecb95db687768903646a6517d476cf396"
+  },
+  "controllers": {
+    "/workspace/TempName/tools/h100/phase6/ablation2_guard.py": "7ea2c9b5af36e207ddc8537a544080d15d676ed793ec617d16fc606f9a56be51",
+    "/workspace/TempName/tools/h100/phase6/ablation2_plan.py": "25e9fa81e8cc1edf628e25f9d4019953285a311739ccfd797e0cf943c6239152",
+    "/workspace/TempName/tools/h100/phase6/ablation2_report.py": "602f500b2398ceb44495430a59c3ce68bc9897d0a44398d6b54efb4b350b0afd",
+    "/workspace/TempName/tools/h100/phase6/ablation3_build.py": "3db823819fad495d35c8423b298d78f792921ee01ae3ace3c625aa3b386c5a5e",
+    "/workspace/TempName/tools/h100/phase6/ablation3_plan.py": "644ebe6b6e9209f472ab9a9265a3331f6c60b2344056d0f81e1f5d2c1763ed07",
+    "/workspace/TempName/tools/h100/phase6/ablation3_protocol.py": "8638e0cbdc76df47e0bf18cd744125090a0b97208e6365ef622286a33138c869",
+    "/workspace/TempName/tools/h100/phase6/ablation3_report.py": "f679fdd0909d68b54b9af50e83b79ae22d9424e5051d2f0d97f77d58812cd8e7",
+    "/workspace/TempName/tools/h100/phase6/ablation3_sources.py": "dda4b55eb04820a509c006afa0ecac3767cceefa4f704ce359f34ee5bc503667",
+    "/workspace/TempName/tools/h100/phase6/ablation4_protocol.py": "49096ce304742939908eb7ada80b37f75179b59478e14ddb4119b4055833e473",
+    "/workspace/TempName/tools/h100/phase6/ablation4_repeat.py": "5c16d8666d04159eef1fff1e2bb495831f8c226c4490bce54726e5c7aef2f59e",
+    "/workspace/TempName/tools/h100/phase6/ablation4_runtime.py": "b9fa09b17f66fe89fbe7d894959a90ccff9dc4a9e04eb1364f35509d069ab330",
+    "/workspace/TempName/tools/h100/phase6/ablation4_sources.py": "2123b7de28fad8a1a01c9ec0eac081c738129ad67cefe575adf12f7972b8de53",
+    "/workspace/TempName/tools/h100/phase6/ablation5_protocol.py": "b2bd5ee8a8d5bed0722e745b3f6f73a30f1605246f4f03f00918801ec493d71d",
+    "/workspace/TempName/tools/h100/phase6/ablation6_build.py": "e5e04fc6e78ff4f859de1b74de18dacb95875edc4fef9335da9e4bf1b18a1e67",
+    "/workspace/TempName/tools/h100/phase6/ablation6_flux_tensor.py": "13c60ba8459eff6a98d411b5f5df78574b900345240819cb8ab1676de7ace4fb",
+    "/workspace/TempName/tools/h100/phase6/ablation6_protocol.py": "86ddf0cb8ec32c08bfc956cd92c986d3bef4441781a0a859f76a41e6deb34e63",
+    "/workspace/TempName/tools/h100/phase6/ablation6_sources.py": "f635dad5ceb0af914a0ca424df827e8635e2709be0c540991732ceac7544b18f",
+    "/workspace/TempName/tools/h100/phase6/ablation_plan.py": "67a0de1124d88a09cda5845144b67f36e7c6ecb049344498e500f0e97fe06281",
+    "/workspace/TempName/tools/h100/phase6/ablation_prepare.py": "6e6d753060b3bfbd187633b508c31a6e71aaa309d450952da3e48f7dce9293bd",
+    "/workspace/TempName/tools/h100/phase6/ablation_report.py": "7170c0d09ec273874c5f139d34c80bc2316e5799d1bc4c47dc82a0b8d08731ca",
+    "/workspace/TempName/tools/h100/phase6/ablation_routing.py": "bfa63d80b3d53e338823f3922483fd39b93eb75db61f627a6d944e1b28663671",
+    "/workspace/TempName/tools/h100/phase6/ablation_timing.py": "8cd966490123f6a5fe2a2c4c8274a701b8c0d83e609309d6ced21e994b22191f",
+    "/workspace/TempName/tools/h100/phase6/arrival_op3_sources.py": "9f5b32236c327cb2f8e84eac6000a49a25ccffc7fe51671003d68374df277e02",
+    "/workspace/TempName/tools/h100/phase6/arrival_op3_v2_build.py": "745d28fefc440f2070b61bf3dbd83e7c4b9717d040f60159452e13cb3937140a",
+    "/workspace/TempName/tools/h100/phase6/arrival_op3_v2_sources.py": "7f11c2b4af73ad1c2ab9ccac41400c044bd8141578365da3a7f6205fe791b2fd",
+    "/workspace/TempName/tools/h100/phase6/baseline_codec_build.py": "c0343c3b562b3672472764aedbdd09ce95a696503adc4dd8acc6bff244180648",
+    "/workspace/TempName/tools/h100/phase6/baseline_codec_validation.py": "6b263cd75d6d1154e7434aba0b0857b14a2b834badce407457c0bdaeb370d47e",
+    "/workspace/TempName/tools/h100/phase6/baseline_protocol.py": "89ed21d251f9a5dcd34f2d5c0d8fc56ed62cea806a3ca87dfcb01c3135371452",
+    "/workspace/TempName/tools/h100/phase6/baseline_sources.py": "a333b5ea6935751f30ba62fd137c39de9607fab7e4fc2ada7279365da3c1d050",
+    "/workspace/TempName/tools/h100/phase6/basic_quant.py": "c228d7fd8b88a5398deb606aa197b099f7f2944f8c4a62b05ee3c05a23b8d55b",
+    "/workspace/TempName/tools/h100/phase6/basic_quant_build.py": "d2ec1972782316cfdd7291b3bb16c1c7e8f6293ef7fa4b7afd84550c0c7e106e",
+    "/workspace/TempName/tools/h100/phase6/basic_quant_codec.py": "d51f82006f0bcb6bfbab71eb289d680cc097227048669e1cdc17c0d65a324546",
+    "/workspace/TempName/tools/h100/phase6/basic_quant_prepare.py": "1e9710e5e4735006b1cbae98033c16b4744202170b0e91276459335f3fb42713",
+    "/workspace/TempName/tools/h100/phase6/basic_quant_protocol.py": "fee849a24503b78d0ba668139763e51c58e9884b4f5a0ba02c1128e62aece723",
+    "/workspace/TempName/tools/h100/phase6/basic_quant_report.py": "687824cbfc05e6723def6af83ed970fe71f05386975bf05af1c159984db135b4",
+    "/workspace/TempName/tools/h100/phase6/basic_quant_sources.py": "ea89d12bd93f959a5d9a06d12b88911b52fe1aa78b45a3c1b2b249efe26dad70",
+    "/workspace/TempName/tools/h100/phase6/basic_quant_validation.py": "a477fa813276bc77789ffc977056751cc2ec4f4667305cf329a2d8b34e0850ad",
+    "/workspace/TempName/tools/h100/phase6/build.py": "4899dd019be406b1e72080d255f98c9375802e4f5e26cd0aa2dffb9f70e062c0",
+    "/workspace/TempName/tools/h100/phase6/calibrate.py": "ee0f3c6f00fdc400a246ebfbfe83e7ea80149a7939ab6b401b22c89e62f8cf96",
+    "/workspace/TempName/tools/h100/phase6/candidate.py": "ab6521a11f54029656ddcf1281b9a07f3ddb145155461bae266bd55778d02b32",
+    "/workspace/TempName/tools/h100/phase6/common.py": "71b2f27e1926ec7c6e1d1397d01de62ff57c743db2b0b4e9948e3f06fc6b402a",
+    "/workspace/TempName/tools/h100/phase6/detach_ablation5_run_two.py": "98eddeb05c18b7af4bb4882443257a7699153a8e5ef6ad63128817dc796daafe",
+    "/workspace/TempName/tools/h100/phase6/detach_basic_quant.py": "c1f105130d2471f976c0ece85c6b4bc247683a0abda04fb2eb603f69204c9c2b",
+    "/workspace/TempName/tools/h100/phase6/ma1_bench.py": "10f5406eb6cb94ab73ec93827e8584033607ef4629a39eec56d1870ad30f93e6",
+    "/workspace/TempName/tools/h100/phase6/ma1_build.py": "b93eeb3358bc1d92cd4ef8e820d353febca08c99447fd6237974ff15164df2bd",
+    "/workspace/TempName/tools/h100/phase6/ma1_sources.py": "3c1560e86ed06a28ea9530d5a687c19a5a398016171115991fd3e27d97368eed",
+    "/workspace/TempName/tools/h100/phase6/prepare.py": "e72b6860a7d9629a56f09407c5a72d9d0136d8c44ae92c465019341bb9e38580",
+    "/workspace/TempName/tools/h100/phase6/report.py": "1725ce74ac2dfac0b3484da83f0f009bc05c672ffd449edf84094cb29083d611",
+    "/workspace/TempName/tools/h100/phase6/run.py": "2a7f68f5d1730a89af9b4d5dd4f3000e4ac8d95d6490acb0e48e4fba4113c09d",
+    "/workspace/TempName/tools/h100/phase6/runtime.py": "88dae92616bb4689f979e0ff3414abe7ea37ae28c9203fe5e4e80a85d33766d2",
+    "/workspace/TempName/tools/h100/phase6/scope_build.py": "c0b80d29fcedab17112e01d3a6b3782e8658851e9a6b31eadf4a895f0f8257ea",
+    "/workspace/TempName/tools/h100/phase6/scope_plan.py": "b7c98f9fa7a5f017a8d3b7dc4668f4fe3bcd0fd7789786b713c5abdc7a67d613",
+    "/workspace/TempName/tools/h100/phase6/scope_protocol.py": "812fba20debcd84ef66566c83478feb4677eda8c699783c2bd5e9d2f5d5ca27a",
+    "/workspace/TempName/tools/h100/phase6/scope_report.py": "d724c681d2537c49d96501d974859f180ad095c0de8c205e3066efdba9e180e1",
+    "/workspace/TempName/tools/h100/phase6/scope_run.py": "092bcb490499f5e17cac6ee9f84a2c59ff0b3338dfd6c45f256ea9965115c05b",
+    "/workspace/TempName/tools/h100/phase6/scope_sources.py": "f6be8de81a98b60393beceb0cd2a388607c919e3e175d40e0708152b324c9aae"
+  },
+  "flux_build_manifest": {
+    "path": "/workspace/TempName/logs/h100/phase6/basic-quant-receiver-1x-50steps-20261025-090410-798870/flux-build/manifest.json",
+    "sha256": "6e624fafd961d2e493f41a4fb99a241c8a3629cc875f8f719c360016b224851a"
+  },
+  "codec_build_manifest": {
+    "path": "/workspace/TempName/logs/h100/phase6/basic-quant-receiver-1x-50steps-20261025-090410-798870/codec-build/manifest.json",
+    "sha256": "dee9eb838f2029cd31c28753363032e1d4b438e5f6d5c9b769958c546a0d784a"
+  },
+  "files": {
+    "scripts/routing.py": "fee849a24503b78d0ba668139763e51c58e9884b4f5a0ba02c1128e62aece723",
+    "scripts/runtime.py": "88dae92616bb4689f979e0ff3414abe7ea37ae28c9203fe5e4e80a85d33766d2",
+    "scripts/baseline_codec_validation.py": "6b263cd75d6d1154e7434aba0b0857b14a2b834badce407457c0bdaeb370d47e",
+    "scripts/basic_quant_validation.py": "a477fa813276bc77789ffc977056751cc2ec4f4667305cf329a2d8b34e0850ad",
+    "scripts/config.json": "3eaa25ae41a7932f9a66f46bedf665e7fdef4664b10c1055dba72885032d2301",
+    "scripts/selection-plan.json": "49f9723f20493b5adb7dcce84b9ccf41a9589204eb2a4a042c8706ff0bfe72a4",
+    "scripts/communication.py": "b9fa09b17f66fe89fbe7d894959a90ccff9dc4a9e04eb1364f35509d069ab330",
+    "scripts/adapter.py": "44509f6aca62cd67afc5a3f0a84ed4df47ca751eddd1d6b0e8539ec744e0b5db",
+    "scripts/flux_tensor_taco.py": "13c60ba8459eff6a98d411b5f5df78574b900345240819cb8ab1676de7ace4fb",
+    "scripts/reference.py": "1a6f8e4ef7a7a20b1709d2a91eeed55832c0cf7d73f351b4dc6e8f152be60b5b",
+    "scripts/worker.py": "54fda507cc908f2c5973aafdd548033fee2f120df1d60d6b660c2938768b21a4",
+    "scripts/megatron_taco.py": "d51f82006f0bcb6bfbab71eb289d680cc097227048669e1cdc17c0d65a324546",
+    "scripts/taco_support.py": "30c5c162045dc96d3e6673de58f5383673cd844c1bdaf0dc5a32a3cc16103127",
+    "provenance/preparation.json": "5cf009dbbeb2775f30e30b0a69f69c05aa418cbefa5441908c181b7059b81616",
+    "provenance/codec-manifest.json": "dee9eb838f2029cd31c28753363032e1d4b438e5f6d5c9b769958c546a0d784a",
+    "provenance/gemm-only-manifest.json": "6e624fafd961d2e493f41a4fb99a241c8a3629cc875f8f719c360016b224851a",
+    "provenance/controllers/prepare.py": "e72b6860a7d9629a56f09407c5a72d9d0136d8c44ae92c465019341bb9e38580",
+    "provenance/controllers/baseline_protocol.py": "89ed21d251f9a5dcd34f2d5c0d8fc56ed62cea806a3ca87dfcb01c3135371452",
+    "provenance/controllers/scope_build.py": "c0b80d29fcedab17112e01d3a6b3782e8658851e9a6b31eadf4a895f0f8257ea",
+    "provenance/controllers/ablation2_report.py": "602f500b2398ceb44495430a59c3ce68bc9897d0a44398d6b54efb4b350b0afd",
+    "provenance/controllers/baseline_sources.py": "a333b5ea6935751f30ba62fd137c39de9607fab7e4fc2ada7279365da3c1d050",
+    "provenance/controllers/ablation_timing.py": "8cd966490123f6a5fe2a2c4c8274a701b8c0d83e609309d6ced21e994b22191f",
+    "provenance/controllers/basic_quant_report.py": "687824cbfc05e6723def6af83ed970fe71f05386975bf05af1c159984db135b4",
+    "provenance/controllers/ablation6_sources.py": "f635dad5ceb0af914a0ca424df827e8635e2709be0c540991732ceac7544b18f",
+    "provenance/controllers/ablation4_protocol.py": "49096ce304742939908eb7ada80b37f75179b59478e14ddb4119b4055833e473",
+    "provenance/controllers/ablation_routing.py": "bfa63d80b3d53e338823f3922483fd39b93eb75db61f627a6d944e1b28663671",
+    "provenance/controllers/runtime.py": "88dae92616bb4689f979e0ff3414abe7ea37ae28c9203fe5e4e80a85d33766d2",
+    "provenance/controllers/calibrate.py": "ee0f3c6f00fdc400a246ebfbfe83e7ea80149a7939ab6b401b22c89e62f8cf96",
+    "provenance/controllers/arrival_op3_v2_sources.py": "7f11c2b4af73ad1c2ab9ccac41400c044bd8141578365da3a7f6205fe791b2fd",
+    "provenance/controllers/baseline_codec_validation.py": "6b263cd75d6d1154e7434aba0b0857b14a2b834badce407457c0bdaeb370d47e",
+    "provenance/controllers/build.py": "4899dd019be406b1e72080d255f98c9375802e4f5e26cd0aa2dffb9f70e062c0",
+    "provenance/controllers/detach_ablation5_run_two.py": "98eddeb05c18b7af4bb4882443257a7699153a8e5ef6ad63128817dc796daafe",
+    "provenance/controllers/basic_quant_validation.py": "a477fa813276bc77789ffc977056751cc2ec4f4667305cf329a2d8b34e0850ad",
+    "provenance/controllers/scope_plan.py": "b7c98f9fa7a5f017a8d3b7dc4668f4fe3bcd0fd7789786b713c5abdc7a67d613",
+    "provenance/controllers/ablation3_sources.py": "dda4b55eb04820a509c006afa0ecac3767cceefa4f704ce359f34ee5bc503667",
+    "provenance/controllers/candidate.py": "ab6521a11f54029656ddcf1281b9a07f3ddb145155461bae266bd55778d02b32",
+    "provenance/controllers/ablation2_guard.py": "7ea2c9b5af36e207ddc8537a544080d15d676ed793ec617d16fc606f9a56be51",
+    "provenance/controllers/baseline_codec_build.py": "c0343c3b562b3672472764aedbdd09ce95a696503adc4dd8acc6bff244180648",
+    "provenance/controllers/basic_quant_build.py": "d2ec1972782316cfdd7291b3bb16c1c7e8f6293ef7fa4b7afd84550c0c7e106e",
+    "provenance/controllers/ablation6_build.py": "e5e04fc6e78ff4f859de1b74de18dacb95875edc4fef9335da9e4bf1b18a1e67",
+    "provenance/controllers/arrival_op3_sources.py": "9f5b32236c327cb2f8e84eac6000a49a25ccffc7fe51671003d68374df277e02",
+    "provenance/controllers/basic_quant_prepare.py": "1e9710e5e4735006b1cbae98033c16b4744202170b0e91276459335f3fb42713",
+    "provenance/controllers/ablation3_protocol.py": "8638e0cbdc76df47e0bf18cd744125090a0b97208e6365ef622286a33138c869",
+    "provenance/controllers/ablation2_plan.py": "25e9fa81e8cc1edf628e25f9d4019953285a311739ccfd797e0cf943c6239152",
+    "provenance/controllers/ablation_plan.py": "67a0de1124d88a09cda5845144b67f36e7c6ecb049344498e500f0e97fe06281",
+    "provenance/controllers/ablation3_plan.py": "644ebe6b6e9209f472ab9a9265a3331f6c60b2344056d0f81e1f5d2c1763ed07",
+    "provenance/controllers/arrival_op3_v2_build.py": "745d28fefc440f2070b61bf3dbd83e7c4b9717d040f60159452e13cb3937140a",
+    "provenance/controllers/run.py": "2a7f68f5d1730a89af9b4d5dd4f3000e4ac8d95d6490acb0e48e4fba4113c09d",
+    "provenance/controllers/ablation5_protocol.py": "b2bd5ee8a8d5bed0722e745b3f6f73a30f1605246f4f03f00918801ec493d71d",
+    "provenance/controllers/ma1_sources.py": "3c1560e86ed06a28ea9530d5a687c19a5a398016171115991fd3e27d97368eed",
+    "provenance/controllers/ablation_prepare.py": "6e6d753060b3bfbd187633b508c31a6e71aaa309d450952da3e48f7dce9293bd",
+    "provenance/controllers/ma1_bench.py": "10f5406eb6cb94ab73ec93827e8584033607ef4629a39eec56d1870ad30f93e6",
+    "provenance/controllers/common.py": "71b2f27e1926ec7c6e1d1397d01de62ff57c743db2b0b4e9948e3f06fc6b402a",
+    "provenance/controllers/ablation3_report.py": "f679fdd0909d68b54b9af50e83b79ae22d9424e5051d2f0d97f77d58812cd8e7",
+    "provenance/controllers/ablation6_protocol.py": "86ddf0cb8ec32c08bfc956cd92c986d3bef4441781a0a859f76a41e6deb34e63",
+    "provenance/controllers/scope_report.py": "d724c681d2537c49d96501d974859f180ad095c0de8c205e3066efdba9e180e1",
+    "provenance/controllers/ma1_build.py": "b93eeb3358bc1d92cd4ef8e820d353febca08c99447fd6237974ff15164df2bd",
+    "provenance/controllers/report.py": "1725ce74ac2dfac0b3484da83f0f009bc05c672ffd449edf84094cb29083d611",
+    "provenance/controllers/ablation6_flux_tensor.py": "13c60ba8459eff6a98d411b5f5df78574b900345240819cb8ab1676de7ace4fb",
+    "provenance/controllers/detach_basic_quant.py": "c1f105130d2471f976c0ece85c6b4bc247683a0abda04fb2eb603f69204c9c2b",
+    "provenance/controllers/scope_run.py": "092bcb490499f5e17cac6ee9f84a2c59ff0b3338dfd6c45f256ea9965115c05b",
+    "provenance/controllers/basic_quant_sources.py": "ea89d12bd93f959a5d9a06d12b88911b52fe1aa78b45a3c1b2b249efe26dad70",
+    "provenance/controllers/basic_quant_protocol.py": "fee849a24503b78d0ba668139763e51c58e9884b4f5a0ba02c1128e62aece723",
+    "provenance/controllers/ablation4_runtime.py": "b9fa09b17f66fe89fbe7d894959a90ccff9dc4a9e04eb1364f35509d069ab330",
+    "provenance/controllers/ablation4_repeat.py": "5c16d8666d04159eef1fff1e2bb495831f8c226c4490bce54726e5c7aef2f59e",
+    "provenance/controllers/scope_sources.py": "f6be8de81a98b60393beceb0cd2a388607c919e3e175d40e0708152b324c9aae",
+    "provenance/controllers/ablation_report.py": "7170c0d09ec273874c5f139d34c80bc2316e5799d1bc4c47dc82a0b8d08731ca",
+    "provenance/controllers/basic_quant_codec.py": "d51f82006f0bcb6bfbab71eb289d680cc097227048669e1cdc17c0d65a324546",
+    "provenance/controllers/scope_protocol.py": "812fba20debcd84ef66566c83478feb4677eda8c699783c2bd5e9d2f5d5ca27a",
+    "provenance/controllers/ablation4_sources.py": "2123b7de28fad8a1a01c9ec0eac081c738129ad67cefe575adf12f7972b8de53",
+    "provenance/controllers/ablation3_build.py": "3db823819fad495d35c8423b298d78f792921ee01ae3ace3c625aa3b386c5a5e",
+    "provenance/controllers/basic_quant.py": "c228d7fd8b88a5398deb606aa197b099f7f2944f8c4a62b05ee3c05a23b8d55b",
+    "schedule.json": "67f718c77f360062c915ed21976a88c03692f68b1cb187d6a43c689d22549e3d"
+  }
+}
