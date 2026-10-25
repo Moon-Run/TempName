@@ -109,8 +109,8 @@ def native_tuning(op,arm,plan):
     return expected
 
 
-def build_identity(build,builder_root=None):
-    if builder_root is not None:sys.path.insert(1,str(builder_root))
+def _repository_build_identity(build):
+    """Called only by the clean repository-side verification subprocess."""
     import ma6_build as builder
     root=Path(build).resolve();record=builder.verify(root,built=True);manifest=read(root/'manifest.json')
     require(record['protocol']==SOURCE_PROTOCOL and tuple(manifest['variants'])==ARMS,'Wrong MA6 build')
@@ -119,6 +119,37 @@ def build_identity(build,builder_root=None):
         builder_inputs=record['inputs'],mechanism=MECHANISM,tuning=validate_tuning(record['tuning']),
         source_files={str((root/arm/name).resolve()):digest for arm in ARMS
                       for name,digest in manifest['variants'][arm]['source_sha256'].items()})
+
+
+def build_identity(build,builder_root=None):
+    # Frozen workers have already imported scripts/common.py and source
+    # helpers. Changing sys.path cannot replace those cached modules: importing
+    # a repository builder here would give it the frozen HERE/REPO instead.
+    # Keep the namespaces separate without weakening online provenance checks.
+    import subprocess
+    directory=Path(builder_root if builder_root is not None else HERE).resolve()
+    require((directory/'ma6_bench.py').is_file() and (directory/'ma6_build.py').is_file(),
+            'MA6 repository builder/controller missing: '+str(directory))
+    script='''import hashlib, json, sys
+from pathlib import Path
+directory = Path(sys.argv[1]).resolve()
+controller = directory / 'ma6_bench.py'
+if hashlib.sha256(controller.read_bytes()).hexdigest() != sys.argv[3]:
+    raise RuntimeError('Repository MA6 controller differs from the frozen worker')
+sys.path.insert(0, str(directory))
+import ma6_bench
+if Path(ma6_bench.__file__).resolve() != controller:
+    raise RuntimeError('MA6 repository controller resolved to another directory')
+print(json.dumps(ma6_bench._repository_build_identity(Path(sys.argv[2]))))
+'''
+    checked=subprocess.run([sys.executable,'-I','-c',script,str(directory),
+                            str(Path(build).resolve()),sha(Path(__file__))],
+                           capture_output=True,text=True,check=False)
+    require(checked.returncode==0,
+            'MA6 isolated build verification failed:\n'+checked.stderr.strip())
+    result=json.loads(checked.stdout)
+    require(result['builder_root']==str(directory),'MA6 builder root changed during verification')
+    return result
 
 
 def freeze_helpers(scripts):

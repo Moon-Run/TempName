@@ -1,6 +1,6 @@
 # MA6：在 F4 上缩短真实依赖链的下一步设计
 
-更新：2026-10-25。根据后续要求，已实现 **F4 / F4-tile / F4-gather** 三组对比；实现与启动方式见第 9 节。第 1–8 节保留设计分析，原 B6 对应本轮 F4-gather；S6、N6 仍是未实现的设计候选。本轮尚无新 GPU 性能结果。
+更新：2026-10-25。已实现 **F4 / F4-tile / F4-gather** 三组对比；首次上机在 worker 在线校验中因 Python 同名模块冲突失败，现已修复，原因与复用构建重跑命令见第 10 节。第 1–8 节保留设计分析，原 B6 对应本轮 F4-gather；S6、N6 仍是未实现的设计候选。当前尚无三组完整训练性能结果。
 
 **建议第一步验证反向中的一个不必要串行关系：先异步启动 `AllGather(grad_output)`，让原 bias 梯度归约与它重叠，再执行原 dgrad/wgrad。** 它直接基于 F4，前向完全沿用已验证的消费融合，数学计算和梯度返回边界保持原样。第二方向是 decoder＋后继 LayerNorm 的进一步融合，先限制为 Attention；跨层延迟 wgrad、逐片提前消费暂不作为第一实现。
 
@@ -309,6 +309,8 @@ threads 支持 64/128/256/512；blocks 必须为正且不超过 `8192 / (threads
 
 ### 9.4. 本地验证与待运行范围
 
+本节保留首次实现时的验证记录；它没有覆盖本次发现的冻结 worker 在线 builder 导入路径，新增回归见第 10 节。
+
 当前工作区没有 `/dev/nvidia0`，也没有目标服务器的 `/workspace/conda-envs/flux-h100-ablation3-20261017/bin/python`。本地只做 CPU/源码/编译检查；八卡完整训练应通过上面的入口在目标环境运行，尚无 F4-tile 或 F4-gather 的性能结论。
 
 已完成 **74 项 MA6 与原 MA4-F 统一 CPU 检查，全部通过、零跳过**。最后对冻结只读重放的修正又定向复测 **21 项**，对启动器模板哈希冻结复测 **6 项**，均通过。这些复测与统一套件有重叠，不作为新的独立性能样本。覆盖真实 PyTorch CPU 的四类完整梯度和三步更新、异步 API 模拟下的提交/等待与异常处理、三组均衡顺序、独立结果判定、完整参数门槛及冻结脚本隔离导入。
@@ -316,3 +318,40 @@ threads 支持 64/128/256/512；blocks 必须为正且不超过 `8192 / (threads
 三臂 host mapping、SM90 runtime、GPU mapping 程序及 PTX/SASS 编译通过，F4-tile 的真实 C++ wrapper 和 pybind 对象也编译通过。默认 F4-tile 的 MLP 与 F4-gather 保留的原 F4 decoder **PTX 完全一致**。默认 Attention 新 kernel 为 **44 registers**，原 F4 为 **51 registers**，均为 **0 spill、8-byte stack frame**；资源变化不等于性能收益。
 
 GPU mapping 程序仅编译未运行，本地未完成整套 Flux 动态库链接；GPU 数值等价、真实通信重叠和整步性能仍须上机验证。证据见[验证汇总](../../../../outputs/h100/phase6/ma6-validation-20261025/validation.json)、[统一 CPU 日志](../../../../outputs/h100/phase6/ma6-validation-20261025/cpu-tests.log)、[最终 harness 复测](../../../../outputs/h100/phase6/ma6-validation-20261025/final-harness-tests.log)、[最终 launcher 复测](../../../../outputs/h100/phase6/ma6-validation-20261025/final-launcher-tests.log)、[编译验证](../../../../outputs/h100/phase6/ma6-validation-20261025/native-compile/validation.json)和[启动预览](../../../../outputs/h100/phase6/ma6-validation-20261025/launch-preview.txt)。
+
+## 10. 首次上机失败与修复：冻结 worker 的模块名冲突
+
+失败批次为 `ma6-f4-tile-gather-1x-50steps-20261025-153202-551639`。[批次状态](../../../../logs/h100/phase6/ma6-f4-tile-gather-1x-50steps-20261025-153202-551639/batch-state.json)记录 `failed / operator-timing`，实际停在该阶段的第一个 `preflight-F4`，还未进入正式算子计时或完整训练。三组编译及六个角色 mapping 命令已完成；不能把本次中断解释为 tile/gather 性能退化。
+
+### 10.1. 是代码问题，发生在 worker 使用 GPU 之前
+
+所有 rank 的[原始进程日志](../../../../logs/h100/phase6/ma6-f4-tile-gather-1x-50steps-20261025-153202-551639/operator/results/preflight-F4/process.log)都报：
+
+```text
+FileNotFoundError: .../operator/scripts/ma6_build.py
+```
+
+错误链为 `worker → verify(offline=False) → build_identity → ma6_build.verify`。冻结 worker 已经导入 `operator/scripts/common.py`，随后虽然从正确的仓库目录导入了 `ma6_build.py`，其 `from common import HERE` 却复用了 `sys.modules` 中的冻结版本，导致 builder 的 `HERE` 指向 `operator/scripts`。嵌套 builder 的 `REPO` 和相关来源模块也有同样的污染风险；只调整 `sys.path` 顺序或手动改一个 `HERE` 无法完整解决。
+
+失败点位于该 worker 的 `import torch`、设备选择和分布式初始化之前。这次报错不是 GPU 占用、OOM 或 NCCL 失败；也没有产生三组训练性能结论。原失败批次及其冻结脚本保留原样。
+
+### 10.2. 修复方式与新增回归
+
+[ma6_bench.py](../../../../tools/h100/phase6/ma6_bench.py) 将在线构建身份校验放入干净的 `python -I` 子进程，显式从真实 builder 目录加载仓库控制器。子进程核对仓库控制器与冻结 worker 的 SHA256 后，继续执行原完整构建校验并返回同一份身份信息；父进程的冻结模块不被替换。**没有改成 offline，也没有删掉 manifest、输入、源码或动态库的哈希检查。** 这些操作发生在测量窗口之外，不修改前向、反向或 CUDA kernel。
+
+新增 [test_ma6_online_worker.py](../../../../tools/h100/phase6/test_ma6_online_worker.py) 从实际冻结 `worker(args)` 入口执行在线校验，在首次导入 Torch 时停止：三组均须到达这个边界；构建输入摘要、原生源码或动态库被改动时须在 GPU 初始化前拒绝。测试同时复制原失败控制器到临时目录，确认旧代码仍复现相同错误，且新路径不污染父进程的 `common`。
+
+此前的冻结脚本导入和 `offline=True` 测试没有走这条路径，部分 prepare 测试还模拟了 `build_identity`，因此漏掉了错误。新增测试使用 `/tmp` 中的注册源码和明确标记的占位库，只校验路径与哈希，不加载 GPU 库；不能把通过 CPU 回归写成八卡正确性或性能已验证。
+
+修复后 **5 项真实冻结 worker 在线启动回归＋27 项现有相关回归，共 32 项全部通过、零跳过**。原失败证据的 SHA256 在复核前后不变。见[修复验证汇总](../../../../outputs/h100/phase6/ma6-fix-20261025/validation.json)、[在线启动回归日志](../../../../outputs/h100/phase6/ma6-fix-20261025/online-worker-tests.log)、[相关回归日志](../../../../outputs/h100/phase6/ma6-fix-20261025/regression-tests.log)。
+
+### 10.3. 同步修复后，复用服务器已完成的构建重新启动
+
+本次未改动 22 个原生 builder/source 输入，它们与失败批次的冻结哈希一致。服务器保留原 build 时，可在仓库根目录用新批次重跑，省去再次编译：
+
+```bash
+bash tools/h100/phase6/run_ma6.sh --execute \
+  --ma6-build /workspace/TempName/logs/h100/phase6/ma6-f4-tile-gather-1x-50steps-20261025-153202-551639/build
+```
+
+复用仍须通过当前完整构建验证。不要直接运行旧批次 `operator/scripts/bench.py`，它是为保留证据而冻结的旧代码；也不要覆盖旧批次目录。上述命令默认生成新目录并完成同一轮 F4/F4-tile/F4-gather 比较，仍为 36 个正式窗口、1800 个正式 optimizer step。
