@@ -1,0 +1,12 @@
+Batch: /tmp/ma5-k64-preview
+1 candidate(s), 1 trial(s) each, 16 training windows / 800 formal steps.
+PLAN ONLY: no directories, subprocesses, compilation, forks or GPU queries.
+/usr/bin/python3 /data/run01/scyb672/hjr/TempName/tools/h100/phase6/ma5_build.py prepare --out /tmp/ma5-k64-preview/t128-b2048-k64-s-1/build --decoder-threads 128 --decoder-blocks 2048 --gemm-sms -1 --gemm-tile-k 64
+/usr/bin/python3 /data/run01/scyb672/hjr/TempName/tools/h100/phase6/ma5_build.py build --build /tmp/ma5-k64-preview/t128-b2048-k64-s-1/build --cuda-home /usr/local/cuda-12.8 --jobs 2
+/usr/bin/python3 /data/run01/scyb672/hjr/TempName/tools/h100/phase6/ma5_bench.py prepare /tmp/ma5-k64-preview/t128-b2048-k64-s-1/operator --build /tmp/ma5-k64-preview/t128-b2048-k64-s-1/build --blocks 8
+/usr/bin/python3 /data/run01/scyb672/hjr/TempName/tools/h100/phase6/ma5_bench.py run /tmp/ma5-k64-preview/t128-b2048-k64-s-1/operator --python /usr/bin/python3 --cuda-home /usr/local/cuda-12.4 --worker-timeout 1800 --execute
+/usr/bin/python3 /data/run01/scyb672/hjr/TempName/tools/h100/phase6/ma5_bench.py run /tmp/ma5-k64-preview/t128-b2048-k64-s-1/operator --python /usr/bin/python3 --cuda-home /usr/local/cuda-12.4 --worker-timeout 1800 --profile --execute
+/usr/bin/python3 /data/run01/scyb672/hjr/TempName/tools/h100/phase6/ma5_fullstep.py prepare /tmp/ma5-k64-preview/t128-b2048-k64-s-1/fullstep --build /tmp/ma5-k64-preview/t128-b2048-k64-s-1/build --megatron /data/run01/scyb672/hjr/Megatron-LM --trials 1 --blocks 8
+/usr/bin/python3 /data/run01/scyb672/hjr/TempName/tools/h100/phase6/ma5_fullstep.py run /tmp/ma5-k64-preview/t128-b2048-k64-s-1/fullstep --stage all --python /usr/bin/python3 --cuda-home /usr/local/cuda-12.4 --worker-timeout 1800 --execute
+/usr/bin/python3 /data/run01/scyb672/hjr/TempName/tools/h100/phase6/ma5_fullstep.py run /tmp/ma5-k64-preview/t128-b2048-k64-s-1/fullstep --stage profile --python /usr/bin/python3 --cuda-home /usr/local/cuda-12.4 --worker-timeout 1800 --execute
+Every window: 10 warmup + 50 timed full optimizer steps; all performance outcomes retained.
