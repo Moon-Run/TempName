@@ -1,8 +1,121 @@
-# Flux 基础量化、改进量化与独立 CUDA 量化的同场比较
+# Flux 基础量化 v2：仅融合接收端反量化与求和
 
-更新：2026-10-24。新增三组实验，**统一覆盖 Attention＋MLP 输出投影**。本页的“Flux＋基础量化”仅保留生产端融合：GEMM 内编码并向目标 GPU 写入；接收端先独立解码，再独立归约。“Flux+改进量化”保留既有融合 v2 的生产端融合与接收端解码归约融合。“Flux＋CUDA量化”沿用原生 Hopper GemmOnly＋作者独立 TACO CUDA codec＋NCCL All-to-All。
+更新：2026-10-25。本次重新定义并实现 **Flux＋基础量化**，只比较它与 **Flux＋CUDA量化**，运行 **一次独立比较**，统一覆盖 **Attention＋MLP**。新实现的协议为 `h100-basic-receiver-fusion-fullstep-v2`，与下方保留的生产端融合 v1 分开记录。
 
-**当前没有本实验的八卡计时结果。** 下表等待新批次回传，不填入 [历史汇总](baseline.md) 的跨批次数字。历史“改进量化”只覆盖 MLP，本次将其相同实现用于 Attention＋MLP，不能把历史步时当成本次对照。
+| 指标 / 策略 | **Flux＋基础量化 v2** | **Flux＋CUDA量化** |
+| --- | --- | --- |
+| 策略 ID | `basic`（新协议） | `cuda` |
+| GEMM | 原生 Hopper Flux GemmOnly | 相同源码、同一个构建和动态库 |
+| 编码与发送 | 独立 TACO CUDA 编码＋NCCL All-to-All | 完全相同 |
+| 接收端 | **一个 kernel 完成七来源反量化＋按序 BF16 求和＋加入本地贡献** | 独立反量化 kernel＋八次 PyTorch BF16 相加 |
+| 反量化后的全量临时张量 | 不落地 `[7,256,4096]` BF16 张量 | 写入该张量后逐来源读取 |
+| 量化与数值语义 | 全远端 H128/E4M3；本地 BF16；逐次 BF16 舍入 | 相同 |
+| 计时范围 | 前向、反向、梯度处理、optimizer 的完整训练步 | 相同 |
+| 平均 / 中位步时（ms） | **待新批次实测** | **待同场实测** |
+| 配对收益及 95% CI | **待实测** | 对照 |
+
+## 为什么重做基础版
+
+旧基础版 v1 虽然拆开了接收端解码和归约，仍保留 **GEMM epilogue 内编码、直接向目标 GPU 写入、生产与通信的融合路径**，已经包含较大范围的工程优化。因此它接近改进量化，不能代表“只把相邻两个操作合成一个 kernel”的朴素基线。
+
+已回传的 v1 `report.json` 记录如下；它们是旧实现的历史数据，不作为 v2 的同场对照：
+
+| v1 历史批次 | 改进量化（ms） | 旧基础量化（ms） | CUDA 量化（ms） |
+| --- | ---: | ---: | ---: |
+| [20261025-001305](../../../../logs/h100/phase6/a-baseline-fusion-1x-50steps-20261025-001305-210375/compare1/report.json) | 533.129 | 535.689 | 608.937 |
+| [20261025-012216](../../../../logs/h100/phase6/a-baseline-fusion-1x-50steps-20261025-012216-521143/compare1/report.json) | 533.959 | 536.286 | 610.493 |
+
+新基础版从 CUDA 组出发，仅融合接收端反量化与求和，实验差异更集中：
+
+```text
+两组共同路径：
+  Flux GemmOnly → 完整 BF16 partial → 整理远端数据
+  → 原作者 TACO 编码 kernel → NCCL All-to-All
+
+CUDA 接收端：
+  解码七来源 → BF16 临时张量 → 零初始化 → 八次 BF16 相加 → 新输出
+
+基础 v2 接收端：
+  一个朴素 CTA kernel：逐来源解码 → BF16 舍入 → 按序累加
+  → 加入本地 BF16 → 写新输出
+```
+
+585–600 ms 是用户提出的预期区间，**不是实测结果、验收门槛或实现约束**。v2 保留独立编码和 NCCL，预计会比旧生产端融合 v1 更接近 CUDA 组；是否落入该区间、能否快于 CUDA，需要本轮检验。融合减少中间读写和 kernel 提交，也使同一输出组的七来源解码串行化，收益不由 kernel 数量单独决定。代码没有按目标步时插入等待、重复计算或结果筛选。
+
+## 朴素融合的实现边界
+
+实现位于 [basic_quant_receiver.cuh](../../../../tools/h100/phase6/basic_quant_receiver.cuh)，Python 路径见 [basic_quant_codec.py](../../../../tools/h100/phase6/basic_quant_codec.py)。
+
+1. 每个 CTA 使用 128 个线程，只负责输出中的一个 H128 组；沿用原作者解码中的 FP8 转换、warp shuffle、跨 warp 共享内存 Hadamard、缩放和异常值处理。
+2. 收到的七个 packet 按 NCCL 来源编号升序排列、去掉本 rank。kernel 按 `(rank+1)%8, …, (rank+7)%8` 读取，对应 packet 下标为 `source - int(source > rank)`，最后加入本地贡献。
+3. **每个远端解码值先舍入到 BF16，每次相加再舍入到 BF16**，匹配 CUDA 组原来“写 BF16 张量后逐次相加”的计算。不能改成 FP32 累加到最后才舍入。
+4. 每次调用分配独立输出；临时 packet、通信和 current stream 规则沿用 CUDA 组。没有 GEMM 内编码、直接 IPC 写入、交替排序、到达优先、选择性量化、来源预取、双工作区或 CUDA Graph。
+
+两组共用一个 GemmOnly 构建和一个 codec 动态库。codec 保留冻结的原作者编码、解码函数，另加基础融合入口；`cuda` 分支继续调用原独立解码函数与八次 BF16 相加。原作者 device 源码来自固定提交 `ca717e05b6dd6d21fff4d2617d209c95be63f3ef`，没有修改其 device 函数体。基础融合 kernel 是本项目新增实现，不能称为作者原版。
+
+这次能够隔离“接收端融合及其省去的临时张量/算子提交”的总体影响。旧改进量化仍采用不同 GEMM 与通信路径，本次不测它，也不据此给出新基础版相对改进版的同场收益。
+
+## 一轮的测试规模与检查
+
+| 项目 | 本次执行 |
+| --- | --- |
+| 独立比较 | **1 次，仅 `compare1`** |
+| 正式组别 | **基础 v2、CUDA** |
+| 内部排程 | 两个方向平衡的 round，每个 6 个两组配对块 |
+| 正式窗口 | **24**，每组 12 |
+| 每窗口 | 10 步预热＋50 步正式计时 |
+| 累计正式 optimizer step | **1200**，每组 600；另有 240 步预热 |
+| 正式 rank 记录 | 192 |
+| 独立 smoke / profile | 4 个八卡窗口、16 份 profile trace |
+
+这里的一轮是一次完整比较，内部 `round1/round2` 用于平衡先后顺序，不会启动第二次 `compare2`。每个窗口都重新初始化训练，1200 步是累计工作量，不是一条连续的 1200 步训练轨迹。
+
+保留此前 GPT-6.7B、TP8、32 层、序列 2048、micro batch 1/global batch 4、Attention＋MLP 的完整步协议。正式窗口用八 rank 最大墙钟除以 50，按全部 12 个完整块做配对 bootstrap（10000 次），报告均值、中位数、loss 和 95% CI。**负收益或没有落入 585–600 ms 都照常出报告**。
+
+执行前自动验证：
+
+- 每个 rank 的 zeros、small、outliers、真实 `[7,256,4096]` 远端形状，与“原 CUDA 解码＋八次 BF16 相加”逐位比较；八个 rank 覆盖全部来源排列。
+- 两组的 64 个投影首输出指纹、smoke/profile/正式窗口中的 loss 与 grad_norm 轨迹一致；不将 grad_norm 相同描述成每个参数梯度逐位相同。
+- 保留输出不被后续调用覆盖；原有相对 BF16 5%、相对 codec 1% 的前向误差门槛继续生效。
+- profiler 通过实际 CUDA launch correlation 检查 GemmOnly、编码、NCCL 和声明的接收 kernel；基础组不能出现独立解码/八次 add，CUDA 组不能出现新融合 kernel。profile 与数值预检不混入正式计时。
+
+## 启动一次比较
+
+在 `/workspace/TempName` 中运行，推荐使用新包装脚本，它会读取容器恢复时生成的 `env.sh`（若存在）：
+
+```bash
+bash tools/h100/phase6/run_basic_quant.sh --trials 1 --execute
+```
+
+已经加载恢复环境时，也可以直接启动：
+
+```bash
+/workspace/conda-envs/flux-h100-ablation3-20261017/bin/python tools/h100/phase6/detach_basic_quant.py --trials 1 --execute
+```
+
+新入口默认只测一次，并且只允许 `--trials 1`；不构建、不测试改进量化。去掉 `--execute` 只打印计划，不创建实验目录、不查询 GPU。`run_a_baseline.sh` / `detach_a_baseline.py` 仍然对应下方旧三组实验，**本次使用 `run_basic_quant.sh` / `detach_basic_quant.py`**。
+
+执行时新建 `logs/h100/phase6/basic-quant-receiver-1x-50steps-<时间>/`，先构建 GemmOnly 与新 codec，再完成预检和正式计时。继续使用原双重 fork 与 PID 1 绑定检查，启动成功后可关闭终端，容器需要保持运行；没有自动改为前台执行。状态见 `batch-state.json` 和 `handoff/container-supervisor.log`，最终结果为 `compare1/report.json` / `report.md`。`--worker-timeout` 默认 1800 秒。
+
+`--flux-build` 可以显式复用校验通过的旧 GemmOnly 构建；旧三组实验的 `codec-build` 不含新融合入口，不能传给 `--codec-build`。默认全部重新构建，避免误用旧基础库。报告离线复核命令：
+
+```bash
+/workspace/conda-envs/flux-h100-ablation3-20261017/bin/python tools/h100/phase6/basic_quant.py report <批次目录>/compare1 --offline
+```
+
+## 本地验证与待验证项
+
+CUDA 12.8 / SM90 的新 codec 动态库已编译、链接通过。CPU 检查覆盖冻结源码、两组调度、真实生成的 adapter、来源/数值预检记录、输出保存、profile 路径替换、报告缺失与负收益、单次启动和只读预览。详见 [本地验证记录](../../../../outputs/h100/phase6/basic-quant-validation-20261025/validation.json)。
+
+**尚未执行新基础 v2 的八卡 GPU 训练或数值预检，不能宣称已经达到预期耗时。** CPU 测试中的人工记录仅验证报告检查逻辑；旧 CUDA trace 只验证解析兼容性。新的 GPU 正确性和性能由上述启动命令验证。
+
+## 历史 v1：生产端融合的三组方案
+
+以下保留旧实现说明与命令，用于解释已有数据。其 `basic` 是旧生产端融合实现，与本页上方新协议中的 `basic` 不同。
+
+历史设计日期：2026-10-24。v1 三组实验，**统一覆盖 Attention＋MLP 输出投影**。本页的“Flux＋基础量化”仅保留生产端融合：GEMM 内编码并向目标 GPU 写入；接收端先独立解码，再独立归约。“Flux+改进量化”保留既有融合 v2 的生产端融合与接收端解码归约融合。“Flux＋CUDA量化”沿用原生 Hopper GemmOnly＋作者独立 TACO CUDA codec＋NCCL All-to-All。
+
+**以下保留 v1 开跑前的方案与占位表，不代表当前测试状态。v1 已有回传结果，见本页上方历史结果表；这些数字不能填入 v2 的新基础量化列。**历史“改进量化”只覆盖 MLP，本次将其相同实现用于 Attention＋MLP，不能把历史步时当成本次对照。
 
 | 指标 | **Flux+改进量化** | **Flux＋基础量化** | **Flux＋CUDA量化** |
 | --- | --- | --- | --- |
@@ -23,7 +136,7 @@ T(Flux+改进量化) < T(Flux＋基础量化) < T(Flux＋CUDA量化)
 
 这是实验假设，不是必须实现的排序。基础版的来源解码可并行，CUDA 组使用不同 GEMM 后端；中间访存、GPU 并发和主机提交之间存在权衡，不能仅凭融合数量保证上述关系。报告保留全部窗口及负收益，性能排序不成立也继续完成所选次数的比较；正确性或执行证据不通过则停止。
 
-## 1. 为什么这样定义“基础版”
+### 1. 为什么这样定义“基础版”
 
 原历史“改进量化”是冻结的 `a800-fused-v2-cta-v1`，它已经使用较朴素的 scalar CTA codec，并没有 MA1/MA2 来源预取、CR2 提交缓存或 CUDA Graph。若仅复制并改名，就无法得到一个具有明确区别的基础版。
 
@@ -47,7 +160,7 @@ Flux+改进量化：
 
 “基础版”与“改进版”都沿用原始生产顺序、单工作区、逐次配置与原输出 clone。没有加入交替排序、到达优先、选择性 mask、打包来源预取、双工作区、持久配置优化、提交缓存或 Graph。这些历史优化不是本实验的组成部分。
 
-## 2. 基础融合 kernel 的实现
+### 2. 基础融合 kernel 的实现
 
 实现由 [a_baseline_sources.py](../../../../tools/h100/phase6/a_baseline_sources.py) 注入隔离构建；新增接收端计算体见 [a_baseline_decode.cuh](../../../../tools/h100/phase6/a_baseline_decode.cuh)。
 
@@ -64,7 +177,7 @@ Flux+改进量化：
 
 两版必须保持解码后舍入、来源顺序和逐次累加舍入，不能将基础版改为 FP32 跨来源求和。由于原始数学相同，要求基础/改进的实际投影输出及训练 loss/gradient 轨迹一致。
 
-## 3. 三组固定条件与对比边界
+### 3. 三组固定条件与对比边界
 
 | 项目 | 基础 / 改进 | 独立 CUDA |
 | --- | --- | --- |
@@ -82,7 +195,7 @@ Flux+改进量化：
 
 训练固定 GPT6.7B：32 层、H4096、FFN16384、32 heads、S2048、TP8，micro batch1/global batch4，BF16，seed1234/token_seed4321。每个 optimizer step 为四个微批、8192 token，覆盖 32 个 Attention 输出投影及 32 个 MLP 输出投影；本地 K 分别为 512、2048。统一 `NCCL_NVLS_ENABLE=0`、`CUDA_DEVICE_MAX_CONNECTIONS=1`。
 
-## 4. 完整训练次数与结果判定
+### 4. 完整训练次数与结果判定
 
 `--trials 1` 只执行 `compare1`；默认 `--trials 2`，依次执行 `compare1`、`compare2`。每次完整比较内部仍包含两轮、每轮六个完整三组块，组内顺序平衡，第二轮反转；每个窗口独立初始化，10 步预热＋50 步正式计时。**这里的 trials 是独立比较次数，不是每次比较内部的 rounds；选择一次不会取消内部第二轮的顺序平衡。**
 
@@ -114,7 +227,7 @@ smoke/profile 检查需确认：
 - 基础版实际出现独立解码及归约 kernel；改进版出现原融合解码归约 kernel；CUDA 组出现实际 GemmOnly、作者编解码和 NCCL 通信。
 - 分开统计 CPU annotation 与 GPU 镜像 annotation，避免仅凭重复同名标记误判；编译或真实路径错误保留现场并停止。
 
-## 5. 一行启动
+### 5. 一行启动
 
 若重建容器后出现 `Build CUDA Toolkit missing`，先按 [新容器环境恢复](../restore-container.md) 运行恢复脚本。它复用持久化 conda、补齐缺失 Toolkit 与构建依赖，并生成加载固定环境变量的实验启动包装脚本。
 
@@ -159,11 +272,11 @@ logs/h100/phase6/a-baseline-fusion-<1x或2x>-50steps-<北京时间戳>/
 
 ```bash
 python3 tools/h100/phase6/a_baseline.py report /path/to/batch/compare1 --offline
-# 仅测两次时执行：
+## 仅测两次时执行：
 python3 tools/h100/phase6/a_baseline.py report /path/to/batch/compare2 --offline
 ```
 
-## 6. 本地验证状态
+### 6. 本地验证状态
 
 新增 `--trials 1` 后，启动器 **7 项 CPU 回归通过**，覆盖一次比较完成状态、36/1800/288 计数、无 compare2、默认两次流程和失败停止规则；一次比较的命令预览未创建批次目录。见 [单次比较验证](../../../../outputs/h100/phase6/a-baseline-validation-20261024/single-trial-validation.json)、[测试日志](../../../../outputs/h100/phase6/a-baseline-validation-20261024/cpu-single-trial-tests.log)及[命令预览](../../../../outputs/h100/phase6/a-baseline-validation-20261024/launch-preview-single-trial.txt)。本次只调整启动次数，以下保留原实现的完整验证记录。
 

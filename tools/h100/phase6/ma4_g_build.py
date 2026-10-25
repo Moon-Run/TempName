@@ -19,19 +19,21 @@ from scope_plan import model_config
 PROTOCOL = 'h100-ma4-g-v1'
 MANIFEST = 'ma4-g-manifest.json'
 VARIANTS = ('G', 'CR2', 'C', 'R')
+PAIR_VARIANTS = ('G', 'CR2')
 RUNTIME = baseline.RUNTIME
 C_POLICY = baseline.C_POLICY
 INPUTS = tuple(dict.fromkeys(('ma4_g_build.py', 'ma4_g_sources.py', *baseline.INPUTS)))
 canonical = baseline.canonical
 
 
-def prepare(out):
+def prepare(out, pair=False):
+    arms = PAIR_VARIANTS if pair else VARIANTS
     out = Path(out).resolve()
     require(not out.exists(), 'Use a fresh MA4-G build')
     out.mkdir(parents=True)
     reference = baseline.prepare(out/'reference')
     old = read(reference/'manifest.json')
-    for arm in ('CR2', 'C', 'R'):
+    for arm in arms[1:]:
         copy_registered(reference/arm, out/arm, old['variants'][arm]['source_sha256'])
     copy_registered(reference/'CR2', out/'G', old['variants']['CR2']['source_sha256'])
     updates = ma4_g_sources.sources(reference/'CR2')
@@ -42,7 +44,7 @@ def prepare(out):
     for name in ('selection-plan.json', 'config.json', 'TACO_LICENSE.txt'):
         shutil.copy2(reference/name, out/name)
     variants = {}
-    for arm in VARIANTS:
+    for arm in arms:
         item = copy.deepcopy(old['variants']['CR2' if arm == 'G' else arm])
         names = set(item['source_sha256']) | (set(updates) if arm == 'G' else set())
         item.update(python=arm+'/python', source_sha256={name:sha(out/arm/name) for name in sorted(names)})
@@ -67,6 +69,7 @@ def prepare(out):
 def verify(root, built=False):
     root = Path(root).resolve()
     record, info = read(root/MANIFEST), read(root/'manifest.json')
+    arms = tuple(info['variants'])
     require(record['protocol']==PROTOCOL and record['reference_protocol']==baseline.PROTOCOL,
             'Wrong MA4-G source protocol')
     verify_files('/', record['inputs'])
@@ -74,7 +77,8 @@ def verify(root, built=False):
     require(record['inputs']=={str(HERE/name):sha(HERE/name) for name in INPUTS}, 'MA4-G builder changed')
     require(sha(root/'manifest.json')==record['build_manifest_sha256'], 'MA4-G build manifest changed')
     require(info['protocol']==build.PROTOCOL and info['arch']=='sm90' and info['config']==model_config()
-            and not info['source_only'] and not info['diagnostic_only'] and set(info['variants'])==set(VARIANTS),
+            and not info['source_only'] and not info['diagnostic_only'] and arms in (VARIANTS, PAIR_VARIANTS)
+            and set(record['variants']) == set(arms),
             'Wrong MA4-G build configuration')
     baseline.verify(root/'reference')
     ref = read(root/'reference/manifest.json')
@@ -83,7 +87,7 @@ def verify(root, built=False):
     require(read(root/'selection-plan.json')==read(root/'reference/selection-plan.json'), 'C masks/order changed')
     updates = ma4_g_sources.sources(root/'CR2')
     expected['G'] = dict(expected['CR2'], **{name:hashlib.sha256(text.encode()).hexdigest() for name,text in updates.items()})
-    for arm in VARIANTS:
+    for arm in arms:
         hashes = info['variants'][arm]['source_sha256']
         require(hashes==record['variants'][arm]==expected[arm], arm+' differs from registered transform')
         verify_files(root/arm, hashes)
@@ -133,7 +137,7 @@ def compile_check(root, out, cuda_home=None, cxx='g++', host_only=False, torch_p
                 return child.stdout
 
     try:
-        for arm in VARIANTS:
+        for arm in read(root/'manifest.json')['variants']:
             src, dest = root/arm, out/arm
             dest.mkdir()
             host = dest/'mapping.cc'
@@ -201,6 +205,7 @@ def main():
     parser = argparse.ArgumentParser(__doc__)
     sub = parser.add_subparsers(dest='action', required=True)
     p = sub.add_parser('prepare'); p.add_argument('--out', type=Path, required=True)
+    p.add_argument('--pair', action='store_true', help='Prepare only G and CR2 for compilation')
     p = sub.add_parser('verify'); p.add_argument('--build', type=Path, required=True); p.add_argument('--built', action='store_true')
     p = sub.add_parser('build'); p.add_argument('--build', type=Path, required=True)
     p.add_argument('--cuda-home', type=Path, required=True); p.add_argument('--jobs', type=int, default=2); p.add_argument('--nccl-root', type=Path)
@@ -209,7 +214,7 @@ def main():
     p.add_argument('--host-only', action='store_true'); p.add_argument('--cxx', default='g++')
     p.add_argument('--torch-python', type=Path, help='Python with PyTorch headers for the native wrapper check')
     args = parser.parse_args()
-    if args.action == 'prepare': print(prepare(args.out))
+    if args.action == 'prepare': print(prepare(args.out, args.pair))
     elif args.action == 'verify': verify(args.build, args.built)
     elif args.action == 'build': compile_build(args.build, args.cuda_home, args.jobs, args.nccl_root)
     else: compile_check(args.build, args.out, args.cuda_home, args.cxx, args.host_only, args.torch_python)

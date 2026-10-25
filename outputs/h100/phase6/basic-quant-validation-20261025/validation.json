@@ -1,0 +1,73 @@
+{
+  "date": "2026-10-25",
+  "completed": true,
+  "new_gpu_run": false,
+  "gpu_numerical_validation": false,
+  "protocol": "h100-basic-receiver-fusion-fullstep-v2",
+  "arms": [
+    "basic",
+    "cuda"
+  ],
+  "independent_comparisons": 1,
+  "timing_windows": 24,
+  "formal_optimizer_steps": 1200,
+  "cpu_tests": {
+    "command": "python3 -m unittest discover -s tools/h100/phase6 -p 'test_basic_quant*.py' -v",
+    "tests": 20,
+    "passed": 20,
+    "skipped": 0,
+    "log": "cpu-tests.log",
+    "sha256": "ebbea20c9fbe0dbbd2991802fbb2065dcd2260f196aaabeaf3404fad45e2c039"
+  },
+  "cuda_compile": {
+    "completed": true,
+    "cuda_home": "/data/apps/cuda/12.8",
+    "arch": "sm90",
+    "host_compiler": "/usr/bin/g++-11",
+    "codec_shared_library_linked": true,
+    "full_flux_library_linked": false,
+    "manifest": "codec-compile-manifest.json",
+    "manifest_sha256": "ceda41db06d0bf26bc3c67bb3d0508c48500ce4d71ebe0d7817d824306bcc6c3",
+    "exports": [
+      "00000000000016a0 T baseline_taco_decode",
+      "0000000000001360 T baseline_taco_encode",
+      "0000000000001940 T baseline_taco_error",
+      "0000000000001a70 T basic_quant_decode_reduce"
+    ]
+  },
+  "historical_profile_parser_check": {
+    "path": "logs/h100/phase6/a-baseline-fusion-1x-50steps-20261025-001305-210375/compare1/results/profile-cuda/rank0-profile.json.gz",
+    "sha256": "237d6617414c5b4468ca9e32b29163d8d5a7e0a871f95c7d69c39210e0f64214",
+    "policy": "cuda",
+    "passed": true,
+    "roles": [
+      "attn",
+      "mlp"
+    ],
+    "calls_per_role": 128,
+    "separate_bf16_adds_per_role": 1024,
+    "new_experiment_result": false
+  },
+  "launch_preview": {
+    "path": "launch-preview.txt",
+    "sha256": "a4692bf71f539c0b590d6dc95e2c0637a6cf2c14d3437020678c6af4a907888e",
+    "created_batch_directory": false,
+    "read_only": true
+  },
+  "sources": {
+    "tools/h100/phase6/basic_quant.py": "c228d7fd8b88a5398deb606aa197b099f7f2944f8c4a62b05ee3c05a23b8d55b",
+    "tools/h100/phase6/basic_quant_build.py": "d2ec1972782316cfdd7291b3bb16c1c7e8f6293ef7fa4b7afd84550c0c7e106e",
+    "tools/h100/phase6/basic_quant_codec.py": "d51f82006f0bcb6bfbab71eb289d680cc097227048669e1cdc17c0d65a324546",
+    "tools/h100/phase6/basic_quant_prepare.py": "1e9710e5e4735006b1cbae98033c16b4744202170b0e91276459335f3fb42713",
+    "tools/h100/phase6/basic_quant_protocol.py": "fee849a24503b78d0ba668139763e51c58e9884b4f5a0ba02c1128e62aece723",
+    "tools/h100/phase6/basic_quant_receiver.cuh": "bde1ff6b18ab1362d0dccdc2cd7c09cef8f652edfb8bf728f91088468875c3dc",
+    "tools/h100/phase6/basic_quant_report.py": "687824cbfc05e6723def6af83ed970fe71f05386975bf05af1c159984db135b4",
+    "tools/h100/phase6/basic_quant_sources.py": "ea89d12bd93f959a5d9a06d12b88911b52fe1aa78b45a3c1b2b249efe26dad70",
+    "tools/h100/phase6/basic_quant_validation.py": "a477fa813276bc77789ffc977056751cc2ec4f4667305cf329a2d8b34e0850ad",
+    "tools/h100/phase6/detach_basic_quant.py": "c1f105130d2471f976c0ece85c6b4bc247683a0abda04fb2eb603f69204c9c2b",
+    "tools/h100/phase6/run_basic_quant.sh": "0fe35ed91f16702e72ca1a2fe7feb52ad392505ddb6d0bab053c61a59edc30ef",
+    "tools/h100/phase6/test_basic_quant.py": "fbcda4841bd61e1beea2b4375cd6edc42eb2cebd31b199a770b25a2e26e1a661",
+    "tools/h100/phase6/test_basic_quant_launcher.py": "180357ed2dfd4fe6364f69e552d9cf757b08a0fa81f0fcd9eab6aba958cf2589"
+  },
+  "limitation": "CPU fixtures are not GPU data. The new receiver must pass the real eight-rank smoke/profile/numerical gates before timing; no 585-600 ms outcome is claimed."
+}

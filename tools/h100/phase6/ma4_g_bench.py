@@ -25,6 +25,8 @@ REPO = HERE.parents[2]
 SOURCE_PROTOCOL = "h100-ma4-g-v1"
 PROTOCOL = SOURCE_PROTOCOL + "-operator"
 ARMS = ("G", "CR2", "C", "R")
+PAIR_ARMS = ("G", "CR2")
+PAIR_PROTOCOL = SOURCE_PROTOCOL + "-pair-operator-v1"
 ROLES = {"attn": [2048, 4096, 512], "mlp": [2048, 4096, 2048]}
 COMPARISONS = (("G","C"),("G","R"),("G","CR2"),("CR2","C"),("CR2","R"),("R","C"))
 LABELS = {"G":"CR2 plus native CUDA Graph with typed dynamic parameters",
@@ -55,6 +57,34 @@ CASES = ("zero", "small", "outlier", "random")
 BOOTSTRAP_SEED = 20261021
 
 
+def validate_arms(arms):
+    arms = tuple(arms)
+    require(arms in (ARMS, PAIR_ARMS), 'Use G/CR2/C/R or G/CR2 in the registered order')
+    return arms
+
+
+def plan_arms(plan):
+    return validate_arms(plan['arms'])
+
+
+def operator_protocol(arms):
+    return PAIR_PROTOCOL if validate_arms(arms) == PAIR_ARMS else PROTOCOL
+
+
+def comparisons_for(arms):
+    arms = validate_arms(arms)
+    return tuple((a, b) for a, b in COMPARISONS if a in arms and b in arms)
+
+
+def equivalence_pairs(arms):
+    arms = validate_arms(arms)
+    return [[a, b] for a, b in (('G', 'CR2'), ('CR2', 'C')) if a in arms and b in arms]
+
+
+def labels_for(arms):
+    return {arm: LABELS[arm] for arm in validate_arms(arms)}
+
+
 def require(condition, message):
     if not condition:
         raise ValueError(message)
@@ -81,25 +111,26 @@ def save_unchanged(path, value):
         write(path, value)
 
 
-def schedule(blocks=8):
+def schedule(blocks=8, arms=ARMS):
+    arms = validate_arms(arms)
     require(type(blocks) is int and blocks >= 8 and blocks % 8 == 0,
-            "Use a positive multiple of eight complete G/CR2/C/R blocks")
-    first = [list(ARMS[b % 4:] + ARMS[:b % 4]) for b in range(blocks // 2)]
+            "Use a positive multiple of eight complete paired blocks")
+    first = [list(arms[b % len(arms):] + arms[:b % len(arms)]) for b in range(blocks // 2)]
     orders = first + [row[::-1] for row in first[::-1]]
-    return [dict(block=b, arm=arm, index=b * len(ARMS) + i,
+    return [dict(block=b, arm=arm, index=b * len(arms) + i,
                  directory=f"block{b:02d}-{arm}")
             for b, order in enumerate(orders) for i, arm in enumerate(order)]
 
 
-def stage_jobs(stage):
+def stage_jobs(stage, arms=ARMS):
     require(stage in ("preflight", "profile"), "Unknown standalone worker stage")
     return [dict(arm=arm, block=-1, index=i, directory=f"{stage}-{arm}")
-            for i, arm in enumerate(ARMS)]
+            for i, arm in enumerate(validate_arms(arms))]
 
 
-def libraries(build):
+def libraries(build, arms=ARMS):
     result = {}
-    for arm in ARMS:
+    for arm in validate_arms(arms):
         root = (Path(build) / arm).resolve()
         require((root / "python/flux").is_dir(), f"Missing Flux package: {root}")
         paths = {}
@@ -140,9 +171,10 @@ def build_identity(build, builder_root=None):
 
 def prepare(args):
     root, build = args.root.resolve(), args.build.resolve()
-    provenance, identities = build_identity(build), libraries(build)
+    arms = PAIR_ARMS if getattr(args, 'pair', False) else ARMS
+    provenance, identities = build_identity(build), libraries(build, arms)
     selection = read(build/"selection-plan.json")
-    jobs = schedule(args.blocks)
+    jobs = schedule(args.blocks, arms)
     require(args.warmup >= 1 and args.iterations >= 2 and args.reuse >= 2,
             "Positive warmup, at least two timed calls and reuse cycles required")
     require(len(args.seeds) >= 2 and len(set(args.seeds)) == len(args.seeds)
@@ -159,10 +191,10 @@ def prepare(args):
     reference = before + source[source.index("\n@torch.no_grad()\ndef check_taco_output"):]
     (root / "scripts/codec_reference.py").write_text(reference)
     shutil.copy2(REPO / "tools/a800/phase4/reference.py", root / "scripts/reference.py")
-    plan = dict(protocol=PROTOCOL, run_id=uuid.uuid4().hex,
+    plan = dict(protocol=operator_protocol(arms), run_id=uuid.uuid4().hex,
                 created_at=datetime.datetime.now(datetime.timezone.utc).isoformat(),
                 kind="operator_microbenchmark", build=str(build), libraries=identities,
-                build_identity=provenance, selection=selection, roles=ROLES, arms=list(ARMS), arm_labels=LABELS, schedule=jobs,
+                build_identity=provenance, selection=selection, roles=ROLES, arms=list(arms), arm_labels=labels_for(arms), schedule=jobs,
                 warmup=args.warmup, iterations=args.iterations, seeds=args.seeds,
                 cases=list(CASES), reuse=args.reuse, retained_output_calls=6,
                 instance_isolation_calls=6, inplace_update_calls=4,
@@ -182,10 +214,12 @@ def prepare(args):
 def verify(root, offline=False):
     root = Path(root).resolve()
     plan = read(root / "plan.json")
-    require(plan["protocol"] == PROTOCOL and plan["arms"] == list(ARMS), "Wrong G host submission plan")
-    require(plan["arm_labels"] == LABELS, "G host submission control and candidate labels changed")
+    arms = plan_arms(plan)
+    require(plan["protocol"] == operator_protocol(arms), "Wrong G host submission plan")
+    require(plan["arm_labels"] == labels_for(arms), "G host submission control and candidate labels changed")
+    require(set(plan['libraries']) == set(arms), 'Unregistered or missing operator libraries')
     require(plan["roles"] == ROLES and plan["cases"] == list(CASES), "Shapes or correctness cases changed")
-    require(plan["schedule"] == schedule(len(plan["schedule"]) // len(ARMS)),
+    require(plan["schedule"] == schedule(len(plan["schedule"]) // len(arms), arms),
             "Incomplete or changed balanced schedule")
     require(plan["reuse"] >= 2 and plan["retained_output_calls"] >= 6 and
             plan["instance_isolation_calls"] == 6 and plan["inplace_update_calls"] == 4,
@@ -198,12 +232,12 @@ def verify(root, offline=False):
                 "Operator controller differs from its frozen worker")
         require(build_identity(Path(plan["build"]), plan["build_identity"]["builder_root"])
                 == plan["build_identity"], "Frozen build or frontend changed")
-        require(libraries(Path(plan["build"])) == plan["libraries"], "Frozen libraries changed")
+        require(libraries(Path(plan["build"]), arms) == plan["libraries"], "Frozen libraries changed")
     return plan
 
 
 def execution_environment(plan, arm):
-    require(arm in ARMS, "Unknown G host submission arm")
+    require(arm in plan_arms(plan), "Arm is not registered in this experiment")
     return dict(plan["communication"], **plan["shared_environment"],
                 H100_MA4_G_PROTOCOL=SOURCE_PROTOCOL, H100_MA4_G_ARM=arm)
 
@@ -271,7 +305,7 @@ def verify_mapping(rows):
 
 def mapping_evidence(root, plan):
     evidence, reference = {}, {}
-    for arm in ARMS:
+    for arm in plan_arms(plan):
         for role in ROLES:
             path=Path(root)/'results'/f'mapping-{arm}-{role}.csv'
             with path.open() as handle: rows=[{k:int(v) for k,v in row.items()} for row in csv.DictReader(handle)]
@@ -291,7 +325,7 @@ def mapping_evidence(root, plan):
 
 
 def run_mappings(root, plan, python, cuda_home, timeout):
-    for arm in ARMS:
+    for arm in plan_arms(plan):
         library = plan["libraries"][arm]
         flux = next(path for path in library["files"] if Path(path).name == "libflux_cuda.so")
         for role, (m, n, k) in ROLES.items():
@@ -305,7 +339,7 @@ def run_mappings(root, plan, python, cuda_home, timeout):
 def run(args):
     root = args.root.resolve()
     plan = verify(root)
-    jobs = stage_jobs("profile") if args.profile else stage_jobs("preflight") + plan["schedule"]
+    jobs = stage_jobs("profile", plan_arms(plan)) if args.profile else stage_jobs("preflight", plan_arms(plan)) + plan["schedule"]
     python = args.python.expanduser().absolute()  # Preserve a virtualenv launcher symlink.
     prefix = [str(python), "-m", "torch.distributed.run", "--standalone", "--nproc_per_node=8",
               str(root / "scripts/bench.py"), "worker", str(root)]
@@ -529,7 +563,7 @@ def worker(args):
     require(not (args.profile and args.preflight), "Worker stage must be unique")
     root, job = args.root.resolve(), json.loads(args.job)
     plan = verify(root)
-    allowed = stage_jobs("profile" if args.profile else "preflight") if (args.profile or args.preflight) else plan["schedule"]
+    allowed = stage_jobs("profile" if args.profile else "preflight", plan_arms(plan)) if (args.profile or args.preflight) else plan["schedule"]
     require(job in allowed, "Unregistered worker job")
     expected = execution_environment(plan, job["arm"])
     require(all(os.environ.get(k) == v for k, v in expected.items()), "Worker environment differs from frozen plan")
@@ -562,7 +596,7 @@ def worker(args):
     for path, digest in library["files"].items():
         require(sha(path) == digest and path in mapped, f"Frozen library is not loaded: {path}")
     dest = root / "results" / job["directory"]
-    result = dict(protocol=PROTOCOL, run_id=plan["run_id"], plan_sha256=sha(root / "plan.json"),
+    result = dict(protocol=plan["protocol"], run_id=plan["run_id"], plan_sha256=sha(root / "plan.json"),
                   job=job, rank=rank, hardware=dict(host=os.uname().nodename, devices=devices),
                   software=dict(torch=torch.__version__, cuda=torch.version.cuda,
                                 nccl=list(torch.cuda.nccl.version()), python=sys.version),
@@ -731,7 +765,7 @@ def validate_rows(root, plan, jobs, stage, reference=None):
             path = root / "results" / job["directory"] / f"rank{rank}.json"
             row = read(path)
             require(row["completed"] and row["rank"] == rank and row["job"] == job and
-                    row["protocol"] == PROTOCOL and row["run_id"] == plan["run_id"] and
+                    row["protocol"] == plan["protocol"] and row["run_id"] == plan["run_id"] and
                     row["plan_sha256"] == sha(root / "plan.json") and not row["sampling"] and
                     row["profiling"] == (stage == "profile") and row["preflight"] == (stage == "preflight"),
                     "Incomplete or mismatched rank evidence")
@@ -843,10 +877,10 @@ def validate_rows(root, plan, jobs, stage, reference=None):
 def preflight(root, save=True, offline=False):
     root = Path(root).resolve()
     plan = verify(root, offline=offline)
-    identity, hashes, evidence, _ = validate_rows(root, plan, stage_jobs("preflight"), "preflight")
+    identity, hashes, evidence, _ = validate_rows(root, plan, stage_jobs("preflight", plan_arms(plan)), "preflight")
     evidence.update(mapping_evidence(root, plan))
-    result = dict(protocol=PROTOCOL, run_id=plan["run_id"], plan_sha256=sha(root / "plan.json"),
-                  completed=True, correctness_passed=True, bitwise_equal_within_pairs=True, equivalence_pairs=[["G","CR2"],["CR2","C"]],
+    result = dict(protocol=plan["protocol"], run_id=plan["run_id"], plan_sha256=sha(root / "plan.json"),
+                  completed=True, correctness_passed=True, bitwise_equal_within_pairs=True, equivalence_pairs=equivalence_pairs(plan_arms(plan)),
                   actual_mapping_validated=True, instance_isolation_validated=True,
                   cases=list(CASES), measurement_identity=identity,
                   tensor_fingerprints=hashes, evidence_files=evidence, target_validated=False)
@@ -866,15 +900,15 @@ def report(root, save=True, offline=False):
     roles = {}
     for role in ROLES:
         values = {arm: [r["rankmax_wall_us"][role] for r in sorted(samples, key=lambda x: x["block"])
-                        if r["arm"] == arm] for arm in ARMS}
+                        if r["arm"] == arm] for arm in plan_arms(plan)}
         roles[role] = dict(mean_us={arm: statistics.mean(v) for arm, v in values.items()},
-                           comparisons={c + "/" + b: paired(values[c], values[b]) for c, b in COMPARISONS})
-    result = dict(protocol=PROTOCOL, run_id=plan["run_id"], completed=True, correctness_passed=True,
-                  bitwise_equal_within_pairs=True, equivalence_pairs=[["G","CR2"],["CR2","C"]], actual_mapping_validated=True,
-                  measurement_identity=identity, arm_labels=LABELS, roles=roles, all_samples=samples,
+                           comparisons={c + "/" + b: paired(values[c], values[b]) for c, b in comparisons_for(plan_arms(plan))})
+    result = dict(protocol=plan["protocol"], run_id=plan["run_id"], completed=True, correctness_passed=True,
+                  bitwise_equal_within_pairs=True, equivalence_pairs=equivalence_pairs(plan_arms(plan)), actual_mapping_validated=True,
+                  measurement_identity=identity, arm_labels=labels_for(plan_arms(plan)), roles=roles, all_samples=samples,
                   target_validated=False, historical_timings_used=False,
                   acceptance_status="full_step_measurement_required", evidence_files=evidence,
-                  bootstrap=dict(unit="complete fresh-process G/CR2/C/R block; per-window maximum across eight ranks",
+                  bootstrap=dict(unit="complete fresh-process " + "/".join(plan_arms(plan)) + " block; per-window maximum across eight ranks",
                                  samples=10000, seed=BOOTSTRAP_SEED),
                   limitation="All positive, negative and uncertain operator effects are retained; no optimizer-step speedup is claimed.")
     if save:
@@ -1053,10 +1087,10 @@ def profile_summary(root, offline=False):
     timed = report(root, save=False, offline=offline)
     require(read(root / "report.json") == timed, "Saved operator evidence differs from profile source run")
     gate = preflight(root, save=False, offline=offline)
-    _, _, evidence, _ = validate_rows(root, plan, stage_jobs("profile"), "profile",
+    _, _, evidence, _ = validate_rows(root, plan, stage_jobs("profile", plan_arms(plan)), "profile",
         (timed["measurement_identity"], gate["tensor_fingerprints"]))
     profiles = {}
-    for arm in ARMS:
+    for arm in plan_arms(plan):
         for rank in range(8):
             for role in ROLES:
                 path = root / "results" / f"profile-{arm}" / f"rank{rank}-{role}-profile.json.gz"
@@ -1064,7 +1098,7 @@ def profile_summary(root, offline=False):
                     summary = trace_path(json.load(handle)["traceEvents"], arm, role)
                 profiles[f"{arm}/rank{rank}/{role}"] = dict(summary, trace=str(path.relative_to(root)), sha256=sha(path))
                 evidence[str(path.relative_to(root))] = sha(path)
-    return dict(protocol=PROTOCOL, run_id=plan["run_id"], completed=True, arm_labels=LABELS, profiles=profiles,
+    return dict(protocol=plan["protocol"], run_id=plan["run_id"], completed=True, arm_labels=labels_for(plan_arms(plan)), profiles=profiles,
                 execution_path_validated=True, target_validated=False, evidence_files=evidence,
                 limitation="Separately profiled decoder durations validate execution paths, not unprofiled throughput or machine-instruction overlap.")
 
@@ -1076,6 +1110,7 @@ def main():
     p.add_argument("root", type=Path)
     p.add_argument("--build", type=Path, required=True)
     p.add_argument("--blocks", type=int, default=8)
+    p.add_argument("--pair", action="store_true", help="Test only G and CR2")
     p.add_argument("--warmup", type=int, default=100)
     p.add_argument("--iterations", type=int, default=200)
     p.add_argument("--seeds", type=int, nargs="+", default=[817, 919])

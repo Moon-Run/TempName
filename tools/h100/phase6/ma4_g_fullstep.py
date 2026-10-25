@@ -24,6 +24,7 @@ from common import MEGATRON_COMMIT, REPO, replace_once
 from run import arguments as model_arguments
 
 PROTOCOL = "h100-ma4-g-fullstep-v1"
+PAIR_PROTOCOL = "h100-ma4-g-pair-fullstep-v1"
 TARGET_PERCENT = 2.0
 ACCEPTANCE_FIELDS = ('two_percent_over_C_validated','two_percent_over_R_validated',
                      'strict_two_percent_over_C_validated','strict_two_percent_over_R_validated',
@@ -32,6 +33,9 @@ ACCEPTANCE_RULE = ('In BOTH trials, G/C and G/R must each have point speedup >=2
                    'Separately, G/CR2 point and CI95 lower must be >0 to validate the mechanism increment. '
                    'Each same-control 2% target and CI95 lower >=2% are reported separately. '
                    'Require identical trajectories within G/CR2/C; validate R against its own codec reference; preserve every block.')
+PAIR_ACCEPTANCE_RULE = ('One G/CR2 comparison: validate the increment only when point speedup and CI95 lower are >0. '
+                        'Require identical G/CR2 trajectories and preserve every block. '
+                        'C/R are not measured; the original 2% target is not evaluated.')
 
 R_POLICY = 'interleaved_all_attn_mlp'
 C_POLICY = 'interleaved_arrival_selective_attn_mlp'
@@ -51,6 +55,13 @@ MODEL = dict(layers=32, hidden=4096, ffn=16384, heads=32, sequence=2048,
              seed=1234, token_seed=4321, vocab=32768)
 SHARED_ENVIRONMENT = {"CUDA_DEVICE_MAX_CONNECTIONS": "1", "FLUX_GEMM_RS_GEMM_ONLY": "1"}
 read, write, sha, require = bench.read, bench.write, bench.sha, bench.require
+
+
+def experiment(arms):
+    pair = bench.validate_arms(arms) == bench.PAIR_ARMS
+    return dict(protocol=PAIR_PROTOCOL if pair else PROTOCOL,
+                trials=1 if pair else 2, target_percent=None if pair else TARGET_PERCENT,
+                acceptance_rule=PAIR_ACCEPTANCE_RULE if pair else ACCEPTANCE_RULE)
 
 
 def snapshot_megatron(source, target):
@@ -169,21 +180,25 @@ def adapter_source():
     return source
 
 
-def expected_schedule(trials, blocks):
+def expected_schedule(trials, blocks, arms=bench.ARMS):
     return [dict(job, trial=trial + 1,
                  round=1 if job["block"] < blocks // 2 else 2,
                  directory=f"compare{trial+1}/{job['directory']}")
-            for trial in range(trials) for job in bench.schedule(blocks)]
+            for trial in range(trials) for job in bench.schedule(blocks, arms)]
 
 
 def prepare(args):
     root, build, megatron = (p.resolve() for p in (args.root, args.build, args.megatron))
-    provenance, identities = bench.build_identity(build), bench.libraries(build)
+    arms = bench.PAIR_ARMS if getattr(args, 'pair', False) else bench.ARMS
+    setup = experiment(arms)
+    trials = setup['trials'] if args.trials is None else args.trials
+    require(type(trials) is int and trials == setup['trials'],
+            'Use one trial for G/CR2 or two trials for G/CR2/C/R')
+    require(args.blocks >= 8 and args.blocks % 8 == 0, "Use at least eight complete blocks, divisible by eight")
+    provenance, identities = bench.build_identity(build), bench.libraries(build, arms)
     selection=read(build/"selection-plan.json")
     bench.verify_selection(selection)
-    require(type(args.trials) is int and args.trials == 2, "Exactly two independent full-step comparisons are required")
-    require(args.blocks >= 8 and args.blocks % 8 == 0, "Use at least eight complete blocks, divisible by eight")
-    schedule = expected_schedule(args.trials, args.blocks)
+    schedule = expected_schedule(trials, args.blocks, arms)
     root.mkdir(parents=True, exist_ok=False)
     scripts = root / "scripts"
     scripts.mkdir()
@@ -191,13 +206,14 @@ def prepare(args):
     megatron_snapshot = snapshot_megatron(megatron, root / "megatron")
     comm = communication.capture("0")
     config = read(REPO / "tools/a800/phase5/e2e/config.json")
-    config.update(protocol=PROTOCOL, policies=[R_POLICY,C_POLICY], orders=[], repetitions=2,
+    config.update(protocol=setup['protocol'], policies=([C_POLICY] if arms == bench.PAIR_ARMS else [R_POLICY,C_POLICY]),
+                  orders=[], repetitions=trials,
                   warmup_steps=10, timed_steps=50, smoke_warmup_steps=2, smoke_steps=3,
                   graph_forward=False, double_buffered=True, ring_reduction=True,
                   cases=[dict(name="h100-phase6", **{k: MODEL[k] for k in ("hidden", "ffn", "heads", "sequence", "tp")})],
                   common={k: MODEL[k] for k in ("layers", "micro_batch", "global_batch", "seed", "token_seed", "vocab")},
                   role_plan_sha256=role_hashes(selection), communication=comm,
-                  scope="G native dynamic CUDA Graph replay versus unchanged CR2, C and R; full optimizer steps.")
+                  scope="G native dynamic CUDA Graph replay; " + '/'.join(arms) + "; full optimizer steps.")
     write(scripts / "config.json", config)
     (scripts / "adapter.py").write_text(adapter_source())
     (scripts / "taco_support.py").write_text(taco_source())
@@ -212,22 +228,22 @@ def prepare(args):
                          (Path(bench.__file__), "operator-controller.py")):
         shutil.copy2(source, scripts / name)
     write(scripts / "selection-plan.json", selection)
-    for arm in bench.ARMS:
+    for arm in arms:
         parent = root / "build" / arm
         parent.mkdir(parents=True)
         parent.joinpath(policy_for_arm(arm)).symlink_to(identities[arm]["root"], target_is_directory=True)
-    plan = dict(protocol=PROTOCOL, run_id=uuid.uuid4().hex,
-                trial_ids={str(i+1): uuid.uuid4().hex for i in range(args.trials)},
-                trials=args.trials, blocks=args.blocks, model=MODEL, selection=selection,
+    plan = dict(protocol=setup['protocol'], run_id=uuid.uuid4().hex,
+                trial_ids={str(i+1): uuid.uuid4().hex for i in range(trials)},
+                trials=trials, blocks=args.blocks, model=MODEL, selection=selection,
                 kind="full_optimizer_steps", warmup_steps=10, timed_steps=50,
-                build=str(build), libraries=identities, roles=bench.ROLES, arms=list(bench.ARMS),
+                build=str(build), libraries=identities, roles=bench.ROLES, arms=list(arms),
                 build_identity=provenance, communication=comm["environment"], communication_record=comm,
                 shared_environment=dict(SHARED_ENVIRONMENT),
                 megatron=str(root / "megatron"), megatron_commit=MEGATRON_COMMIT,
                 megatron_snapshot=megatron_snapshot, schedule=schedule,
                 source_files={str(p.relative_to(root)): sha(p) for p in scripts.iterdir()},
                 controller_sha256=sha(Path(__file__)), target_validated=False,
-                target_percent=TARGET_PERCENT, acceptance_rule=ACCEPTANCE_RULE,
+                target_percent=setup['target_percent'], acceptance_rule=setup['acceptance_rule'],
                 historical_hardware_reused=False, historical_timings_used=False)
     write(root / "plan.json", plan)
     print(root)
@@ -236,17 +252,19 @@ def prepare(args):
 def verify(root, offline=False):
     root = Path(root).resolve()
     plan = read(root / "plan.json")
-    require(plan["protocol"] == PROTOCOL and plan["model"] == MODEL and plan["arms"] == list(bench.ARMS),
+    arms = bench.plan_arms(plan)
+    setup = experiment(arms)
+    require(plan["protocol"] == setup['protocol'] and plan["model"] == MODEL,
             "Wrong G full-step plan")
-    require(type(plan["trials"]) is int and plan["trials"] == 2 and
+    require(type(plan["trials"]) is int and plan["trials"] == setup['trials'] and
             set(plan["trial_ids"]) == {str(i+1) for i in range(plan["trials"])} and
             len(set(plan["trial_ids"].values())) == plan["trials"], "Missing independent comparison identities")
     require(plan["warmup_steps"] == 10 and plan["timed_steps"] == 50, "Full-step timing changed")
-    require(plan['target_percent'] == TARGET_PERCENT and plan['acceptance_rule'] == ACCEPTANCE_RULE,
+    require(plan['target_percent'] == setup['target_percent'] and plan['acceptance_rule'] == setup['acceptance_rule'],
             'G point-estimate target or acceptance rule changed')
     require(plan["roles"] == bench.ROLES and plan["blocks"] >= 8 and plan["blocks"] % 8 == 0 and
-            plan["schedule"] == expected_schedule(plan["trials"], plan["blocks"]) and
-            set(plan["libraries"]) == set(bench.ARMS), "Incomplete balanced blocks or libraries")
+            plan["schedule"] == expected_schedule(plan["trials"], plan["blocks"], arms) and
+            set(plan["libraries"]) == set(arms), "Incomplete balanced blocks or libraries")
     require(plan["shared_environment"] == SHARED_ENVIRONMENT and
             plan["communication_record"]["environment"] == plan["communication"], "Full-step environment changed")
     bench.verify_selection(plan["selection"])
@@ -260,7 +278,7 @@ def verify(root, offline=False):
                 "Frozen controllers changed")
         require(bench.build_identity(Path(plan["build"]), plan["build_identity"]["builder_root"])
                 == plan["build_identity"], "Frozen build or frontend changed")
-        require(bench.libraries(Path(plan["build"])) == plan["libraries"], "Frozen runtime changed")
+        require(bench.libraries(Path(plan["build"]), arms) == plan["libraries"], "Frozen runtime changed")
         verify_megatron_snapshot(plan["megatron_snapshot"])
     return plan
 
@@ -268,7 +286,7 @@ def verify(root, offline=False):
 def jobs(plan, stage):
     if stage in ("all", "preflight", "profile"):
         mode = "profile" if stage == "profile" else "smoke"
-        for arm in bench.ARMS:
+        for arm in bench.plan_arms(plan):
             yield dict(arm=arm, mode=mode, trial=0, block=-1, index=-1, directory=f"{mode}-{arm}")
     if stage in ("all", "timing"):
         for job in plan["schedule"]:
@@ -328,13 +346,14 @@ def run(args):
 
 
 def window(root, plan, job):
+    require(job['arm'] in bench.plan_arms(plan), 'Unregistered full-step arm')
     rows = [read(root / "results" / job["directory"] / f"rank{r}.json") for r in range(8)]
     policy=policy_for_arm(job["arm"])
     count = 1 if job["mode"] == "profile" else 3 if job["mode"] == "smoke" else 50
     warmup = 2 if job["mode"] == "smoke" else 10
     for rank, row in enumerate(rows):
         require(row["completed"] and row["passed"] and row["rank"] == rank and row["local_rank"] == rank
-                and row["protocol"] == PROTOCOL and row["policy"] == policy and row["mode"] == job["mode"]
+                and row["protocol"] == plan['protocol'] and row["policy"] == policy and row["mode"] == job["mode"]
                 and row["ma4_g_arm"] == job["arm"] and row["world_size"] == 8
                 and row["run_id"] == plan["trial_ids"].get(str(job["trial"]), plan["run_id"])
                 and row["ma4_g_plan_sha256"] == sha(root / "plan.json"), "Wrong or incomplete full-step rank record")
@@ -468,9 +487,10 @@ def preflight(root, offline=False):
         require(current_trajectory == trajectory[key], "G/CR2/C/R preflight loss/gradient trajectories differ")
         for p in (root / "results" / job["directory"]).glob("rank*.json"):
             files[str(p.relative_to(root))] = sha(p)
-    gate = dict(protocol=PROTOCOL, completed=True, run_id=plan["run_id"],
+    gate = dict(protocol=plan['protocol'], completed=True, run_id=plan["run_id"],
                 plan_sha256=sha(root / "plan.json"), rank_identities=reference,
-                identical_trajectories_within_pairs=True, equivalence_pairs=[["G","CR2"],["CR2","C"]], files=files, historical_hardware_reused=False)
+                identical_trajectories_within_pairs=True, equivalence_pairs=bench.equivalence_pairs(bench.plan_arms(plan)),
+                files=files, historical_hardware_reused=False)
     path = root / "preflight.json"
     if path.exists():
         require(read(path) == gate, "Saved preflight differs from raw evidence")
@@ -479,12 +499,15 @@ def preflight(root, offline=False):
     return gate
 
 
-def comparison_acceptance(estimates):
-    require(set(estimates)=={a+'/'+b for a,b in bench.COMPARISONS},'Missing paired comparison')
+def comparison_acceptance(estimates, arms=bench.ARMS):
+    arms = bench.validate_arms(arms)
+    require(set(estimates)=={a+'/'+b for a,b in bench.comparisons_for(arms)},'Missing paired comparison')
     for value in estimates.values():
         require(len(value['ci95'])==2 and all(math.isfinite(v) for v in [value['percent'],*value['ci95']])
                 and value['ci95'][0]<=value['ci95'][1],'Invalid confidence interval')
     positive=lambda k: estimates[k]['percent']>0 and estimates[k]['ci95'][0]>0
+    if arms == bench.PAIR_ARMS:
+        return dict(target_validated=False, increment_over_CR2_validated=positive('G/CR2'))
     point=lambda k: estimates[k]['percent']>=TARGET_PERCENT and positive(k)
     c, r = point('G/C'), point('G/R')
     strict_c, strict_r = (estimates[k]['ci95'][0]>=TARGET_PERCENT for k in ('G/C','G/R'))
@@ -495,8 +518,12 @@ def comparison_acceptance(estimates):
         increment_over_CR2_validated=positive('G/CR2'))
 
 
-def aggregate_acceptance(comparisons):
-    require(len(comparisons) == 2, 'Exactly two independent comparisons are required')
+def aggregate_acceptance(comparisons, arms=bench.ARMS):
+    setup = experiment(arms)
+    require(len(comparisons) == setup['trials'], 'Wrong number of independent comparisons')
+    if tuple(arms) == bench.PAIR_ARMS:
+        return dict(target_validated=False,
+                    increment_over_CR2_validated=all(c['increment_over_CR2_validated'] for c in comparisons.values()))
     result = {key: all(c[key] for c in comparisons.values()) for key in ACCEPTANCE_FIELDS}
     c, r = (result[f'two_percent_over_{arm}_validated'] for arm in ('C','R'))
     result.update(target_validated=c and r, beats_both_two_percent_validated=c and r,
@@ -508,8 +535,9 @@ def aggregate_acceptance(comparisons):
 def report(root, offline=False, save=True):
     root = Path(root).resolve()
     plan, gate = verify(root, offline), preflight(root, offline)
+    arms = bench.plan_arms(plan)
     samples, trajectories, evidence = [], {}, dict(gate["files"])
-    numeric={arm:[] for arm in bench.ARMS}
+    numeric={arm:[] for arm in arms}
     preparation_costs=[]
     for job in jobs(plan, "timing"):
         rows = window(root, plan, job)
@@ -531,25 +559,28 @@ def report(root, offline=False, save=True):
                                 ("round2", [s for s in samples if s["trial"] == trial and s["round"] == 2]),
                                 ("combined", [s for s in samples if s["trial"] == trial])):
             values = {arm: [s["ms_per_step"] for s in sorted(selected, key=lambda x: x["block"]) if s["arm"] == arm]
-                      for arm in bench.ARMS}
+                      for arm in arms}
             summaries[label] = dict(mean_ms={arm: statistics.mean(v) for arm, v in values.items()},
-                comparisons={c + "/" + b: bench.paired(values[c], values[b]) for c, b in bench.COMPARISONS})
+                comparisons={c + "/" + b: bench.paired(values[c], values[b]) for c, b in bench.comparisons_for(arms)})
         estimates = summaries["combined"]["comparisons"]
         comparisons[f"compare{trial}"] = dict(run_id=plan["trial_ids"][str(trial)], rounds=summaries,
-                                              **comparison_acceptance(estimates))
-    outcomes = aggregate_acceptance(comparisons)
-    result = dict(protocol=PROTOCOL, run_id=plan["run_id"], completed=True, correctness_passed=True,
-                  identical_trajectories_within_pairs=True, equivalence_pairs=[["G","CR2"],["CR2","C"]], full_optimizer_steps_measured=True, **outcomes,
-                  target_percent=TARGET_PERCENT,
+                                              **comparison_acceptance(estimates, arms))
+    outcomes = aggregate_acceptance(comparisons, arms)
+    result = dict(protocol=plan['protocol'], run_id=plan["run_id"], completed=True, correctness_passed=True,
+                  identical_trajectories_within_pairs=True, equivalence_pairs=bench.equivalence_pairs(arms), full_optimizer_steps_measured=True, **outcomes,
+                  target_percent=plan['target_percent'],
                   acceptance_status="two_percent_over_both_controls_in_both_trials" if outcomes["target_validated"] else "not_validated",
                   acceptance_rule=plan["acceptance_rule"], comparisons=comparisons, all_samples=samples,
                   formal_optimizer_steps=len(samples) * 50, timing_rank_records=len(samples) * 8,
                   model=MODEL, rank_identities=gate["rank_identities"], evidence_files=evidence,
                   numeric_summary={arm:{key:statistics.mean(row[key] for row in rows) for key in rows[0]} for arm,rows in numeric.items()},
                   shared_environment=plan["shared_environment"], preparation_costs=preparation_costs,
-                  bootstrap=dict(unit="complete fresh-process G/CR2/C/R block", samples=10000, seed=bench.BOOTSTRAP_SEED),
+                  bootstrap=dict(unit="complete fresh-process " + '/'.join(arms) + " block", samples=10000, seed=bench.BOOTSTRAP_SEED),
                   historical_hardware_reused=False, historical_timings_used=False,
                   limitation="Fixed synthetic inputs and this configuration only; no long-term convergence claim.")
+    if arms == bench.PAIR_ARMS:
+        result.update(target_evaluated=False, acceptance_status=(
+            'positive_CR2_increment_in_one_trial' if outcomes['increment_over_CR2_validated'] else 'CR2_increment_not_validated'))
     if save:
         path = root / "report.json"
         if path.exists():
@@ -562,6 +593,20 @@ def report(root, offline=False, save=True):
 
 
 def report_markdown(result):
+    if result['protocol'] == PAIR_PROTOCOL:
+        lines = ['# MA4-G：单轮 G/CR2 完整训练结果', '',
+                 '| 比较 | G / CR2 平均 ms | G/CR2 收益 %［95% CI］ | 正增量 |',
+                 '| --- | --- | --- | --- |']
+        for name, comparison in result['comparisons'].items():
+            combined = comparison['rounds']['combined']
+            value = combined['comparisons']['G/CR2']
+            means = ' / '.join(f"{combined['mean_ms'][arm]:.3f}" for arm in bench.PAIR_ARMS)
+            status = '通过' if comparison['increment_over_CR2_validated'] else '未通过'
+            lines.append(f"| {name} | {means} | {value['percent']:+.3f} [{value['ci95'][0]:+.3f}, {value['ci95'][1]:+.3f}] | {status} |")
+        lines += ['', f"一轮；正式窗口 {len(result['all_samples'])}；正式 optimizer step {result['formal_optimizer_steps']}。",
+                  'G/CR2 点估计和 95% CI 下界均 >0 才确认正增量。未测 C/R，原相对 C/R 的 2% 目标不作判定。',
+                  '完整块配对 bootstrap；保留前后半程、所有窗口、构图开销与数值轨迹。']
+        return '\n'.join(lines) + '\n'
     lines=['# MA4-G：动态参数原生 CUDA Graph 四组完整训练结果','',
            'G：CR2 加原生短图；CR2、C、R 保持原实现。正值为加速，方括号为 95% CI。','',
            '| 比较 | G / CR2 / C / R 平均 ms | G/C % | G/R % | G/CR2 % | CR2/C % | CR2/R % | R/C % | 主目标 |',
@@ -676,7 +721,7 @@ def profile_summary(root, offline=False):
                 profiles[f"{job['arm']}/rank{rank}"] = trace_projection_records(json.load(handle)["traceEvents"], job["arm"])
             for item in (path, directory / f"rank{rank}.json"):
                 evidence[str(item.relative_to(root))] = sha(item)
-    return dict(protocol=PROTOCOL, run_id=plan["run_id"], completed=True, execution_validated=True,
+    return dict(protocol=plan['protocol'], run_id=plan["run_id"], completed=True, execution_validated=True,
                 plan_sha256=sha(root / "plan.json"), profiles=profiles, evidence_files=evidence,
                 limitation="Separate profiles verify execution counts; profiler durations do not estimate unprofiled step savings.")
 
@@ -688,7 +733,8 @@ def main(argv=None):
     p.add_argument("root", type=Path)
     p.add_argument("--build", type=Path, required=True)
     p.add_argument("--megatron", type=Path, default=REPO.parent / "Megatron-LM")
-    p.add_argument("--trials", type=int, choices=(2,), default=2)
+    p.add_argument("--pair", action="store_true", help="One G/CR2 comparison, without C/R")
+    p.add_argument("--trials", type=int, choices=(1,2), help="Defaults to one with --pair, otherwise two")
     p.add_argument("--blocks", type=int, default=8)
     p = sub.add_parser("run")
     p.add_argument("root", type=Path)

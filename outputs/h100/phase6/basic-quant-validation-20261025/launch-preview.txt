@@ -1,0 +1,13 @@
+Batch: /tmp/basic-quant-final-preview-no-experiment
+Basic receiver-only fusion / standalone CUDA codec; shared GemmOnly + encoder + NCCL; Attention + MLP.
+PLAN ONLY: no directories, subprocesses, compilation, forks or GPU queries.
+/usr/bin/python3 /data/run01/scyb672/hjr/TempName/tools/h100/phase6/basic_quant.py flux-prepare /tmp/basic-quant-final-preview-no-experiment/flux-build
+/usr/bin/python3 /data/run01/scyb672/hjr/TempName/tools/h100/phase6/basic_quant.py flux-compile /tmp/basic-quant-final-preview-no-experiment/flux-build --cuda-home /usr/local/cuda-12.8 --jobs 2
+/usr/bin/python3 /data/run01/scyb672/hjr/TempName/tools/h100/phase6/basic_quant.py codec-prepare /tmp/basic-quant-final-preview-no-experiment/codec-build
+/usr/bin/python3 /data/run01/scyb672/hjr/TempName/tools/h100/phase6/basic_quant.py codec-compile /tmp/basic-quant-final-preview-no-experiment/codec-build --cuda-home /usr/local/cuda-12.8
+/usr/bin/python3 /data/run01/scyb672/hjr/TempName/tools/h100/phase6/basic_quant.py prepare /tmp/basic-quant-final-preview-no-experiment/compare1 --flux-build /tmp/basic-quant-final-preview-no-experiment/flux-build --codec-build /tmp/basic-quant-final-preview-no-experiment/codec-build --megatron /data/run01/scyb672/hjr/Megatron-LM --blocks 6 --rounds 2 --nvls-enable 0
+/usr/bin/python3 /data/run01/scyb672/hjr/TempName/tools/h100/phase6/basic_quant.py run /tmp/basic-quant-final-preview-no-experiment/compare1 --python /usr/bin/python3 --cuda-home /usr/local/cuda-12.4 --worker-timeout 1800
+/usr/bin/python3 /data/run01/scyb672/hjr/TempName/tools/h100/phase6/basic_quant.py run /tmp/basic-quant-final-preview-no-experiment/compare1 --python /usr/bin/python3 --cuda-home /usr/local/cuda-12.4 --worker-timeout 1800 --stage all --execute
+/usr/bin/python3 /data/run01/scyb672/hjr/TempName/tools/h100/phase6/basic_quant.py report /tmp/basic-quant-final-preview-no-experiment/compare1
+1 comparison(s), 24 windows / 1200 formal steps; each window 10 warmup + 50 timed steps.
+All performance outcomes are retained; the proposed speed ordering is not guaranteed.

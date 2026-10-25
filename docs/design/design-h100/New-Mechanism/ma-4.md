@@ -183,3 +183,17 @@ python3 outputs/h100/phase6/cr2-next-diagnosis-20261023/profile-runtime.py
 默认使用 CUDA 12.8 构建、CUDA 12.4 运行，与旧入口一致；可用 `--build-cuda-home`、`--cuda-home` 指定。复用构建使用 `--ma4-g-build <目录>`，仅接受本协议完整验证的 G/CR2/C/R 构建，不能直接传旧 CR2 build。
 
 本地 **70 项 CPU 检查通过**（36 项 MA4、34 项旧 CR2 回归）。四组两种 K 的主机映射检查、SM90 runtime 对象/PTX，以及 G 的真实 CUTLASS 模板、发布屏障、PyTorch C++ wrapper 与 pybind 对象编译通过；未完成整套动态库链接，也未运行 GPU。证据见[验证汇总](../../../../outputs/h100/phase6/ma4-g-validation-20261023/validation.json)、[CPU 日志](../../../../outputs/h100/phase6/ma4-g-validation-20261023/cpu-tests.log)、[编译记录](../../../../outputs/h100/phase6/ma4-g-validation-20261023/final/compile-check/validation.json)和[命令预览](../../../../outputs/h100/phase6/ma4-g-validation-20261023/launch-preview.txt)。本地检查不替代八卡正确性、真实 graph trace 或整步性能；**2% 是本轮待验证目标**。
+
+### 7.4. 单轮 G/CR2 对照（2026-10-25）
+
+只测试一轮、只比较 G 与 CR2 时，在原命令中加入 `--pair`：
+
+```bash
+/workspace/conda-envs/flux-h100-ablation3-20261017/bin/python tools/h100/phase6/detach_ma4_g.py --pair --execute
+```
+
+该模式只编译、运行和采集 **G/CR2**；一轮 **8 个顺序平衡的配对块、16 个正式窗口**，每窗口仍为 **10 步预热＋50 步正式测试**，共 **800 个正式 optimizer step、128 份正式 rank 记录**。算子正确性、算子计时/profile、训练预检和训练 profile 仍保留，两种投影均覆盖。构建时保留重建 CR2 所需的参考源码，不编译或执行 C/R。
+
+批次目录为 `logs/h100/phase6/ma4-g-pair-1x-50steps-<北京时间戳>/`。计划和报告使用独立单轮协议，唯一性能比较为 `G/CR2`，保留全部 8 个配对块及前后半程诊断；`increment_over_CR2_validated` 要求本轮点估计与 95% CI 下界均 >0。未测 C/R，因此 `target_percent=null`、`target_evaluated=false`、`target_validated=false`，不据此推算原四组的 2% 目标。负收益仍完整记录，不取消已安排的完整训练。
+
+去掉 `--execute` 仅预览。新建构建只含 G/CR2 两个编译目标；`--ma4-g-build` 可复用通过当前源码身份校验、包含所选两组的构建。省略 `--pair` 保持原两轮四组流程。
