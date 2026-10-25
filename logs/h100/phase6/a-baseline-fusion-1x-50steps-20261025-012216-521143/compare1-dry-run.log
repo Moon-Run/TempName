@@ -1,0 +1,48 @@
+PLAN ONLY: no workers, mappings, CUDA imports or GPU queries
+COMMAND ['/workspace/conda-envs/flux-h100-ablation3-20261017/bin/python', '-m', 'torch.distributed.run', '--standalone', '--nproc_per_node=8', '/workspace/TempName/logs/h100/phase6/a-baseline-fusion-1x-50steps-20261025-012216-521143/compare1/scripts/worker.py', '--num-layers', '32', '--hidden-size', '4096', '--ffn-hidden-size', '16384', '--num-attention-heads', '32', '--seq-length', '2048', '--max-position-embeddings', '2048', '--micro-batch-size', '1', '--global-batch-size', '4', '--seed', '1234', '--vocab-size', '32768', '--tensor-model-parallel-size', '8', '--transformer-impl', 'local', '--position-embedding-type', 'learned_absolute', '--untie-embeddings-and-output-weights', '--no-persist-layer-norm', '--no-masked-softmax-fusion', '--no-bias-gelu-fusion', '--no-bias-dropout-fusion', '--no-rope-fusion', '--train-iters', '1000', '--bf16', '--optimizer', 'adam', '--lr', '1e-4', '--min-lr', '1e-4', '--lr-decay-style', 'constant', '--weight-decay', '0.01', '--adam-beta1', '0.9', '--adam-beta2', '0.95', '--clip-grad', '1.0', '--init-method-std', '0.02', '--hidden-dropout', '0', '--attention-dropout', '0', '--no-gradient-accumulation-fusion', '--pipeline-model-parallel-size', '1', '--context-parallel-size', '1', '--sequence-parallel', '--mock-data', '--tokenizer-type', 'NullTokenizer', '--split', '100,0,0', '--num-workers', '0', '--eval-iters', '0', '--timing-log-level', '0', '--no-check-for-nan-in-loss-and-grad']
+MAPPING ('basic', 'attn', ['/workspace/TempName/logs/h100/phase6/a-baseline-fusion-1x-50steps-20261025-012216-521143/fused-build/basic/check_mapping', '2048', '4096', '4096', '8', '/workspace/TempName/logs/h100/phase6/a-baseline-fusion-1x-50steps-20261025-012216-521143/fused-build/basic/libflux_cuda.so'])
+MAPPING ('basic', 'mlp', ['/workspace/TempName/logs/h100/phase6/a-baseline-fusion-1x-50steps-20261025-012216-521143/fused-build/basic/check_mapping', '2048', '4096', '16384', '8', '/workspace/TempName/logs/h100/phase6/a-baseline-fusion-1x-50steps-20261025-012216-521143/fused-build/basic/libflux_cuda.so'])
+MAPPING ('improved', 'attn', ['/workspace/TempName/logs/h100/phase6/a-baseline-fusion-1x-50steps-20261025-012216-521143/fused-build/improved/check_mapping', '2048', '4096', '4096', '8', '/workspace/TempName/logs/h100/phase6/a-baseline-fusion-1x-50steps-20261025-012216-521143/fused-build/improved/libflux_cuda.so'])
+MAPPING ('improved', 'mlp', ['/workspace/TempName/logs/h100/phase6/a-baseline-fusion-1x-50steps-20261025-012216-521143/fused-build/improved/check_mapping', '2048', '4096', '16384', '8', '/workspace/TempName/logs/h100/phase6/a-baseline-fusion-1x-50steps-20261025-012216-521143/fused-build/improved/libflux_cuda.so'])
+{'policy': 'basic', 'mode': 'smoke', 'block': -1, 'index': -1, 'directory': 'smoke-basic'}
+{'policy': 'improved', 'mode': 'smoke', 'block': -1, 'index': -1, 'directory': 'smoke-improved'}
+{'policy': 'cuda', 'mode': 'smoke', 'block': -1, 'index': -1, 'directory': 'smoke-cuda'}
+{'policy': 'basic', 'mode': 'profile', 'block': -1, 'index': -1, 'directory': 'profile-basic'}
+{'policy': 'improved', 'mode': 'profile', 'block': -1, 'index': -1, 'directory': 'profile-improved'}
+{'policy': 'cuda', 'mode': 'profile', 'block': -1, 'index': -1, 'directory': 'profile-cuda'}
+{'round': 1, 'block': 0, 'index': 0, 'policy': 'improved', 'directory': 'round1/window-000-improved', 'mode': 'timing'}
+{'round': 1, 'block': 0, 'index': 1, 'policy': 'basic', 'directory': 'round1/window-001-basic', 'mode': 'timing'}
+{'round': 1, 'block': 0, 'index': 2, 'policy': 'cuda', 'directory': 'round1/window-002-cuda', 'mode': 'timing'}
+{'round': 1, 'block': 1, 'index': 3, 'policy': 'basic', 'directory': 'round1/window-003-basic', 'mode': 'timing'}
+{'round': 1, 'block': 1, 'index': 4, 'policy': 'cuda', 'directory': 'round1/window-004-cuda', 'mode': 'timing'}
+{'round': 1, 'block': 1, 'index': 5, 'policy': 'improved', 'directory': 'round1/window-005-improved', 'mode': 'timing'}
+{'round': 1, 'block': 2, 'index': 6, 'policy': 'cuda', 'directory': 'round1/window-006-cuda', 'mode': 'timing'}
+{'round': 1, 'block': 2, 'index': 7, 'policy': 'improved', 'directory': 'round1/window-007-improved', 'mode': 'timing'}
+{'round': 1, 'block': 2, 'index': 8, 'policy': 'basic', 'directory': 'round1/window-008-basic', 'mode': 'timing'}
+{'round': 1, 'block': 3, 'index': 9, 'policy': 'improved', 'directory': 'round1/window-009-improved', 'mode': 'timing'}
+{'round': 1, 'block': 3, 'index': 10, 'policy': 'basic', 'directory': 'round1/window-010-basic', 'mode': 'timing'}
+{'round': 1, 'block': 3, 'index': 11, 'policy': 'cuda', 'directory': 'round1/window-011-cuda', 'mode': 'timing'}
+{'round': 1, 'block': 4, 'index': 12, 'policy': 'basic', 'directory': 'round1/window-012-basic', 'mode': 'timing'}
+{'round': 1, 'block': 4, 'index': 13, 'policy': 'cuda', 'directory': 'round1/window-013-cuda', 'mode': 'timing'}
+{'round': 1, 'block': 4, 'index': 14, 'policy': 'improved', 'directory': 'round1/window-014-improved', 'mode': 'timing'}
+{'round': 1, 'block': 5, 'index': 15, 'policy': 'cuda', 'directory': 'round1/window-015-cuda', 'mode': 'timing'}
+{'round': 1, 'block': 5, 'index': 16, 'policy': 'improved', 'directory': 'round1/window-016-improved', 'mode': 'timing'}
+{'round': 1, 'block': 5, 'index': 17, 'policy': 'basic', 'directory': 'round1/window-017-basic', 'mode': 'timing'}
+{'round': 2, 'block': 0, 'index': 0, 'policy': 'basic', 'directory': 'round2/window-000-basic', 'mode': 'timing'}
+{'round': 2, 'block': 0, 'index': 1, 'policy': 'improved', 'directory': 'round2/window-001-improved', 'mode': 'timing'}
+{'round': 2, 'block': 0, 'index': 2, 'policy': 'cuda', 'directory': 'round2/window-002-cuda', 'mode': 'timing'}
+{'round': 2, 'block': 1, 'index': 3, 'policy': 'improved', 'directory': 'round2/window-003-improved', 'mode': 'timing'}
+{'round': 2, 'block': 1, 'index': 4, 'policy': 'cuda', 'directory': 'round2/window-004-cuda', 'mode': 'timing'}
+{'round': 2, 'block': 1, 'index': 5, 'policy': 'basic', 'directory': 'round2/window-005-basic', 'mode': 'timing'}
+{'round': 2, 'block': 2, 'index': 6, 'policy': 'cuda', 'directory': 'round2/window-006-cuda', 'mode': 'timing'}
+{'round': 2, 'block': 2, 'index': 7, 'policy': 'basic', 'directory': 'round2/window-007-basic', 'mode': 'timing'}
+{'round': 2, 'block': 2, 'index': 8, 'policy': 'improved', 'directory': 'round2/window-008-improved', 'mode': 'timing'}
+{'round': 2, 'block': 3, 'index': 9, 'policy': 'basic', 'directory': 'round2/window-009-basic', 'mode': 'timing'}
+{'round': 2, 'block': 3, 'index': 10, 'policy': 'improved', 'directory': 'round2/window-010-improved', 'mode': 'timing'}
+{'round': 2, 'block': 3, 'index': 11, 'policy': 'cuda', 'directory': 'round2/window-011-cuda', 'mode': 'timing'}
+{'round': 2, 'block': 4, 'index': 12, 'policy': 'improved', 'directory': 'round2/window-012-improved', 'mode': 'timing'}
+{'round': 2, 'block': 4, 'index': 13, 'policy': 'cuda', 'directory': 'round2/window-013-cuda', 'mode': 'timing'}
+{'round': 2, 'block': 4, 'index': 14, 'policy': 'basic', 'directory': 'round2/window-014-basic', 'mode': 'timing'}
+{'round': 2, 'block': 5, 'index': 15, 'policy': 'cuda', 'directory': 'round2/window-015-cuda', 'mode': 'timing'}
+{'round': 2, 'block': 5, 'index': 16, 'policy': 'basic', 'directory': 'round2/window-016-basic', 'mode': 'timing'}
+{'round': 2, 'block': 5, 'index': 17, 'policy': 'improved', 'directory': 'round2/window-017-improved', 'mode': 'timing'}
