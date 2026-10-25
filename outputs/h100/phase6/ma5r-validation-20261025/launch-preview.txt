@@ -1,0 +1,12 @@
+Batch: /tmp/ma5r-readonly-preview
+1 candidate(s), 1 trial(s) each, 16 training windows / 800 formal steps.
+PLAN ONLY: no directories, subprocesses, compilation, forks or GPU queries.
+/usr/bin/python3 /data/run01/scyb672/hjr/TempName/tools/h100/phase6/ma5r_build.py prepare --out /tmp/ma5r-readonly-preview/attn-t256-b528-mlp-cr2/build --attn-threads 256 --attn-blocks 528
+/usr/bin/python3 /data/run01/scyb672/hjr/TempName/tools/h100/phase6/ma5r_build.py build --build /tmp/ma5r-readonly-preview/attn-t256-b528-mlp-cr2/build --cuda-home /usr/local/cuda-12.8 --jobs 2
+/usr/bin/python3 /data/run01/scyb672/hjr/TempName/tools/h100/phase6/ma5r_bench.py prepare /tmp/ma5r-readonly-preview/attn-t256-b528-mlp-cr2/operator --build /tmp/ma5r-readonly-preview/attn-t256-b528-mlp-cr2/build --blocks 8
+/usr/bin/python3 /data/run01/scyb672/hjr/TempName/tools/h100/phase6/ma5r_bench.py run /tmp/ma5r-readonly-preview/attn-t256-b528-mlp-cr2/operator --python /usr/bin/python3 --cuda-home /usr/local/cuda-12.4 --worker-timeout 1800 --execute
+/usr/bin/python3 /data/run01/scyb672/hjr/TempName/tools/h100/phase6/ma5r_bench.py run /tmp/ma5r-readonly-preview/attn-t256-b528-mlp-cr2/operator --python /usr/bin/python3 --cuda-home /usr/local/cuda-12.4 --worker-timeout 1800 --profile --execute
+/usr/bin/python3 /data/run01/scyb672/hjr/TempName/tools/h100/phase6/ma5r_fullstep.py prepare /tmp/ma5r-readonly-preview/attn-t256-b528-mlp-cr2/fullstep --build /tmp/ma5r-readonly-preview/attn-t256-b528-mlp-cr2/build --megatron /data/run01/scyb672/hjr/Megatron-LM --trials 1 --blocks 8
+/usr/bin/python3 /data/run01/scyb672/hjr/TempName/tools/h100/phase6/ma5r_fullstep.py run /tmp/ma5r-readonly-preview/attn-t256-b528-mlp-cr2/fullstep --stage all --python /usr/bin/python3 --cuda-home /usr/local/cuda-12.4 --worker-timeout 1800 --execute
+/usr/bin/python3 /data/run01/scyb672/hjr/TempName/tools/h100/phase6/ma5r_fullstep.py run /tmp/ma5r-readonly-preview/attn-t256-b528-mlp-cr2/fullstep --stage profile --python /usr/bin/python3 --cuda-home /usr/local/cuda-12.4 --worker-timeout 1800 --execute
+Every window: 10 warmup + 50 timed full optimizer steps; all performance outcomes retained.
