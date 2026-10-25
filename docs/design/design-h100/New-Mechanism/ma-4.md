@@ -1,8 +1,10 @@
 # MA4：在 CR2 上进一步减少提交与消费边界开销
 
-日期：2026-10-23。**本次选择新增机制路线，首选 CR2 双工作区上的原生 CUDA Graph 动态参数重放，备选 decoder 后融合投影 bias。** 继续缓存 CUTLASS 初始化可作为辅助对照，但目前没有足够证据认为只改这一段就能把相对 C/R 的整步收益提高到 2%。
+更新：2026-10-25，已纳入八卡批次 `ma4-g-pair-1x-50steps-20261025-095400-360259` 的回传结果。**本轮未证实 MA4-G 在 CR2 之上带来端到端提升。** G 平均 **509.221 ms/step**，CR2 平均 **509.771 ms/step**；完整块配对收益为 **+0.107%，95% CI [−0.297%, +0.486%]**，区间跨零。独立 Attention/MLP 算子分别快约 **0.737% / 0.838%**，但没有形成可靠的整步增量。
 
-**当前状态：MA4-G 原生图机制和独立四组测试入口已实现；尚无 MA4 的八卡性能结果，不能声称已达到 2%。** 实现、验证范围与启动命令见第 7 节。已验证的 CR2 实现及其启动入口保持原样，见 [ma-2-ablation.md](ma-2-ablation.md#10-cr2固定形状的原生提交缓存2026-10-23)。本页的 2% 指**相对同期 C/R 的总收益**，不是相对 CR2 再快 2%。
+**批次正常完成，正确性和实际图路径检查通过；`increment_over_CR2_validated=false` 是性能增量未通过，不是运行失败。** 本轮按请求只测一轮 G/CR2，没有同期 C/R，原相对 C/R 的 2% 总收益目标未作判定，也不能与历史 CR2 收益相加。完整结果与离线复核见[第 8 节](#8-单轮八卡实测结果与离线复核2026-10-25)。
+
+以下第 1–7 节保留从 2026-10-23 开始的分析、实现与测试方案：首选 CR2 双工作区原生 CUDA Graph 动态参数重放，备选 decoder 后融合 bias；本批只实现并测试前者。已验证的 CR2 实现及入口见 [ma-2-ablation.md](ma-2-ablation.md#10-cr2固定形状的原生提交缓存2026-10-23)。本页的 2% 始终指**相对同期 C/R 的总收益**，不是相对 CR2 再快 2%。
 
 ## 1. 现状与还需要节省多少时间
 
@@ -143,7 +145,7 @@ python3 outputs/h100/phase6/cr2-next-diagnosis-20261023/profile-analyze.py
 python3 outputs/h100/phase6/cr2-next-diagnosis-20261023/profile-runtime.py
 ```
 
-优先推进 **MA4-G**；将固定准备工作缓存 U 作为归因对照，**MA4-B** 作为独立备选。当前证据足以支持验证这些方向，但不足以承诺 2% 已经实现。
+分析阶段优先推进 **MA4-G**；将固定准备工作缓存 U 作为归因对照，**MA4-B** 作为独立备选。当时的证据支持验证这些方向，没有承诺 2% 已经实现；G 的后续实测结论见第 8 节。
 
 ## 7. MA4-G 实现与启动（2026-10-23）
 
@@ -182,7 +184,7 @@ python3 outputs/h100/phase6/cr2-next-diagnosis-20261023/profile-runtime.py
 
 默认使用 CUDA 12.8 构建、CUDA 12.4 运行，与旧入口一致；可用 `--build-cuda-home`、`--cuda-home` 指定。复用构建使用 `--ma4-g-build <目录>`，仅接受本协议完整验证的 G/CR2/C/R 构建，不能直接传旧 CR2 build。
 
-本地 **70 项 CPU 检查通过**（36 项 MA4、34 项旧 CR2 回归）。四组两种 K 的主机映射检查、SM90 runtime 对象/PTX，以及 G 的真实 CUTLASS 模板、发布屏障、PyTorch C++ wrapper 与 pybind 对象编译通过；未完成整套动态库链接，也未运行 GPU。证据见[验证汇总](../../../../outputs/h100/phase6/ma4-g-validation-20261023/validation.json)、[CPU 日志](../../../../outputs/h100/phase6/ma4-g-validation-20261023/cpu-tests.log)、[编译记录](../../../../outputs/h100/phase6/ma4-g-validation-20261023/final/compile-check/validation.json)和[命令预览](../../../../outputs/h100/phase6/ma4-g-validation-20261023/launch-preview.txt)。本地检查不替代八卡正确性、真实 graph trace 或整步性能；**2% 是本轮待验证目标**。
+上机前（2026-10-23）本地 **70 项 CPU 检查通过**（36 项 MA4、34 项旧 CR2 回归）。四组两种 K 的主机映射检查、SM90 runtime 对象/PTX，以及 G 的真实 CUTLASS 模板、发布屏障、PyTorch C++ wrapper 与 pybind 对象编译通过；当时未完成整套动态库链接，也未运行 GPU。证据见[验证汇总](../../../../outputs/h100/phase6/ma4-g-validation-20261023/validation.json)、[CPU 日志](../../../../outputs/h100/phase6/ma4-g-validation-20261023/cpu-tests.log)、[编译记录](../../../../outputs/h100/phase6/ma4-g-validation-20261023/final/compile-check/validation.json)和[命令预览](../../../../outputs/h100/phase6/ma4-g-validation-20261023/launch-preview.txt)。随后服务器单轮批次已完成构建与八卡运行，实测见第 8 节；这些前置检查本身不构成性能证据。
 
 ### 7.4. 单轮 G/CR2 对照（2026-10-25）
 
@@ -197,3 +199,60 @@ python3 outputs/h100/phase6/cr2-next-diagnosis-20261023/profile-runtime.py
 批次目录为 `logs/h100/phase6/ma4-g-pair-1x-50steps-<北京时间戳>/`。计划和报告使用独立单轮协议，唯一性能比较为 `G/CR2`，保留全部 8 个配对块及前后半程诊断；`increment_over_CR2_validated` 要求本轮点估计与 95% CI 下界均 >0。未测 C/R，因此 `target_percent=null`、`target_evaluated=false`、`target_validated=false`，不据此推算原四组的 2% 目标。负收益仍完整记录，不取消已安排的完整训练。
 
 去掉 `--execute` 仅预览。新建构建只含 G/CR2 两个编译目标；`--ma4-g-build` 可复用通过当前源码身份校验、包含所选两组的构建。省略 `--pair` 保持原两轮四组流程。
+
+## 8. 单轮八卡实测结果与离线复核（2026-10-25）
+
+### 8.1. 端到端：点估计略快，未验证正收益
+
+批次为 `ma4-g-pair-1x-50steps-20261025-095400-360259`，[批次状态](../../../../logs/h100/phase6/ma4-g-pair-1x-50steps-20261025-095400-360259/batch-state.json)为 `completed/done`。实际完成 **1 轮、8 个完整 G/CR2 配对块、16 个正式窗口、128 份正式 rank 记录、800 个正式 optimizer step**；每窗口 10 步预热＋50 步正式，全部窗口保留。
+
+下表来自[完整训练报告](../../../../logs/h100/phase6/ma4-g-pair-1x-50steps-20261025-095400-360259/fullstep/report.json)。每窗口步时为八 rank 最大墙钟除以 50；展示步时取算术均值，收益和区间使用完整块配对对数比及 10000 次 bootstrap。
+
+| 范围 | 配对块 | G 平均 ms/step | CR2 平均 ms/step | G/CR2 收益 %［95% CI］ |
+| --- | ---: | ---: | ---: | --- |
+| 前半程 | 4 | 508.674 | 510.281 | +0.314 [−0.130, +0.565] |
+| 后半程 | 4 | 509.768 | 509.261 | −0.100 [−0.699, +0.603] |
+| **完整一轮** | **8** | **509.221** | **509.771** | **+0.107 [−0.297, +0.486]** |
+
+算术均值差约 **0.550 ms/step**；8 个配对块中 G **4 个更快、4 个更慢**，前后半程点估计也变号。正式区间跨零，因此不能把 +0.107% 写成已确认的端到端加速，也不能据此断言 G 必然更慢。`increment_over_CR2_validated=false`、`acceptance_status=CR2_increment_not_validated` 与这一判断一致。
+
+本批没有 C/R，故 `target_percent=null`、`target_evaluated=false`；`target_validated=false` 在此表示原四组 2% 目标未评估。不能将历史 CR2/C 的约 1% 与本次 G/CR2 点估计拼接，推算 G/C、G/R 或宣称达到 2%。
+
+### 8.2. 正确性与执行覆盖：图确实运行，数值检查通过
+
+运行配置为 **8×H100 80GB HBM3、SM132、PyTorch 2.6.0+cu124、CUDA runtime 12.4、NCCL 2.21.5**；模型保持 32 层、hidden 4096、FFN 16384、sequence 2048、TP8、global batch 4。初始化、输入、mask、映射和软件/硬件身份均按本批计划核对。
+
+- 算子输出通过 G/CR2 逐位一致检查，包含动态地址、原地更新、保留输出、实例交错及慢 rank 场景；依据[算子报告](../../../../logs/h100/phase6/ma4-g-pair-1x-50steps-20261025-095400-360259/operator/report.json)及其前置门禁。
+- 完整训练的对应 rank 全部 `loss`/`grad_norm` 轨迹和最终参数指纹一致，零 skip/fallback。两组正式步平均 loss 都为 **3.793363792**，末步 loss 为 **0.000305734604**，末步 grad norm 为 **0.018002458919**。这属于固定合成输入上的一致性证据。
+- G 的正式记录共 **64 份 rank JSON、4096 个模块记录、8192 个槽状态**。每槽 `graph_build_count=1`，GEMM 参数更新、decoder 参数更新与 `graph_launch_count` 均为 **120**，且 `failed=false`；CR2 每槽同样初始化一次、成功调用 120 次。这里的 120 次包含预热，两个槽合计每模块 `(10+50)×4=240` 次。
+- [独立训练 profile](../../../../logs/h100/phase6/ma4-g-pair-1x-50steps-20261025-095400-360259/fullstep/profile-summary.json)覆盖 16 份 rank trace。每 rank、每角色均有 128 次投影和 128 道发布屏障；G 另核验 128 次 graph launch、128 次 workspace reset 及图节点关联，两组均无输出 clone。
+
+因此，端到端增量未确认并非由于图路径未启用、静默回退或数值门禁失败。
+
+### 8.3. 局部改善存在，但不能代替整步收益
+
+完整算子 API 的无 profiler 计时（含输出分配和最终同步）显示小幅正收益；数据来自[算子报告](../../../../logs/h100/phase6/ma4-g-pair-1x-50steps-20261025-095400-360259/operator/report.json)。
+
+| 角色 | G 平均 μs | CR2 平均 μs | G/CR2 收益 %［95% CI］ |
+| --- | ---: | ---: | --- |
+| Attention | 91.482 | 92.162 | **+0.737 [+0.495, +0.949]** |
+| MLP | 138.644 | 139.818 | **+0.838 [+0.421, +1.337]** |
+
+训练 profile 中，先取每 rank 的角色中位数，再取八 rank 中位数，得到下表（**G / CR2，μs**）：
+
+| 角色 | 投影 CPU 区间 | GEMM | decoder | 发布屏障 |
+| --- | --- | --- | --- | --- |
+| Attention | **87.861 / 98.532** | 64.232 / 65.064 | 11.312 / 10.664 | 488.911 / 471.648 |
+| MLP | **89.202 / 99.248** | 110.560 / 111.312 | 11.888 / 11.040 | 233.112 / 220.279 |
+
+G 的投影 CPU 区间减少约 **10.672 / 10.046 μs**，与减少提交工作的设计方向一致；但同一 profile 中发布屏障时间没有缩短，decoder 也没有变快。Profile 含观测开销，CPU、GPU 和通信会重叠，不能把 CPU 差值乘以 256 直接当成可兑现的整步节省，也不能单凭屏障时长认定根因。
+
+**本批支持“减少了主机投影开销，短算子约快 0.7%–0.8%”；不支持“已有可靠端到端增量”。** U 与 bias 融合均未测，不能从本结果判断它们的效果。
+
+### 8.4. 初始化成本与离线复核
+
+G 在正式预热前显式准备 128 图/rank。跨 64 份正式 rank/window 记录，准备耗时中位数为 **5.662 s**，其中原生逐槽构图计时求和的中位数为 **24.291 ms/rank**。前者还包括 IPC/工作区构造和集合等待，不是纯构图时间。G 首个预热步骤中位为 **3.109 s**，CR2 为 **8.754 s**；G 已把部分初始化移到前置准备，不能只比较首个预热步骤就认定启动更快。两组 PyTorch 峰值 allocated 均为 **16.429 GiB**；准备阶段的设备空闲显存变化也不能直接当成图的净显存开销。
+
+已用与回传冻结脚本 SHA256 一致的控制器，离线重算**算子报告、完整训练报告、算子 profile 汇总、训练 profile 汇总**，四份结果均与回传 JSON 完全一致；核对了全部窗口、数值门禁、原生状态和图执行路径。原始计划、报告、门禁和批次状态的哈希在复核前后不变。证据见[复核脚本](../../../../outputs/h100/phase6/ma4-g-results-audit-20261025/audit.py)、[复核 JSON](../../../../outputs/h100/phase6/ma4-g-results-audit-20261025/audit.json)和[复核日志](../../../../outputs/h100/phase6/ma4-g-results-audit-20261025/audit.log)。本地未重跑 GPU，也未重新加载或重验服务器动态库文件。
+
+当前应继续把 **CR2 作为已验证的性能基线**；MA4-G 保留为已通过正确性与路径验证、但本轮端到端增量未获确认的实验结果。
