@@ -12,7 +12,9 @@ import types
 PROTOCOL = 'h100-ma8-f4-activation-cache-v1'
 ARMS = ('F4', 'F4-cache')
 CLASS_SHA256 = '0f1975a4582b1e31ce8d5a5a9189f820cfb8a35abb91a025e8c330a198258bea'
-COLUMN_FORWARD_SHA256 = 'fd242d309b08e9711486439da4b3881513056deb16643f2d98d241da3191a8b9'
+# Pin normalized inspect.getsource(), retaining the method's first-line indent
+# before dedenting. ast.get_source_segment() drops only that first-line indent.
+COLUMN_FORWARD_SHA256 = '9ee66b4f84be3e67664610ec0311e26e8a8b2f463a0088c6a242178ba0f5bd82'
 SUFFIX_ROLES = {'.self_attention.linear_qkv': 'qkv', '.mlp.linear_fc1': 'fc1'}
 
 
@@ -22,8 +24,10 @@ def normalized(source):
 
 def require_source(source, expected):
     source = normalized(source)
-    if hashlib.sha256(source.encode()).hexdigest() != expected:
-        raise RuntimeError('MA8 requires the pinned, unmodified Megatron source')
+    actual = hashlib.sha256(source.encode()).hexdigest()
+    if actual != expected:
+        raise RuntimeError('MA8 requires the pinned, unmodified Megatron source: '
+                           f'expected SHA256 {expected}, got {actual}')
     return source
 
 

@@ -1,0 +1,73 @@
+{
+  "date": "2026-10-26",
+  "gpu_used": false,
+  "gpu_validated": false,
+  "performance_validated": false,
+  "failure_batch": "logs/h100/phase6/ma8-v1-cache-1x-50steps-20261026-201336-451664",
+  "cause": "AST method extraction dropped only first-line indentation; pinned digest did not match normalized inspect.getsource()",
+  "megatron_layers_sha256": "d20bf5a85610b995799d5a9372600cdf9ad32a6763d6a68e804a6b0f15ef4e8b",
+  "local_and_returned_megatron_identical": true,
+  "old_column_forward_sha256": "fd242d309b08e9711486439da4b3881513056deb16643f2d98d241da3191a8b9",
+  "corrected_column_forward_sha256": "9ee66b4f84be3e67664610ec0311e26e8a8b2f463a0088c6a242178ba0f5bd82",
+  "unchanged_autograd_class_sha256": "0f1975a4582b1e31ce8d5a5a9189f820cfb8a35abb91a025e8c330a198258bea",
+  "pre_fix_regression": {
+    "tests": 3,
+    "errors": 4,
+    "expected_failure": true,
+    "note": "Original source guard rejected real inspect.getsource in both F4 and F4-cache installation."
+  },
+  "adapter": {
+    "command": [
+      "/data/run01/scyb672/conda_envs/flux-megatron-a800/bin/python",
+      "-S",
+      "-u",
+      "-c",
+      "import sys; sys.path.append(\"/data/run01/scyb672/conda_envs/flux-megatron-a800/lib/python3.10/site-packages\"); sys.path.insert(0,\"tools/h100/phase6\"); import torch; print(\"torch=\"+torch.__version__, flush=True); import unittest; suite=unittest.defaultTestLoader.loadTestsFromName(\"test_ma8_adapter\"); result=unittest.TextTestRunner(verbosity=2).run(suite); sys.exit(not result.wasSuccessful())"
+    ],
+    "cwd": "/data/run01/scyb672/hjr/TempName",
+    "environment": {
+      "OMP_NUM_THREADS": "1",
+      "MKL_NUM_THREADS": "1"
+    },
+    "tests": 13,
+    "passed": 13,
+    "skipped": 0,
+    "returncode": 0,
+    "log": "adapter-tests.log",
+    "note": "Actual PyTorch CPU arithmetic and real file-backed inspect.getsource; simulated TP collectives and installation layer/device attributes. CPU profiler emitted GPU discovery code 35 on this host; all CPU tests passed."
+  },
+  "controllers": {
+    "command": [
+      "python3",
+      "-m",
+      "unittest",
+      "test_ma8_build",
+      "test_ma8_online_worker",
+      "test_ma8_harness",
+      "test_ma8_launcher",
+      "test_ma8_profile",
+      "test_ma8_review",
+      "-v"
+    ],
+    "cwd": "/data/run01/scyb672/hjr/TempName",
+    "environment": {
+      "PYTHONPATH": "tools/h100/phase6"
+    },
+    "tests": 39,
+    "passed": 39,
+    "skipped": 0,
+    "returncode": 0,
+    "log": "controller-tests.log"
+  },
+  "total_tests_passed": 52,
+  "failed_batch_frozen_source_files_verified": 38,
+  "source_sha256": {
+    "tools/h100/phase6/ma8_adapter.py": "1bab136f051bf6af77da69304aea919be5b0b271d23f648f360ff6b861bbb13f",
+    "tools/h100/phase6/test_ma8_adapter.py": "19a1e7ab621853e2b933187e2a7ea4c5c01c382a813c50898e091289ecc3af60"
+  },
+  "evidence_sha256": {
+    "adapter-tests.log": "10b340b5a777d2e8cc4cc6a1497e3403752e5aaeea271090c47314a884bc0525",
+    "controller-tests.log": "23e88e0da862e454d911bd597bc90ac02ed9ff560aa7196d5e7af27f06585c28"
+  },
+  "limitation": "No GPU rerun or new performance result. Start a new batch/build; old snapshots and source/binary identity checks are preserved."
+}

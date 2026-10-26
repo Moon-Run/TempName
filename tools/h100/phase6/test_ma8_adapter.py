@@ -2,6 +2,7 @@
 import ast
 from functools import partial
 import hashlib
+import inspect
 import json
 from pathlib import Path
 import sys
@@ -17,10 +18,11 @@ import ma8_adapter as ma8
 
 REPO = Path(__file__).resolve().parents[3]
 LAYERS = REPO.parent / 'Megatron-LM/megatron/core/tensor_parallel/layers.py'
+FAILED_BATCH = REPO / 'logs/h100/phase6/ma8-v1-cache-1x-50steps-20261026-201336-451664'
 
 
-def pinned_source():
-    text = LAYERS.read_text()
+def pinned_source(path=LAYERS):
+    text = path.read_text()
     tree = ast.parse(text)
     node = next(n for n in tree.body if isinstance(n, ast.ClassDef) and
                 n.name == 'LinearWithGradAccumulationAndAsyncCommunication')
@@ -80,6 +82,36 @@ def fixture(include_scope=False, real_amp=False):
     return (io, functions, scope) if include_scope else (io, functions)
 
 
+def inspectable_layers(testcase, path=LAYERS, changed_column=False):
+    """Load original methods from a real file; never mock inspect.getsource.
+
+    AST identifies the method's lines only. Its first-line indentation must
+    remain intact, just as it does when inspect reads the production class.
+    The constructor and CUDA collectives are not needed for installation.
+    """
+    text = path.read_text()
+    cls = next(n for n in ast.parse(text).body if isinstance(n, ast.ClassDef)
+               and n.name == 'ColumnParallelLinear')
+    method = next(n for n in cls.body if isinstance(n, ast.FunctionDef) and n.name == 'forward')
+    column = ''.join(text.splitlines(keepends=True)[method.lineno - 1:method.end_lineno])
+    if changed_column:
+        column = ma8.replace_once(column, 'return output, output_bias', 'return output, None')
+    source = pinned_source(path) + '\n\nclass ColumnParallelLinear:\n' + column
+    temp = tempfile.TemporaryDirectory(prefix='ma8-inspect-source-')
+    testcase.addCleanup(temp.cleanup)
+    file = Path(temp.name) / 'layers.py'
+    file.write_text(source)
+    _, _, namespace = fixture(include_scope=True)
+    module = types.ModuleType('ma8_source_fixture_' + file.parent.name.replace('-', '_'))
+    module.__file__ = str(file)
+    module.__dict__.update(namespace, Optional=Optional)
+    registered = patch.dict(sys.modules, {module.__name__: module})
+    registered.start()
+    testcase.addCleanup(registered.stop)
+    exec(compile(source, str(file), 'exec'), module.__dict__)
+    return module
+
+
 def apply(function, values, state):
     return function.apply(*values, False, False, True, None, None, state)
 
@@ -113,11 +145,30 @@ class SourceTests(unittest.TestCase):
             ma8.cached_class_source(source.replace('grad_input =', 'grad_input  ='))
 
     def test_column_forward_contract(self):
-        source = LAYERS.read_text()
-        cls = next(n for n in ast.parse(source).body if isinstance(n, ast.ClassDef) and
-                   n.name == 'ColumnParallelLinear')
+        layers = inspectable_layers(self)
+        source = inspect.getsource(layers.ColumnParallelLinear.forward)
+        self.assertTrue(source.startswith('    def forward('))
+        ma8.require_source(source, ma8.COLUMN_FORWARD_SHA256)
+
+    def test_returned_failure_is_reproduced_without_gpu_or_source_mock(self):
+        path = FAILED_BATCH / 'fullstep/megatron/megatron/core/tensor_parallel/layers.py'
+        adapter = FAILED_BATCH / 'fullstep/scripts/ma8_adapter.py'
+        old_digest = next(ast.literal_eval(n.value) for n in ast.parse(adapter.read_text()).body
+                          if isinstance(n, ast.Assign) and any(isinstance(t, ast.Name)
+                          and t.id == 'COLUMN_FORWARD_SHA256' for t in n.targets))
+        layers = inspectable_layers(self, path)
+        runtime_source = inspect.getsource(layers.ColumnParallelLinear.forward)
+        with self.assertRaisesRegex(RuntimeError, 'pinned, unmodified Megatron source'):
+            ma8.require_source(runtime_source, old_digest)
+        ma8.require_source(runtime_source, ma8.COLUMN_FORWARD_SHA256)
+
+        text = path.read_text()
+        cls = next(n for n in ast.parse(text).body if isinstance(n, ast.ClassDef)
+                   and n.name == 'ColumnParallelLinear')
         method = next(n for n in cls.body if isinstance(n, ast.FunctionDef) and n.name == 'forward')
-        ma8.require_source(ast.get_source_segment(source, method), ma8.COLUMN_FORWARD_SHA256)
+        # The old test accepted precisely this differently indented extraction.
+        ma8.require_source(ast.get_source_segment(text, method), old_digest)
+        self.assertNotEqual(old_digest, ma8.COLUMN_FORWARD_SHA256)
 
     def test_instance_binding_survives_forward_impl_reset_without_global_patch(self):
         class Tensor:
@@ -319,15 +370,10 @@ class ArithmeticTests(unittest.TestCase):
 
 
 class InstallationTests(unittest.TestCase):
-    def fixture(self):
-        _, _, namespace = fixture(include_scope=True)
-        text = LAYERS.read_text()
-        cls = next(n for n in ast.parse(text).body if isinstance(n, ast.ClassDef) and n.name == 'ColumnParallelLinear')
-        method_node = next(n for n in cls.body if isinstance(n, ast.FunctionDef) and n.name == 'forward')
-        method_source = ma8.normalized(ast.get_source_segment(text, method_node))
-        namespace['Optional'] = Optional
-        exec(compile(method_source, '<ma8-pinned-column-forward-test>', 'exec'), namespace)
-        original_forward = namespace['forward']
+    def fixture(self, changed_column=False):
+        layers = inspectable_layers(self, changed_column=changed_column)
+        Column = layers.ColumnParallelLinear
+        original_forward = Column.forward
 
         class FakeWeight:
             requires_grad = True
@@ -338,56 +384,45 @@ class InstallationTests(unittest.TestCase):
             def is_contiguous(self): return True
             def data_ptr(self): return id(self)
 
-        class Column:
-            forward = original_forward
-            training = True
-            sequence_parallel = True
-            allreduce_dgrad = gradient_accumulation_fusion = explicit_expert_comm = False
-            disable_grad_reduce = gather_output = False
-
-            def __init__(self, role): self.weight = FakeWeight(role)
-
-        layers = types.ModuleType('megatron.core.tensor_parallel.layers')
-        for key, value in namespace.items(): setattr(layers, key, value)
-        layers.ColumnParallelLinear = Column
+        Column.training = Column.sequence_parallel = True
+        Column.allreduce_dgrad = Column.gradient_accumulation_fusion = Column.explicit_expert_comm = False
+        Column.disable_grad_reduce = Column.gather_output = False
         config = types.SimpleNamespace(num_layers=32, hidden_size=4096,
             tensor_model_parallel_size=8, pipeline_model_parallel_size=1,
             sequence_parallel=True, gradient_accumulation_fusion=False,
             recompute_granularity=None, enable_cuda_graph=False, external_cuda_graph=False,
             cpu_offloading=False, defer_embedding_wgrad_compute=False)
-        modules = [(f'decoder.layers.{i}{suffix}', Column(role))
+        modules = [(f'decoder.layers.{i}{suffix}', Column())
             for i in range(32) for suffix, role in ma8.SUFFIX_ROLES.items()]
+        for name, module in modules:
+            module.weight = FakeWeight('qkv' if name.endswith('linear_qkv') else 'fc1')
         model = types.SimpleNamespace(training=True, config=config, named_modules=lambda: iter(modules))
         packages = {name: types.ModuleType(name) for name in
             ('megatron', 'megatron.core', 'megatron.core.tensor_parallel')}
         packages['megatron.core.tensor_parallel'].layers = layers
 
-        def source_for(obj):
-            if obj is layers.LinearWithGradAccumulationAndAsyncCommunication: return pinned_source()
-            if obj is original_forward: return method_source
-            raise AssertionError('Unexpected source lookup')
-
-        return model, modules, packages, source_for, original_forward
+        return model, modules, packages, original_forward
 
     def test_all_64_instances_and_duplicate_install_rejection(self):
-        model, modules, packages, source_for, original = self.fixture()
-        with patch.dict(sys.modules, packages), patch.object(ma8.inspect, 'getsource', source_for):
-            tracker = ma8.install_activation_cache(model, 'F4-cache')
-            self.assertEqual(len(tracker.states), 64)
-            self.assertTrue(all(module.forward.__func__ is not original for _, module in modules))
-            self.assertIs(type(modules[0][1]).forward, original)
-            with self.assertRaisesRegex(RuntimeError, 'installed twice'):
-                ma8.install_activation_cache(model, 'F4-cache')
+        for arm in ma8.ARMS:
+            with self.subTest(arm=arm):
+                model, modules, packages, original = self.fixture()
+                with patch.dict(sys.modules, packages):
+                    tracker = ma8.install_activation_cache(model, arm)
+                    self.assertEqual(len(tracker.states), 64)
+                    self.assertTrue(all(module.forward.__func__ is not original for _, module in modules))
+                    self.assertIs(type(modules[0][1]).forward, original)
+                    with self.assertRaisesRegex(RuntimeError, 'installed twice'):
+                        ma8.install_activation_cache(model, arm)
 
     def test_late_invalid_module_or_missing_scope_never_half_patches(self):
         for defect in ('last_shape', 'missing_module', 'source_hash', 'recompute'):
             with self.subTest(defect=defect):
-                model, modules, packages, source_for, original = self.fixture()
+                model, modules, packages, original = self.fixture(changed_column=defect == 'source_hash')
                 if defect == 'last_shape': modules[-1][1].weight.shape = (999, 4096)
                 if defect == 'missing_module': modules.pop()
-                if defect == 'source_hash': source_for = lambda obj: 'class Changed: pass\n'
                 if defect == 'recompute': model.config.recompute_granularity = 'full'
-                with patch.dict(sys.modules, packages), patch.object(ma8.inspect, 'getsource', source_for):
+                with patch.dict(sys.modules, packages):
                     with self.assertRaises(RuntimeError):
                         ma8.install_activation_cache(model, 'F4-cache')
                 self.assertTrue(all(module.forward.__func__ is original for _, module in modules))

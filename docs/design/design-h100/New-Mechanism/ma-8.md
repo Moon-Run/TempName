@@ -1,6 +1,6 @@
 # MA8：保留前向已收集的激活，删除反向重复 AllGather
 
-**2026-10-26，设计与可执行对比实验。目标：相对同期 CR3 减少至少 2% 的完整 optimizer step 时间；尚无 MA8 八卡性能结果。**
+**2026-10-26，首次八卡批次在训练预检因源码指纹错误退出，现已修复，待重新上机。** 失败发生在 `smoke-F4` 的 `ColumnParallelLinear.forward` 源码校验，没有正式训练窗口或整步性能结果，详见[第 8 节](#8-首次上机失败与源码指纹修复)。相对同期 CR3 减少至少 2% 的完整 optimizer step 时间仍是实验目标。
 
 本轮只引入一种机制：**QKV／FC1 前向 AllGather 的完整输入由该次 autograd 节点独立持有，反向 wgrad 直接复用，删除对同一输入的第二次 AllGather。** 实验名为 `F4-cache`，对照 `F4` 即 [baseline.md](baseline.md) 的 CR3。原 CR3 的 row-parallel 投影、选择性量化、producer、发布屏障、decoder＋bias/residual、LayerNorm 及其反向保持原实现。
 
@@ -187,11 +187,52 @@ bash tools/h100/phase6/run_ma8.sh --foreground --execute
 
 ## 7. 验证边界
 
-**51 项本地测试全部通过，零跳过**，记录见 [validation.json](../../../../outputs/h100/phase6/ma8-validation-20261026/validation.json)：
+**首次上机前的 51 项本地测试全部通过，零跳过**，记录见 [validation.json](../../../../outputs/h100/phase6/ma8-validation-20261026/validation.json)：
 
 - 12 项 adapter 检查：PyTorch `2.6.0+cu124` 的 CPU 数值执行，BF16／FP32、三次参数更新与四个 microbatch 累积、非连续上游梯度、共享 buffer 被覆盖、保存张量版本检查、64 模块完整安装与失败不留下部分补丁；还实际验证了 AMP 装饰器、CPU profiler 中的 Function 名称、autograd sequence 和标记范围。
 - 9 项构建／在线 worker 检查：两组 native 源码与注册 F4 逐字节一致，篡改来源或动态库身份会拒绝；真实冻结 worker 在首次导入 Torch 前完成在线检查。测试占位库没有被加载，不属于编译或 GPU 运行证据。
 - 30 项 harness／launcher／profile 检查：完整梯度和末态参数比较、平衡配对、2% 判定、负结果保留、冻结控制器独立复算，以及错误通信次数、依赖、stream、复制和未知清零的拒绝。
 - 实际 shell 两轮预览确认 32 窗口／1600 正式步骤，未创建预览批次目录；生成 Python 源码与 shell 语法通过。八份历史 trace 的列／行投影检查也全部通过。
 
-本页的历史 trace 分析与本地 CPU 验证不等于新的 GPU 实测。MA8 未在本次编写期间执行八卡训练或完整 native 链接，未产生候选步时或加速率；**2% 是明确的实验目标，不是已实现结论**。CPU collective 为模拟实现，实际 NCCL、显存峰值、GPU 数值与性能均由上述启动脚本验收。
+上述为首次上机前的历史验证，未覆盖实际 `inspect.getsource()` 读取类方法的缩进；安装测试当时 mock 了取源接口，因此没有发现第 8 节的问题。后续批次已完成构建和独立算子阶段，但在完整训练预检退出。CPU collective 仍为模拟实现，实际 NCCL、显存峰值、GPU 数值与性能需重新上机验收；**2% 是实验目标，不是已实现结论**。
+
+
+## 8. 首次上机失败与源码指纹修复
+
+### 8.1. 失败发生在训练初始化
+
+批次 [`ma8-v1-cache-1x-50steps-20261026-201336-451664`](../../../../logs/h100/phase6/ma8-v1-cache-1x-50steps-20261026-201336-451664/batch-state.json) 的构建、独立 row 投影算子正确性／计时／profile 已完成，随后在完整训练的第一个 `smoke-F4` 退出。八个 rank 在安装 column 激活缓存适配器时均遇到同一错误，见 [process.log](../../../../logs/h100/phase6/ma8-v1-cache-1x-50steps-20261026-201336-451664/fullstep/results/smoke-F4/process.log)：
+
+```text
+require_source(inspect.getsource(original_forward), COLUMN_FORWARD_SHA256)
+RuntimeError: MA8 requires the pinned, unmodified Megatron source
+```
+
+后续 `SIGTERM` 是 torchrun 在 worker 失败后关闭其他进程。日志没有将失败指向其他进程占用 GPU 或显存不足。完整训练没有生成 `preflight.json`、正式 `report.json` 或 `profile-summary.json`；独立 row 算子完成也不代表 column 缓存机制已通过全模型验证。
+
+### 8.2. 根因与修复范围
+
+回传的 Megatron `layers.py` 与本地文件 SHA256 一致，源码没有发生版本漂移。错误来自预存指纹的生成方式：旧测试用 `ast.get_source_segment()` 截取类方法，首行 `def` 的四个空格被移除，其余行仍保留类内缩进；此时 `textwrap.dedent()` 无法整体去掉四个空格。运行时 `inspect.getsource()` 则保留首行缩进，整体去缩进后得到另一份文本。
+
+| 取源方式 | 归一化后的 `ColumnParallelLinear.forward` SHA256 |
+| --- | --- |
+| 旧 AST 片段，首行缩进已丢失 | `fd242d309b08e9711486439da4b3881513056deb16643f2d98d241da3191a8b9` |
+| 实际运行时 `inspect.getsource()` | `9ee66b4f84be3e67664610ec0311e26e8a8b2f463a0088c6a242178ba0f5bd82` |
+
+[ma8_adapter.py](../../../../tools/h100/phase6/ma8_adapter.py) 已固定为正确的运行时指纹，并在不匹配时同时报告预期与实际 SHA256。**仍然只接受一个固定指纹**，没有删除校验、增加绕过选项或自动接受新源码；前后向数学、激活所有权、通信调度和数值门槛均未改动。
+
+[test_ma8_adapter.py](../../../../tools/h100/phase6/test_ma8_adapter.py) 改为将原始类／方法写入临时模块，由真实 `inspect.getsource()` 读取，不再 mock 该接口。新增回归使用本批冻结源码复现旧指纹失败，并验证修复后的指纹通过；F4 和 F4-cache 均覆盖全部 64 个目标模块的安装，源码被改动、末尾模块不合法或覆盖缺失时仍必须拒绝且不留下部分安装。
+
+### 8.3. 验证与重新启动
+
+**修复后 52 项本地测试通过，零跳过**，见 [validation.json](../../../../outputs/h100/phase6/ma8-source-identity-fix-20261026/validation.json)。其中 [13 项 adapter 测试](../../../../outputs/h100/phase6/ma8-source-identity-fix-20261026/adapter-tests.log)覆盖真实源码读取、两组各 64 模块安装、源码漂移拒绝及原 BF16／FP32 梯度／三步更新；[39 项控制器测试](../../../../outputs/h100/phase6/ma8-source-identity-fix-20261026/controller-tests.log)覆盖冻结身份、在线 worker、完整训练报告、profile 及启动入口。修复前，同一真实取源回归已在两组安装路径复现原错误。
+
+安装回归使用模拟层属性与真实 `inspect.getsource()`，数值测试使用 PyTorch CPU 和模拟 TP collective；这不代替 H100 运行。失败批次全部冻结脚本哈希仍与原计划一致。本次没有重新运行 GPU，也没有修改失败批次的冻结脚本、计划、报告或日志。
+
+同步修复提交后，在 H100 容器仓库根目录启动新批次：
+
+```bash
+bash tools/h100/phase6/run_ma8.sh --execute
+```
+
+默认命令会创建新 build 和新批次。旧 build 的身份记录包含 `ma8_adapter.py` 哈希，因此**不能直接用旧 `--ma8-build` 复用，也不能就地修改原失败快照继续计时**。修复后的 800 个正式训练步骤及 profile 仍须重新完成，才能判断 MA8 是否有收益。
