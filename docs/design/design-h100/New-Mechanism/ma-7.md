@@ -1,6 +1,10 @@
 # MA7：CR3 的权重梯度异步旁路
 
-**状态：2026-10-26，机制与对比入口已实现，等待 H100 TP8 实测。本文没有新的 GPU 性能结果。** 新候选记为 `F4-wgrad`，对照 `F4` 就是 [baseline.md](baseline.md) 中的 CR3。目标是让输入梯度继续向前一层传播时，权重梯度在辅助 CUDA stream 上计算；每个 microbatch 的反向结束后统一建立完成依赖，再允许梯度同步和参数更新。
+**更新：2026-10-26，MA7-v1 八卡正式训练已完成并离线复核，当前候选显著退化。** 同期 F4 / `F4-wgrad` 平均为 **516.226 / 564.637 ms/step**，候选平均增加 **48.411 ms/step**；配对收益为 **−9.378%［95% CI：−9.722%, −9.029%］**，8 个块全部更慢。算子及完整模型数值检查通过，保留 CR3，不将本配置作为加速候选启用。详见[第 8 节](#8-ma7-v1-八卡结果)。
+
+**批次最终状态仍为 `failed`，阶段为 `fullstep-profile`。** 两组 profile worker 均完成，但原校验器把 F4 本身 wgrad `aten::mm` 内的 4 字节 memset 也作为禁止事件拒绝，未生成正式训练 `profile-summary.json`。本次保留这一失败状态，另对全部 16 份 trace 做独立诊断；不能将“训练计时完成”写成“全部路径门槛通过”。
+
+候选记为 `F4-wgrad`，对照 `F4` 就是 [baseline.md](baseline.md) 中的 CR3。原设计目标是让输入梯度继续向前一层传播时，权重梯度在辅助 CUDA stream 上计算；每个 microbatch 的反向结束后统一建立完成依赖，再允许梯度同步和参数更新。第 1–6 节保留设计、实现与复现协议，第 7 节为上机前本地检查，第 8 节为本次实测结论。
 
 启动入口为 [run_ma7.sh](../../../../tools/h100/phase6/run_ma7.sh)：
 
@@ -9,7 +13,7 @@
 bash tools/h100/phase6/run_ma7.sh --execute
 ```
 
-这是一项新的**反向调度实验**。前向仍完整使用原 CR3，不叠加 MA6 mask/layout、tile、异步 bias/AllGather 或 CUDA Graph。最终是否缩短约 500 ms 的完整训练步，必须看本轮同期 `F4-wgrad/F4` 的配对结果。
+这是一项**反向调度实验**。前向仍完整使用原 CR3，不叠加 MA6 mask/layout、tile、异步 bias/AllGather 或 CUDA Graph。上面的命令保留作实验复现入口；本轮同期 `F4-wgrad/F4` 已显示负增量，不代表推荐的训练加速配置。
 
 ## 1. 为什么选择 wgrad
 
@@ -175,7 +179,7 @@ bash tools/h100/phase6/run_ma7.sh \
 
 ## 7. 本地验证边界
 
-当前工作环境可使用 PyTorch 2.6.0＋CUDA 12.4 的 Python，但没有可见 GPU。CPU 数值/调度测试、冻结源码与 build 身份测试、离线报告隔离、启动预览可在这里完成；实际 H100 的完整链接、CUDA stream 并发、NCCL 路径和整步性能仍需运行上述入口。
+以下记录是上机前在无可见 GPU 的本地环境完成的检查，使用 PyTorch 2.6.0＋CUDA 12.4 的 Python。它们验证 CPU 数值/调度、冻结源码与 build 身份、离线报告隔离和启动预览；不替代第 8 节的服务器训练记录及实际 trace。
 
 已完成的检查：
 
@@ -185,4 +189,105 @@ bash tools/h100/phase6/run_ma7.sh \
 - 两臂注册源码身份、在线冻结 worker 的源码/动态库变更拒绝、冻结训练控制器的只读导入、正负性能判定及 trace 的缺失等待/错误 stream 拒绝均通过。
 - 实际 shell 两轮预览显示 **32 窗口／1600 正式步**，没有创建批次目录；shell 语法与生成的 worker/adapter 源码解析通过。
 
-完整验证记录见 [validation.json](../../../../outputs/h100/phase6/ma7-validation-20261026/validation.json)，其中 `gpu_used`、`gpu_validated`、`performance_validated` 和 `linked_runtime` 均为 `false`。在八卡结果回传前，MA7 只是一项有实现和严格验收流程的候选机制；历史 501.433 ms 继续是 CR3 的历史结果，不写入未经测量的 MA7 步时。
+完整验证记录见 [validation.json](../../../../outputs/h100/phase6/ma7-validation-20261026/validation.json)，其中 `gpu_used`、`gpu_validated`、`performance_validated` 和 `linked_runtime` 均保持 `false`。这些历史本地记录没有被后续 GPU 结果回写；历史 501.433 ms 也继续属于原 CR3 批次，本轮只使用自己的同期对照。
+
+## 8. MA7-v1 八卡结果
+
+### 8.1. 完成范围与结论
+
+批次为 [`ma7-v1-wgrad-1x-50steps-20261026-171946-355178`](../../../../logs/h100/phase6/ma7-v1-wgrad-1x-50steps-20261026-171946-355178/batch-state.json)。在 H100 TP8 上完成 **1 trial、8 个完整两组块、16 个训练计时窗口、128 份正式 rank 记录、800 个正式 optimizer steps**；每窗口另有 10 步预热。两组各保留 8 个窗口、64 份 rank 记录及 400 个正式步骤。
+
+算子预检、完整训练预检和全部正式计时通过数值检查。最后的两组训练 profile 也都生成了八 rank 记录与 trace，但汇总校验失败，因此整个监督流程没有成为 `completed`，`increment_over_F4_validated["F4-wgrad"]` 为 `false`。
+
+**本轮结果是当前实现的明确负结果：它没有缩短关键路径，反而使整步耗时增加约 9.38%。** 该判断来自已完成的无 profiler 正式窗口，不依赖失败的 profile 汇总，也不是拿候选新数据与历史 501.433 ms 跨批次相减。
+
+### 8.2. 同期完整训练：8/8 个块更慢
+
+来源为[完整训练报告](../../../../logs/h100/phase6/ma7-v1-wgrad-1x-50steps-20261026-171946-355178/fullstep/report.json)。窗口步时为八 rank 最大总墙钟 / 50；收益采用完整块配对对数比及 10000 次 bootstrap，正数表示候选更快。前后半程是同一 trial，不是两次独立复现。
+
+| 范围 | 配对块 | F4 平均 ms/step | F4-wgrad 平均 ms/step | wgrad/F4 收益 %［95% CI］ |
+| --- | ---: | ---: | ---: | --- |
+| 前半程 | 4 | 515.414 | 565.004 | −9.621 [−9.994, −9.138] |
+| 后半程 | 4 | 517.039 | 564.271 | −9.135 [−9.618, −8.725] |
+| **完整一轮** | **8** | **516.226** | **564.637** | **−9.378 [−9.722, −9.029]** |
+
+整轮均值增加 **48.411 ms/step**；每个配对块增加 **44.644–51.997 ms/step**。F4 全部窗口为 **513.394–520.986 ms**，候选为 **560.543–567.653 ms**，没有删除慢窗口。窗口中位数分别为 **516.076 / 564.863 ms**。按每步 8192 token 换算，吞吐为 **15869.01 / 14508.43 tokens/s**。
+
+这是单次固定配置实验，不能推广成所有 wgrad 延迟方案都无效；但本轮退化在前后半程和全部配对块上方向一致，不应继续把当前配置当作待确认的小幅正收益。
+
+### 8.3. 数值保持与前向对照
+
+[算子预检](../../../../logs/h100/phase6/ma7-v1-wgrad-1x-50steps-20261026-171946-355178/operator/preflight.json)通过前向逐位、input/weight/bias/residual 四类梯度及三步更新检查；[完整训练预检](../../../../logs/h100/phase6/ma7-v1-wgrad-1x-50steps-20261026-171946-355178/fullstep/preflight.json)覆盖每 rank 的 **389 个可训练参数张量**及三步梯度/更新指纹。正式窗口同块同 rank 的 loss、grad_norm 轨迹与最终参数指纹一致。
+
+两组 mean loss 均为 `3.793363792030723`，final loss 为 `0.00030573460389859974`，final grad norm 为 `0.01800245891878419`。这是固定合成输入的短程数值一致性结果，不构成长程收敛结论。
+
+每组 64 份正式 rank 记录包含 **4096 份模块反向状态**。每模块 forward/backward/drain 均为 **240 次**，候选 deferred/CUDA wgrad、原 `main_grad` 累积与 drained 计数也均为 240；pending 为零，无失败和串行回退。对照全部为原 F4 backward。两组异步 gather 计数均为零，因此没有混入 MA6 的 gather 重排。
+
+[算子报告](../../../../logs/h100/phase6/ma7-v1-wgrad-1x-50steps-20261026-171946-355178/operator/report.json)只计完整前向 `projection+bias+residual`：
+
+| 角色 | F4 平均 μs | F4-wgrad 平均 μs | wgrad/F4 收益 %［95% CI］ |
+| --- | ---: | ---: | --- |
+| Attention | 92.971 | 92.995 | −0.025 [−0.165, +0.111] |
+| MLP | 139.744 | 139.809 | −0.045 [−0.479, +0.280] |
+
+两角色前向区间均跨零，与两组 native 前向相同的实验设置一致；这不是反向优化成功的证据。[算子 profile](../../../../logs/h100/phase6/ma7-v1-wgrad-1x-50steps-20261026-171946-355178/operator/profile-summary.json)通过原 F4 producer、发布屏障、fused decoder 的实际路径检查。
+
+### 8.4. 训练 profile 为什么失败
+
+[原始错误日志](../../../../logs/h100/phase6/ma7-v1-wgrad-1x-50steps-20261026-171946-355178/fullstep-profile.log)显示，失败发生在离线式 trace 汇总的 `trace_backward_records`：
+
+```text
+ValueError: Backward introduced a GPU copy or memset
+```
+
+原校验器首先处理 `profile-F4/rank0`，因此**首个拒绝对象就是原 F4 对照**，并非候选数值失败或训练 worker 崩溃。回传包含两组各 8 份已完成的 profile rank 记录和 16 份压缩 trace，但没有 `fullstep/profile-summary.json`。
+
+本次按 CPU 调用区间、launch correlation 和 autograd sequence 重新关联全部投影 backward：两组每 rank 都有 **128 次 4 字节 `gpu_memset`**，每组八 rank 共 **1024 次**；全部处在 `aten::mm` / `aten::matmul` 内，首个失败样本发生在 wgrad 的 cuBLAS GEMM 前，未发现这些投影 backward 内的 GPU memcpy。它们在两组中具有相同的数量、大小和调用归属；trace 不提供足以确定其 cuBLAS 内部具体用途的信息。
+
+所以本次错误信息中的 “introduced” 不能解释为“候选新引入了张量复制”：原检查把既有 matmul 内的清零也一并禁止了。独立诊断保留并计数这些事件，没有删掉所有 memset 后把原 gate 改成通过；原始 `batch-state.json`、错误日志和缺失的正式汇总状态均未改写。
+
+### 8.5. 独立诊断：确实换了 stream，但未观察到目标重叠
+
+详见 [trace-audit.json](../../../../outputs/h100/phase6/ma7-v1-results-audit-20261026/trace-audit.json)。它是对原始 trace 的附加诊断，**不替代原协议的正式路径验收**。
+
+每组八 rank 共覆盖 **2048 次投影及 backward**，每角色 1024 次。前向仍是原 F4 decoder→原 LayerNorm。候选每 rank 的 256 次 wgrad 和对应 `main_grad.add_` 确实位于同一条辅助 stream，区别于主计算和 NCCL stream；dgrad 输入依赖顺序保持。每 rank 有 4 次 microbatch drain，每次候选有一次 stream join，对照为零，即候选八 rank 共 32 次 join。
+
+但是，按预先定义的“当前 backward 返回后、microbatch drain 之前提交的后续主 stream kernel”口径，候选 **Attention 0/1024、MLP 0/1024** 次 wgrad 与这些 kernel 发生重叠。另去掉 CPU 提交时间/线程筛选，直接检查 wgrad 与其余主计算 stream kernel 的 GPU 时间区间，仍为 **0/2048**。实际移到另一条 stream，并未在本次 profile 中实现所期待的计算重叠。
+
+以下先取每 rank 的角色中位数，再取八 rank 中位数，单位 μs：
+
+| 指标 | F4：Attention / MLP | F4-wgrad：Attention / MLP |
+| --- | ---: | ---: |
+| backward CPU 区间 | 368.385 / 366.446 | 578.907 / 583.008 |
+| AllGather kernel | 524.872 / 586.192 | 513.088 / 590.464 |
+| dgrad GEMM | 17.104 / 46.352 | 17.152 / 46.392 |
+| wgrad GEMM | 16.640 / 49.728 | 16.752 / 49.920 |
+| dgrad 结束→wgrad 结束 | 18.472 / 54.728 | 19.280 / 56.136 |
+| wgrad 与上述主 stream 后续 kernel 的重叠 | 0 / 0 | 0 / 0 |
+
+wgrad 本身并没有明显变快，候选 backward 的 CPU 区间则增加约 **211 / 217 μs**。这与额外的 Python 队列、stream 切换、事件和存储生命周期管理带来提交开销的解释相容，但**不能把有 profiler 的 CPU 中位数乘以调用数，直接解释正式训练增加的 48.411 ms**。目前没有隔离这些开销的消融，也不能把原因全部归给 SM/带宽争用。
+
+两组共享 `CUDA_DEVICE_MAX_CONNECTIONS=1`。它是后续检查 stream 调度时应考虑的既有约束，本批没有改变连接数的对照，不能单独认定它就是零重叠的原因。独立 profile 的 GPU span 八 rank 中位数为 **836.746 / 900.056 ms**，均高于正式训练步时；它们仅用于诊断，不能替代无 profiler 的性能结论。
+
+### 8.6. 显存代价
+
+取每窗口八 rank 最大峰值，再跨本组 8 个窗口汇总，单位 GiB：
+
+| 指标 | F4 | F4-wgrad | 候选增量 |
+| --- | ---: | ---: | ---: |
+| allocated 峰值的窗口均值 | 16.428934 | 16.520907 | +0.091972 |
+| allocated 峰值的窗口最大值 | 16.429307 | 16.521107 | +0.091801 |
+| reserved 峰值的窗口均值 | 16.638672 | 17.546875 | +0.908203 |
+| reserved 峰值的窗口最大值 | 16.638672 | 17.638672 | +1.000000 |
+
+即 allocated 均值约增加 **94.18 MiB**，reserved 均值增加 **930 MiB**、窗口最大值增加 **1 GiB**。这是实际分配/缓存峰值口径，不等于第 3 节的逻辑张量容量估算，也不能据此把整步退化归因于显存容量不足。
+
+### 8.7. 复核范围与后续判断
+
+本次使用回传的冻结控制器，以 `offline=True`、`save=False` 重算**算子报告、算子 profile 汇总、完整训练报告**，三份均与回传 JSON 逐字段相等。另从全部 128 份正式 rank 记录重算每窗口八 rank 最大步时、8 个配对块及前半/后半/整轮 bootstrap，均与报告一致；全部 16 份训练 trace 的原 backward gate 均复现同一 memset 拒绝。
+
+**37 份冻结脚本/配置**通过计划哈希核验，启动时记录的 **60 个本地控制器依赖**与当前仓库一致；11 份关键状态、计划、预检、报告及错误日志在复核前后 SHA256 不变。回传未包含服务器 `build/` 与动态库本体，因此核对范围为冻结源码、构建/运行身份记录、rank 记录及 trace，没有重新加载或核验服务器二进制本体。
+
+复核入口和结果分别见 [audit.py](../../../../outputs/h100/phase6/ma7-v1-results-audit-20261026/audit.py) 与 [audit.json](../../../../outputs/h100/phase6/ma7-v1-results-audit-20261026/audit.json)。本次更新实验文档并新增独立复核记录，未修改运行实现、未回写历史日志、未重跑 GPU。
+
+**后续保留 F4/CR3，不将 MA7-v1 升为默认配置，也不将原样追加两轮作为首要动作。** 先针对原对照已有的 matmul 内部 memset 修正审计器的事件分类，并用现有 trace 做离线验证；任何修正都应保留对未知复制/清零的检查。若继续研究 wgrad 旁路，应先查清为何本配置没有形成目标重叠，以及额外提交成本来自哪里，再决定是否实现新版本。现有负结果不能被审计器修复变成正收益。
