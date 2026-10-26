@@ -44,10 +44,22 @@ class SourceContractTests(unittest.TestCase):
         self.assertEqual(right['forward_calls'], 0)
         self.assertIsNone(right._ma6_op_id)
         self.assertEqual(json.loads(json.dumps(left)), dict(left))
-        self.assertEqual(set(left), {'protocol', 'arm', 'forward_calls', 'backward_calls',
+        self.assertEqual(set(left), {'protocol', 'arm', 'gather_schedule', 'forward_calls', 'backward_calls',
             'baseline_backward_calls', 'async_gather_calls', 'wait_calls', 'failed', 'active'})
+        self.assertEqual(left['gather_schedule'], 'baseline')
+        self.assertIsNone(left._ma6_gather_metadata)
         with self.assertRaises(ValueError):
             ma6_adapter.new_backward_state('CR2')
+
+    def test_schedule_is_validated_and_baked_into_generated_source(self):
+        with self.assertRaisesRegex(ValueError, 'schedule'):
+            ma6_adapter.new_backward_state('F4-gather', 'unknown')
+        with self.assertRaisesRegex(ValueError, 'schedule'):
+            ma6_adapter.consumer_autograd_source('unknown')
+        source = ma6_adapter.consumer_autograd_source('wait-first')
+        self.assertIn("DEFAULT_GATHER_SCHEDULE = 'wait-first'", source)
+        state = ma6_adapter.new_backward_state('F4-gather', 'wait-first')
+        self.assertEqual(state['gather_schedule'], 'wait-first')
 
 
 @unittest.skipIf(torch is None, 'Run with the actual PyTorch CPU environment')
@@ -98,14 +110,16 @@ class NumericalTests(unittest.TestCase):
 
     def test_all_four_gradients_and_three_parameter_updates_match_reference(self):
         for dtype in (torch.bfloat16, torch.float32):
-            for arm in ma6_adapter.ARMS:
-                with self.subTest(dtype=dtype, arm=arm):
+            combinations = [(arm, 'overlap') for arm in ma6_adapter.ARMS]
+            combinations.append(('F4-gather', 'wait-first'))
+            for arm, schedule in combinations:
+                with self.subTest(dtype=dtype, arm=arm, schedule=schedule):
                     torch.manual_seed(487)
                     initial = [torch.randn(shape, dtype=dtype) for shape in
                                ((16, 1, 8), (12, 8), (12,), (2, 1, 12))]
                     candidate = [value.clone().requires_grad_() for value in initial]
                     reference = [value.clone().requires_grad_() for value in initial]
-                    state = ma6_adapter.new_backward_state(arm)
+                    state = ma6_adapter.new_backward_state(arm, schedule)
                     projection = self.projection
 
                     class Op:
@@ -142,6 +156,23 @@ class NumericalTests(unittest.TestCase):
                     self.assertFalse(state['active'])
                     self.assertIsNone(state._ma6_pending)
 
+    def test_metadata_binds_tp_group_once_without_retaining_tensor_storage(self):
+        helper = self.scope['_ma6_gather_metadata']
+        state = ma6_adapter.new_backward_state('F4-gather')
+        tensor = torch.ones((2, 1, 12), dtype=torch.bfloat16)
+        getter = self.scope['parallel_state'].get_tensor_model_parallel_group
+        with patch.object(self.scope['parallel_state'], 'get_tensor_model_parallel_group',
+                          wraps=getter) as group_getter:
+            with patch.object(torch.distributed, 'get_world_size', return_value=8) as size_getter:
+                metadata = helper(tensor, state)
+                for _ in range(3):
+                    self.assertIs(helper(tensor.clone(), state), metadata)
+                self.assertEqual(group_getter.call_count, 1)
+                self.assertEqual(size_getter.call_count, 1)
+        self.assertEqual(metadata[2], (16, 1, 12))
+        self.assertIs(metadata[1], self.group)
+        self.assertFalse(any(isinstance(item, torch.Tensor) for item in metadata))
+
     def test_noncontiguous_gradient_keeps_original_bias_semantics(self):
         torch.manual_seed(16)
         values = [torch.randn(shape, dtype=torch.bfloat16, requires_grad=True)
@@ -176,9 +207,8 @@ class NumericalTests(unittest.TestCase):
             validate(changed, first)
 
 
-@unittest.skipIf(torch is None, 'Run with the actual PyTorch CPU environment')
 class SchedulingTests(unittest.TestCase):
-    def make(self, arm, fail=None):
+    def make(self, arm, fail=None, schedule='overlap'):
         log = []
 
         class Tensor:
@@ -192,6 +222,9 @@ class SchedulingTests(unittest.TestCase):
 
             def size(self):
                 return self.shape
+
+            def stride(self):
+                return (12, 12, 1)
 
             def contiguous(self):
                 log.append('contiguous')
@@ -210,7 +243,10 @@ class SchedulingTests(unittest.TestCase):
                 return self
 
             def matmul(self, other):
-                log.append('dgrad' if other.name == 'weight' else 'wgrad')
+                stage = 'dgrad' if other.name == 'weight' else 'wgrad'
+                log.append(stage)
+                if fail == stage:
+                    raise RuntimeError('synthetic ' + stage + ' failure')
                 return Tensor('result')
 
         class Work:
@@ -230,15 +266,15 @@ class SchedulingTests(unittest.TestCase):
             log.append('sync_gather')
             return Tensor('full')
 
-        fake_torch = SimpleNamespace(autograd=torch.autograd,
+        fake_torch = SimpleNamespace(autograd=SimpleNamespace(Function=object),
             distributed=SimpleNamespace(get_world_size=lambda group: 8),
             empty=lambda *args, **kwargs: Tensor('full'))
         scope = dict(torch=fake_torch,
             parallel_state=SimpleNamespace(get_tensor_model_parallel_world_size=lambda: 8,
                                            get_tensor_model_parallel_group=lambda: object()),
             _gather_along_first_dim=synchronous, dist_all_gather_func=asynchronous)
-        exec(ma6_adapter.consumer_autograd_source(), scope)
-        state = ma6_adapter.new_backward_state(arm)
+        exec(ma6_adapter.consumer_autograd_source(schedule), scope)
+        state = scope['new_backward_state'](arm)
         ctx = SimpleNamespace(ma6_state=state, ma6_backward_done=False,
                               saved_tensors=(Tensor('input'), Tensor('weight')), bias_shape=(12,))
         return scope['ConsumerGemmRSFunction'], ctx, Tensor('g'), state, log
@@ -255,23 +291,52 @@ class SchedulingTests(unittest.TestCase):
                 self.assertEqual(log, ['bias', 'contiguous', 'sync_gather', 'dgrad', 'wgrad'])
             self.assertEqual(state['backward_calls'], 1)
 
-    def test_async_failures_never_fallback_or_allow_a_second_collective(self):
-        for stage in ('launch', 'bias', 'wait'):
-            with self.subTest(stage=stage):
-                function, ctx, grad, state, log = self.make('F4-gather', fail=stage)
-                with self.assertRaisesRegex(RuntimeError, 'synthetic'):
+    def test_wait_first_uses_same_collective_and_moves_only_wait(self):
+        function, ctx, grad, state, log = self.make('F4-gather', schedule='wait-first')
+        function.backward(ctx, grad)
+        self.assertEqual(log, ['contiguous', 'async_gather', 'wait', 'bias', 'dgrad', 'wgrad'])
+        self.assertEqual(state['async_gather_calls'], 1)
+        self.assertEqual(state['wait_calls'], 1)
+
+    def test_bound_tensor_signature_drift_is_rejected_before_second_collective(self):
+        for field, replacement in (('shape', (3, 1, 12)), ('dtype', 'FP32'),
+                                   ('device', 'cuda:1'), ('stride', lambda: (24, 24, 2))):
+            with self.subTest(field=field):
+                function, ctx, grad, state, log = self.make('F4-gather')
+                function.backward(ctx, grad)
+                ctx.ma6_backward_done = False
+                setattr(grad, field, replacement)
+                with self.assertRaisesRegex(RuntimeError, 'changed after binding'):
                     function.backward(ctx, grad)
                 self.assertTrue(state['failed'])
-                self.assertFalse(state['active'])
-                self.assertEqual(state['backward_calls'], 0)
                 self.assertEqual(log.count('async_gather'), 1)
-                self.assertNotIn('sync_gather', log)
-                self.assertNotIn('dgrad', log)
-                if stage != 'launch':
-                    self.assertIsNotNone(state._ma6_pending)
-                with self.assertRaisesRegex(RuntimeError, 'failed backward'):
-                    function.backward(ctx, grad)
-                self.assertEqual(log.count('async_gather'), 1)
+
+    def test_schedule_identity_mutation_is_rejected(self):
+        function, ctx, grad, state, log = self.make('F4-gather')
+        state['gather_schedule'] = 'wait-first'
+        with self.assertRaisesRegex(RuntimeError, 'Invalid MA6'):
+            function.backward(ctx, grad)
+        self.assertEqual(log, [])
+
+    def test_async_failures_never_fallback_or_allow_a_second_collective(self):
+        for schedule in ma6_adapter.GATHER_SCHEDULES:
+            for stage in ('launch', 'bias', 'wait'):
+                with self.subTest(stage=stage, schedule=schedule):
+                    function, ctx, grad, state, log = self.make('F4-gather', fail=stage,
+                                                              schedule=schedule)
+                    with self.assertRaisesRegex(RuntimeError, 'synthetic'):
+                        function.backward(ctx, grad)
+                    self.assertTrue(state['failed'])
+                    self.assertFalse(state['active'])
+                    self.assertEqual(state['backward_calls'], 0)
+                    self.assertEqual(log.count('async_gather'), 1)
+                    self.assertNotIn('sync_gather', log)
+                    self.assertNotIn('dgrad', log)
+                    if stage != 'launch':
+                        self.assertIsNotNone(state._ma6_pending)
+                    with self.assertRaisesRegex(RuntimeError, 'failed backward'):
+                        function.backward(ctx, grad)
+                    self.assertEqual(log.count('async_gather'), 1)
 
     def test_repeated_backward_is_rejected_before_relaunch(self):
         function, ctx, grad, state, log = self.make('F4-gather')
@@ -280,6 +345,23 @@ class SchedulingTests(unittest.TestCase):
             function.backward(ctx, grad)
         self.assertEqual(log.count('async_gather'), 1)
         self.assertTrue(state['failed'])
+
+    def test_consumer_failure_retains_work_and_input_output_until_abort(self):
+        for schedule in ma6_adapter.GATHER_SCHEDULES:
+            for stage in ('dgrad', 'wgrad'):
+                with self.subTest(schedule=schedule, stage=stage):
+                    function, ctx, grad, state, log = self.make('F4-gather', fail=stage,
+                                                              schedule=schedule)
+                    with self.assertRaisesRegex(RuntimeError, 'synthetic'):
+                        function.backward(ctx, grad)
+                    self.assertTrue(state['failed'])
+                    self.assertIs(state._ma6_pending[1], grad)
+                    self.assertIsNot(state._ma6_pending[2], grad)
+                    self.assertTrue(callable(state._ma6_pending[0].wait))
+                    self.assertEqual(state['wait_calls'], 1)
+                    with self.assertRaisesRegex(RuntimeError, 'failed backward'):
+                        function.backward(ctx, grad)
+                    self.assertEqual(log.count('async_gather'), 1)
 
 
 if __name__ == '__main__':

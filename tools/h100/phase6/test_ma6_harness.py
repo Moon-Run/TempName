@@ -27,7 +27,7 @@ from test_ma4_f_harness import fingerprints
 def plan_fixture(trials=1):
     plan=cr2_plan();plan.pop('target_percent')
     tuning=bench.validate_tuning(None)
-    plan.update(protocol=full.PROTOCOL,trials=trials,blocks=12,
+    plan.update(protocol=full.PROTOCOL,trials=trials,blocks=12,gather_schedule='overlap',
         trial_ids={str(i+1):f'trial{i+1}' for i in range(trials)},arms=list(bench.ARMS),
         schedule=full.expected_schedule(trials,12),target_ms=None,acceptance_rule=full.ACCEPTANCE_RULE,
         tuning=tuning,build_identity={'tuning':tuning},libraries={arm:{'files':{
@@ -54,6 +54,7 @@ def rows_fixture(plan,job,digest,means=None):
             row['ma6_consumer_state'][name]=dict(projection_calls=calls,bda_calls=calls,bias_parameter_id=100+i,
                 native=[dict(s,bias_residual_calls=s['successful_calls']) for s in states])
             row['ma6_backward_state'][name]=dict(protocol=bench.ma6_adapter.PROTOCOL,arm=arm,
+                gather_schedule=plan['gather_schedule'] if arm=='F4-gather' else 'baseline',
                 forward_calls=calls,backward_calls=calls,baseline_backward_calls=0 if arm=='F4-gather' else calls,
                 async_gather_calls=calls if arm=='F4-gather' else 0,wait_calls=calls if arm=='F4-gather' else 0,
                 failed=False,active=False)
@@ -129,7 +130,8 @@ class ScheduleAndSources(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temp:
             root=Path(temp)/'fullstep';build=Path(temp)/'build';build.mkdir()
             bench.write(build/'selection-plan.json',cr2_plan()['selection'])
-            args=argparse.Namespace(root=root,build=build,megatron=Path(temp)/'megatron',trials=1,blocks=12)
+            args=argparse.Namespace(root=root,build=build,megatron=Path(temp)/'megatron',trials=1,blocks=12,
+                                    gather_schedule='wait-first')
             libs={a:dict(root='/synthetic/'+a,files={}) for a in bench.ARMS}
             with patch.object(bench,'build_identity',return_value={'tuning':bench.validate_tuning(None)}),\
                  patch.object(bench,'libraries',return_value=libs),patch.object(full,'snapshot_megatron',return_value={}),\
@@ -137,6 +139,11 @@ class ScheduleAndSources(unittest.TestCase):
             plan=full.verify(root,offline=True)
             self.assertEqual(len(plan['schedule']),36)
             self.assertIn('scripts/ma6_fullstep_f4.py',plan['source_files'])
+            self.assertEqual(plan['gather_schedule'],'wait-first')
+            self.assertIn("DEFAULT_GATHER_SCHEDULE = 'wait-first'",(root/'scripts/adapter.py').read_text())
+            plan['gather_schedule']='overlap';(root/'plan.json').write_text(json.dumps(plan))
+            with self.assertRaisesRegex(ValueError,'schedule mismatch'):full.verify(root,offline=True)
+            plan['gather_schedule']='wait-first';(root/'plan.json').write_text(json.dumps(plan))
             (root/'scripts/ma6_adapter.py').write_text('drift')
             with self.assertRaisesRegex(ValueError,'Frozen source changed'):full.verify(root,offline=True)
 
@@ -152,6 +159,7 @@ class ScheduleAndSources(unittest.TestCase):
             plan=bench.verify(root,offline=True)
             self.assertEqual(len(plan['schedule']),36)
             self.assertEqual(plan['arms'],list(bench.ARMS))
+            self.assertEqual(plan['gather_schedule'],'overlap')
             self.assertIn('scripts/ma4_f_sources.py',plan['source_files'])
             (root/'scripts/ma4_f_adapter.py').write_text('drift')
             with self.assertRaisesRegex(ValueError,'Frozen consumer helper changed'):bench.verify(root,offline=True)
@@ -233,6 +241,23 @@ class ProfileTests(unittest.TestCase):
             self.assertEqual(backward['backward_calls'],128)
             self.assertEqual(backward['overlap_calls'],128 if arm=='F4-gather' else 0)
             self.assertEqual(backward['median_us']['local_span_us'],33 if arm=='F4-gather' else 43)
+            self.assertEqual(backward['median_us']['backward_cpu_us'],25)
+            self.assertAlmostEqual(backward['median_us']['allgather_end_to_dgrad_launch_us'],
+                                   -64 if arm=='F4-gather' else -74)
+            self.assertAlmostEqual(backward['median_us']['dgrad_launch_to_gpu_start_us'],
+                                   66 if arm=='F4-gather' else 76)
+
+    def test_wait_first_control_requires_gpu_serialization(self):
+        events=profile_fixture('F4-gather')
+        with self.assertRaisesRegex(ValueError,'Wait-first'):
+            full.trace_backward_records(events,'F4-gather','wait-first')
+        for event in events:
+            if event.get('cat')!='kernel':continue
+            if event['name']=='reduce_kernel':event['ts']+=17
+            if event['name'] in ('dgrad_gemm','wgrad_gemm'):event['ts']+=8
+        result=full.trace_backward_records(events,'F4-gather','wait-first')
+        self.assertEqual(result['attn']['overlap_calls'],0)
+        self.assertEqual(result['attn']['gather_schedule'],'wait-first')
 
     def test_async_submission_without_overlap_is_a_valid_observation(self):
         result=full.trace_backward_records(profile_fixture('F4-gather',False),'F4-gather')
@@ -242,7 +267,7 @@ class ProfileTests(unittest.TestCase):
     def test_wrong_kernel_or_block_cannot_pass(self):
         events=profile_fixture('F4-tile')
         decoder=next(e for e in events if e.get('cat')=='kernel' and 'ma6_attention' in e['name'])
-        decoder['args']['block']=[128,1,1]
+        decoder['args']['block']=[256,1,1]
         with self.assertRaises(ValueError):full.trace_projection_records(events,'F4-tile',tuning=bench.validate_tuning(None))
         decoder['args']['block']=[256,1,1];decoder['name']='taco_ma4f_decode_consumer_kernel'
         with self.assertRaises(ValueError):full.trace_projection_records(events,'F4-tile',tuning=bench.validate_tuning(None))

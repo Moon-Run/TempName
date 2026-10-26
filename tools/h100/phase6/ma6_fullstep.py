@@ -36,6 +36,17 @@ _source=registered_replace(_source,'plan["blocks"] >= 8 and plan["blocks"] % 8 =
 _source=registered_replace(_source,'at least eight complete blocks, divisible by eight','complete multiples of twelve three-arm blocks')
 _source=registered_replace(_source,'equivalence_pairs=[["T","CR2"]]','equivalence_pairs=bench.EQUIVALENCE_PAIRS',2)
 _source=registered_replace(_source,'default=8)','default=12)')
+_source=registered_replace(_source,'    (scripts / "adapter.py").write_text(adapter_source())',
+    '    gather_schedule = bench.validate_gather_schedule(getattr(args, "gather_schedule", "overlap"))\n'
+    '    (scripts / "adapter.py").write_text(adapter_source(gather_schedule))')
+_source=registered_replace(_source,'                trial_ids={str(i+1): uuid.uuid4().hex for i in range(args.trials)},',
+    '                gather_schedule=gather_schedule,\n'
+    '                trial_ids={str(i+1): uuid.uuid4().hex for i in range(args.trials)},')
+_source=registered_replace(_source,'    p.add_argument("--blocks", type=int, default=12)',
+    '    p.add_argument("--blocks", type=int, default=12)\n'
+    '    p.add_argument("--gather-schedule", choices=("overlap", "wait-first"), default="overlap")')
+_source=registered_replace(_source,'tuning=plan["tuning"])',
+    'tuning=plan["tuning"], gather_schedule=plan["gather_schedule"])')
 _source=registered_replace(_source,'    plan = dict(protocol=PROTOCOL, run_id=uuid.uuid4().hex,',
                         '    freeze_helpers(scripts)\n    plan = dict(protocol=PROTOCOL, run_id=uuid.uuid4().hex,')
 exec(compile(_source,str(_BASE_PATH),'exec'),globals())
@@ -83,6 +94,9 @@ def freeze_helpers(scripts):
 def verify(root,offline=False):
     require(not _FROZEN or offline,'Frozen controller supports offline replay only')
     plan=_verify(root,offline)
+    schedule=bench.validate_gather_schedule(plan['gather_schedule'])
+    require(('DEFAULT_GATHER_SCHEDULE = '+repr(schedule)+'\n') in
+            (Path(root)/'scripts/adapter.py').read_text(), 'Gather plan/generated adapter schedule mismatch')
     for source,name in [(_BASE_PATH,'ma6_fullstep_base.py'),(_F4_PATH,'ma6_fullstep_f4.py'),
                         (bench.TEMPLATE,'ma6_bench_base.py'),(bench.base_path,'ma4_f_bench_base.py'),
                         (Path(f4_adapter.__file__),'ma4_f_adapter.py'),
@@ -93,8 +107,8 @@ def verify(root,offline=False):
     return plan
 
 
-def adapter_source():
-    return ma6_adapter.adapter_source(f4_adapter.adapter_source(_adapter_source()))
+def adapter_source(gather_schedule='overlap'):
+    return ma6_adapter.adapter_source(f4_adapter.adapter_source(_adapter_source()), gather_schedule)
 
 
 def taco_source():
@@ -115,7 +129,8 @@ def window(root,plan,job):
         require(len(row['ma6_trainable_parameters'])==389,'Changed trainable parameter universe')
         states=row['ma6_backward_state']
         require(set(states)==set(row['target_modules']),'Missing backward module coverage')
-        for state in states.values():bench.validate_backward_state(state,job['arm'],(warmup+count)*4)
+        for state in states.values():bench.validate_backward_state(state,job['arm'],(warmup+count)*4,
+                                                                  plan['gather_schedule'])
     return rows
 
 
@@ -144,6 +159,7 @@ def report(root,offline=False,save=True):
         key=(job['trial'],job['block']);value=[r['ma6_final_parameters_sha256'] for r in rows]
         fingerprints.setdefault(key,value);require(fingerprints[key]==value,'Final three-arm model parameters differ')
     result.update(target_evaluated=False,target_percent=None,consumer_parameter_gradients_validated=True,
+        gather_schedule=plan['gather_schedule'],
         acceptance_status={arm:'positive_F4_increment' if good else 'F4_increment_not_validated'
                            for arm,good in result['increment_over_F4_validated'].items()},
         main_contrasts=[c+'/'+b for c,b in bench.MAIN_COMPARISONS],
@@ -166,7 +182,8 @@ def report_markdown(result):
         means=' / '.join(f"{combined['mean_ms'][arm]:.3f}" for arm in bench.ARMS)
         for label,value in combined['comparisons'].items():
             lines.append(f"| {name} | {means} | {label} | {value['percent']:+.3f} [{value['ci95'][0]:+.3f}, {value['ci95'][1]:+.3f}] |")
-    lines+=['',f"全部保留 {len(result['all_samples'])} 个窗口、{result['formal_optimizer_steps']} 个正式 optimizer step。",
+    lines+=['',f"F4-gather 调度：`{result['gather_schedule']}`。",
+        f"全部保留 {len(result['all_samples'])} 个窗口、{result['formal_optimizer_steps']} 个正式 optimizer step。",
         '每个候选分别判断相对同期 F4 的正增量；单轮为探索性结果。未测试 tile+gather 合并候选或 C/R。',
         'F4-gather 的算子前向计时不测反向收益；需结合完整训练及独立 backward profile。慢窗口不删除。']
     return '\n'.join(lines)+'\n'
@@ -187,9 +204,10 @@ exec(compile(_trace_source,str(_F4_PATH),'exec'),globals())
 _trace_forward=trace_projection_records
 
 
-def trace_backward_records(events,arm):
+def trace_backward_records(events,arm,gather_schedule='overlap'):
     """Associate each backward's CPU launches to GPU work without assuming AG order."""
     bench.family(arm)
+    bench.validate_gather_schedule(gather_schedule)
     end=lambda event:event['ts']+event.get('dur',0)
     scopes=defaultdict(list);runtimes=defaultdict(list);by_corr=defaultdict(list);by_external=defaultdict(list)
     forwards=[];backwards=[]
@@ -234,23 +252,33 @@ def trace_backward_records(events,arm):
         require(end(ag)<=dgrad['ts']+.01 and end(bias)<=dgrad['ts']+.01 and end(dgrad)<=wgrad['ts']+.01,
                 'Backward consumed unfinished gather/bias or changed GEMM order')
         bias_launch=launch_by_corr[bias['args']['correlation']];ag_launch=launch_by_corr[ag['args']['correlation']]
+        dgrad_launch=launch_by_corr[dgrad['args']['correlation']]
         if arm=='F4-gather':require(end(ag_launch)<=bias_launch['ts']+.01,'Async gather not submitted before bias')
         else:require(end(bias_launch)<=ag_launch['ts']+.01 and end(bias)<=ag['ts']+.01,'Control backward order changed')
+        if arm=='F4-gather' and gather_schedule=='wait-first':
+            require(end(ag)<=bias['ts']+.01,'Wait-first bias started before gather completion')
         overlap=max(0.0,min(end(bias),end(ag))-max(bias['ts'],ag['ts']))
-        result[role].append(dict(bias_us=bias['dur'],allgather_us=ag['dur'],dgrad_us=dgrad['dur'],wgrad_us=wgrad['dur'],
+        result[role].append(dict(backward_cpu_us=call['dur'],
+            gather_launch_end_to_bias_launch_us=bias_launch['ts']-end(ag_launch),
+            gather_launch_end_to_dgrad_launch_us=dgrad_launch['ts']-end(ag_launch),
+            # Signed: negative means CPU submitted dgrad before AG completed.
+            allgather_end_to_dgrad_launch_us=dgrad_launch['ts']-end(ag),
+            dgrad_launch_to_gpu_start_us=dgrad['ts']-dgrad_launch['ts'],
+            bias_us=bias['dur'],allgather_us=ag['dur'],dgrad_us=dgrad['dur'],wgrad_us=wgrad['dur'],
             bias_allgather_overlap_us=overlap,local_span_us=end(wgrad)-min(bias['ts'],ag['ts']),
             allgather_end_to_dgrad_start_us=dgrad['ts']-end(ag)))
     require(set(result)==set(bench.ROLES) and all(len(rows)==128 for rows in result.values()),'Missing role backward calls')
     return {role:dict(backward_calls=len(rows),bias_kernels=128,allgather_kernels=128,dgrad_kernels=128,wgrad_kernels=128,
+        gather_schedule=gather_schedule if arm=='F4-gather' else 'baseline',
         gather_submitted_before_bias=arm=='F4-gather',overlap_calls=sum(r['bias_allgather_overlap_us']>0 for r in rows),
         overlap_fraction=sum(r['bias_allgather_overlap_us']>0 for r in rows)/len(rows),
         upstream_gradient_ready_event_identified=False,
         median_us={key:statistics.median(row[key] for row in rows) for key in rows[0]}) for role,rows in result.items()}
 
 
-def trace_projection_records(events,arm,tuning=None):
+def trace_projection_records(events,arm,tuning=None,gather_schedule='overlap'):
     forward=_trace_forward(events,arm,tuning)
-    backward=trace_backward_records(events,arm)
+    backward=trace_backward_records(events,arm,gather_schedule)
     return {role:dict(value,backward=backward[role]) for role,value in forward.items()}
 
 

@@ -36,12 +36,18 @@ class MA6LaunchTests(unittest.TestCase):
 
     def test_tuning_reaches_build_and_reuse_does_not_rebuild(self):
         args = launch.arguments(['--attn-threads', '128', '--attn-blocks', '528',
-                                 '--mlp-threads', '256', '--mlp-blocks', '1024'])
+                                 '--attn-rows', '2', '--mlp-rows', '1',
+                                 '--mlp-threads', '256', '--mlp-blocks', '1024',
+                                 '--gather-schedule', 'wait-first'])
         tasks = launch.commands(args)
         command = dict(tasks)['build-prepare']
         for flag, value in (('--attn-threads', '128'), ('--attn-blocks', '528'),
+                            ('--attn-rows', '2'), ('--mlp-rows', '1'),
                             ('--mlp-threads', '256'), ('--mlp-blocks', '1024')):
             self.assertEqual(command[command.index(flag)+1], value)
+        for stage in ('operator-prepare','fullstep-prepare'):
+            command=dict(tasks)[stage]
+            self.assertEqual(command[command.index('--gather-schedule')+1],'wait-first')
         args.ma6_build = Path('/synthetic/already-built')
         reused = dict(launch.commands(args))
         self.assertNotIn('compile', reused)
@@ -52,7 +58,8 @@ class MA6LaunchTests(unittest.TestCase):
 
     def test_invalid_launch_sizes_are_rejected(self):
         for flags in (['--jobs', '0'], ['--worker-timeout', '0'],
-                      ['--attn-threads', '127'], ['--mlp-blocks', '0']):
+                      ['--attn-threads', '127'], ['--mlp-blocks', '0'],
+                      ['--attn-rows','3'], ['--attn-rows','16']):
             with self.assertRaises(ValueError):
                 launch.arguments(flags)
 

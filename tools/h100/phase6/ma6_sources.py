@@ -1,4 +1,4 @@
-"""F4-tile: reschedule the exact fused F4 decoder, independently by bound K.
+"""F4-tile: reuse physical-tile masks across rows of the exact fused decoder.
 
 Only F4-tile receives these native transforms. F4 and F4-gather retain the
 original F4 sources; gather overlap is an independent Python backward change.
@@ -9,9 +9,9 @@ from common import replace_once, require
 import ma4_f_sources as f4
 
 RUNTIME, HEADER, WRAPPER, DECODER = f4.RUNTIME, f4.HEADER, f4.WRAPPER, f4.DECODER
-BASELINE_TUNING = dict(decoder_threads=128, decoder_blocks=2048)
-DEFAULT_TUNING = dict(attn=dict(decoder_threads=256, decoder_blocks=528),
-                      mlp=dict(BASELINE_TUNING))
+BASELINE_TUNING = dict(decoder_threads=128, decoder_blocks=2048, decoder_rows=1)
+DEFAULT_TUNING = {role:dict(decoder_threads=128, decoder_blocks=512, decoder_rows=4)
+                  for role in ('attn', 'mlp')}
 ROLES = ('attn', 'mlp')
 ROLE_K = dict(attn=512, mlp=2048)
 
@@ -24,13 +24,14 @@ def tuning_config(tuning=None):
     for role in ROLES:
         item = tuning[role]
         require(isinstance(item, dict) and set(item) == set(BASELINE_TUNING),
-                'MA6 only tunes decoder threads and blocks: ' + role)
+                'MA6 only tunes decoder threads, blocks, and row tiles: ' + role)
         require(all(type(v) is int for v in item.values()), 'MA6 tile values must be integers')
-        threads, blocks = item['decoder_threads'], item['decoder_blocks']
+        threads, blocks, rows = (item[key] for key in BASELINE_TUNING)
         require(threads in (64, 128, 256, 512), 'Unsupported MA6 decoder threads')
-        require(1 <= blocks <= 8192 // (threads // 32),
-                'MA6 decoder blocks must be positive and no greater than the full grid')
-        result[role] = dict(decoder_threads=threads, decoder_blocks=blocks)
+        require(rows in (1, 2, 4, 8, 16), 'Unsupported MA6 decoder rows')
+        require(1 <= blocks <= (8192 // rows) // (threads // 32),
+                'MA6 decoder blocks must be positive and no greater than the row-tile grid')
+        result[role] = dict(decoder_threads=threads, decoder_blocks=blocks, decoder_rows=rows)
     return result
 
 
@@ -62,21 +63,54 @@ def decoder(source, tuning):
     # The original kernel stays verbatim for any role with baseline geometry.
     # In the looped kernel the BF16-path return exits only this group helper.
     result = source + '\n' + group
+    # The selection mask covers one physical 128x128 producer tile. Rows of a
+    # decoder row tile share this mask, but each H128 group keeps its original
+    # data, coefficient transforms, source folds and BF16 consumer rounding.
+    mask_start = group.index('  const int row = group / 32;')
+    arithmetic_start = group.index('  if (!any_quant) {', mask_start)
+    mask = group[mask_start:arithmetic_start]
+    masked_group = group[:mask_start] + group[arithmetic_start:]
+    masked_group = replace_once(masked_group, 'taco_ma6_decode_consumer_group(',
+                                 'taco_ma6_decode_consumer_masked_group(')
+    masked_group = replace_once(masked_group,
+        'const __nv_bfloat16* bias, const __nv_bfloat16* residual, int group) {',
+        'const __nv_bfloat16* bias, const __nv_bfloat16* residual, int group,\n'
+        '    const bool (&selected)[8], bool any_quant) {')
+    if any(tuning[role]['decoder_rows'] > 1 for role in ROLES):
+        result += '\n' + masked_group
     for role in ROLES:
         if tuning[role] == BASELINE_TUNING:
             continue
+        rows = tuning[role]['decoder_rows']
+        if rows == 1:
+            body = '''  for (int group = blockIdx.x * kWarps + threadIdx.x / 32;
+       group < 8192; group += gridDim.x * kWarps) {
+    taco_ma6_decode_consumer_group(c, local, output, bias, residual, group);
+  }
+'''
+        else:
+            # Row tile boundaries divide 128; no tile can cross the source
+            # selection boundary. The inner loop is kept rolled to bound
+            # instruction size/register pressure for the quantized path.
+            body = f'''  constexpr int kRows = {rows};
+  for (int tile = blockIdx.x * kWarps + threadIdx.x / 32;
+       tile < 8192 / kRows; tile += gridDim.x * kWarps) {{
+    const int group = (tile / 32) * kRows * 32 + tile % 32;
+{mask}    #pragma unroll 1
+    for (int row_offset = 0; row_offset < kRows; ++row_offset) {{
+      taco_ma6_decode_consumer_masked_group(c, local, output, bias, residual,
+          group + row_offset * 32, selected, any_quant);
+    }}
+  }}
+'''
         result += f'''
-// Each warp owns a complete H128 group. Iterations are warp-uniform, keeping
-// the original full-mask shuffles, source folds and both BF16 adds unchanged.
+// Every warp owns complete H128 groups. Tile/row iterations are warp-uniform;
+// unchanged full-mask shuffles never mix rows or change source reduction order.
 __global__ void {kernel_name(role, tuning)}(const __grid_constant__ FluxTacoConfig c,
     const __nv_bfloat16* local, __nv_bfloat16* output,
     const __nv_bfloat16* bias, const __nv_bfloat16* residual) {{
   constexpr int kWarps = {tuning[role]['decoder_threads'] // 32};
-  for (int group = blockIdx.x * kWarps + threadIdx.x / 32;
-       group < 8192; group += gridDim.x * kWarps) {{
-    taco_ma6_decode_consumer_group(c, local, output, bias, residual, group);
-  }}
-}}
+{body}}}
 '''
     return result
 
@@ -102,7 +136,7 @@ extern "C" int {decode_entry(role, tuning)}(FluxTacoConfig c, const void* local,
   return int(cudaGetLastError());
 }}
 '''
-    result += '\nextern "C" int taco_ma6_protocol_version() { return 1; }\n'
+    result += '\nextern "C" int taco_ma6_protocol_version() { return 2; }\n'
     for field in BASELINE_TUNING:
         result += f'''extern "C" int taco_ma6_{field}(int k) {{
   return k == 512 ? {tuning['attn'][field]} : k == 2048 ? {tuning['mlp'][field]} : -2;

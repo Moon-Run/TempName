@@ -71,7 +71,7 @@ class BuildIdentityTests(unittest.TestCase):
         original = path.read_bytes()
         try:
             record = read(path)
-            record['tuning']['mlp'] = dict(decoder_threads=256, decoder_blocks=528)
+            record['tuning']['mlp'] = dict(decoder_threads=256, decoder_blocks=528, decoder_rows=1)
             write(path, record)
             with self.assertRaisesRegex(ValueError, 'tuning identity'):
                 builder.verify(self.root)

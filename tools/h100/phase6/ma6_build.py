@@ -16,7 +16,7 @@ import ma6_sources
 from common import HERE, REPO, read, require, sha, verify_files, write
 from scope_plan import model_config
 
-PROTOCOL = 'h100-ma6-f4-v1'
+PROTOCOL = 'h100-ma6-f4-v2'
 MANIFEST = 'ma6-manifest.json'
 VARIANTS = ('F4', 'F4-tile', 'F4-gather')
 RUNTIME = baseline.RUNTIME
@@ -222,6 +222,7 @@ def main():
     for role in ma6_sources.ROLES:
         p.add_argument('--'+role+'-threads', type=int, default=ma6_sources.DEFAULT_TUNING[role]['decoder_threads'])
         p.add_argument('--'+role+'-blocks', type=int, default=ma6_sources.DEFAULT_TUNING[role]['decoder_blocks'])
+        p.add_argument('--'+role+'-rows', type=int, default=ma6_sources.DEFAULT_TUNING[role]['decoder_rows'])
     p = sub.add_parser('verify'); p.add_argument('--build', type=Path, required=True); p.add_argument('--built', action='store_true')
     p = sub.add_parser('build'); p.add_argument('--build', type=Path, required=True)
     p.add_argument('--cuda-home', type=Path, required=True); p.add_argument('--jobs', type=int, default=2); p.add_argument('--nccl-root', type=Path)
@@ -232,7 +233,8 @@ def main():
     args = parser.parse_args()
     if args.action == 'prepare':
         tuning = {role:dict(decoder_threads=getattr(args,role+'_threads'),
-                            decoder_blocks=getattr(args,role+'_blocks')) for role in ma6_sources.ROLES}
+                            decoder_blocks=getattr(args,role+'_blocks'),
+                            decoder_rows=getattr(args,role+'_rows')) for role in ma6_sources.ROLES}
         print(prepare(args.out, tuning))
     elif args.action == 'verify': verify(args.build, args.built)
     elif args.action == 'build': compile_build(args.build, args.cuda_home, args.jobs, args.nccl_root)

@@ -39,7 +39,13 @@ _source = registered_replace(_source,'namespace=dict(torch=torch,parallel_state=
     'namespace=dict(torch=torch,parallel_state=Parallel,_gather_along_first_dim=gather,\n'
     '                   dist_all_gather_func=dist.all_gather_into_tensor)')
 _source = registered_replace(_source,"gradients=[]\n        if args.preflight:",
-    "gradients=[]\n        backward_state=ma4_f_adapter.new_backward_state(job['arm'])\n        if args.preflight:")
+    "gradients=[]\n        backward_state=ma4_f_adapter.new_backward_state(job['arm'], plan['gather_schedule'])\n        if args.preflight:")
+_source = registered_replace(_source, 'ma4_f_adapter.consumer_autograd_source()',
+                            "ma4_f_adapter.consumer_autograd_source(plan['gather_schedule'])")
+_source = registered_replace(_source, "mechanism=MECHANISM, tuning=identity['tuning'], roles=ROLES",
+    "mechanism=MECHANISM, tuning=identity['tuning'], gather_schedule=validate_gather_schedule(getattr(args, 'gather_schedule', 'overlap')), roles=ROLES")
+_source = registered_replace(_source, "p.add_argument('--iterations',type=int,default=200)",
+    "p.add_argument('--iterations',type=int,default=200);p.add_argument('--gather-schedule',choices=('overlap','wait-first'),default='overlap')")
 _source = registered_replace(_source,'fused_fn.apply(*left,OpAdapter(op),None)',
                          'fused_fn.apply(*left,OpAdapter(op),None,backward_state)')
 _source = registered_replace(_source,'OpAdapter(op)', 'candidate_adapter',2)
@@ -56,15 +62,15 @@ __doc__ = 'MA6 F4 / F4-tile / F4-gather consumer correctness and forward-only op
 import ma6_adapter
 import ma6_sources
 
-SOURCE_PROTOCOL = 'h100-ma6-f4-v1'
+SOURCE_PROTOCOL = 'h100-ma6-f4-v2'
 PROTOCOL = SOURCE_PROTOCOL + '-operator'
 ARMS = ('F4', 'F4-tile', 'F4-gather')
 MAIN_COMPARISONS = (('F4-tile', 'F4'), ('F4-gather', 'F4'))
 COMPARISONS = MAIN_COMPARISONS + (('F4-tile', 'F4-gather'),)
 EQUIVALENCE_PAIRS = [list(pair) for pair in COMPARISONS]
 LABELS = {'F4':'Unchanged fused decoder and original backward',
-          'F4-tile':'F4 with role-specific decoder tile/grid; original backward',
-          'F4-gather':'F4 with asynchronous gradient gather before original bias reduction'}
+          'F4-tile':'F4 with row-tiled mask-reusing decoder; original backward',
+          'F4-gather':'F4 with cached gather metadata; explicitly frozen overlap or wait-first schedule'}
 SCHEDULE_SEED = 20261025
 _verify, _validate_rows, _freeze_helpers, _report = verify, validate_rows, freeze_helpers, report
 
@@ -90,6 +96,11 @@ def validate_tuning(value):
     return ma6_sources.tuning_config(value)
 
 
+def validate_gather_schedule(value):
+    require(value in ('overlap', 'wait-first'), 'Unknown MA6 gather schedule')
+    return value
+
+
 def native_tuning(op,arm,plan):
     expected=expected_tuning(plan,arm)
     for slot in op.slots:
@@ -100,9 +111,10 @@ def native_tuning(op,arm,plan):
         role='attn' if k==512 else 'mlp'
         if arm=='F4-tile':
             version=slot.lib.taco_ma6_protocol_version;version.argtypes=[];version.restype=ctypes.c_int
-            require(version()==1,'Wrong MA6 tile protocol')
+            require(version()==2,'Wrong MA6 tile protocol')
             actual={}
-            for key,symbol in [('decoder_threads','taco_ma6_decoder_threads'),('decoder_blocks','taco_ma6_decoder_blocks')]:
+            for key,symbol in [('decoder_threads','taco_ma6_decoder_threads'),('decoder_blocks','taco_ma6_decoder_blocks'),
+                               ('decoder_rows','taco_ma6_decoder_rows')]:
                 query=getattr(slot.lib,symbol);query.argtypes=[ctypes.c_int];query.restype=ctypes.c_int
                 actual[key]=query(k)
             require(actual==expected[role],'Native tile differs from immutable role configuration')
@@ -162,6 +174,7 @@ def freeze_helpers(scripts):
 
 def verify(root,offline=False):
     plan=_verify(root,offline)
+    validate_gather_schedule(plan['gather_schedule'])
     require(plan['tuning']==plan['build_identity']['tuning'],'Tile plan/build mismatch')
     validate_tuning(plan['tuning'])
     for current,name in [(TEMPLATE,'ma6_bench_base.py'),(base_path,'ma4_f_bench_base.py'),
@@ -189,8 +202,10 @@ def validate_consumer(states,submissions,arm):
                 'Fused consumer fallback/counter drift')
 
 
-def validate_backward_state(state,arm,calls):
+def validate_backward_state(state,arm,calls,gather_schedule='overlap'):
+    validate_gather_schedule(gather_schedule)
     require(state==dict(protocol=ma6_adapter.PROTOCOL,arm=arm,forward_calls=calls,backward_calls=calls,
+        gather_schedule=gather_schedule if arm=='F4-gather' else 'baseline',
         baseline_backward_calls=0 if arm=='F4-gather' else calls,
         async_gather_calls=calls if arm=='F4-gather' else 0,
         wait_calls=calls if arm=='F4-gather' else 0,failed=False,active=False),
@@ -204,7 +219,8 @@ def validate_rows(root,plan,jobs,stage,reference=None):
             row=read(Path(root)/'results'/job['directory']/f'rank{rank}.json')
             for value in row['roles'].values():
                 require(value['native_tuning']==expected_tuning(plan,job['arm']),'Wrong native tile evidence')
-                validate_backward_state(value['backward_state'],job['arm'],3 if stage=='preflight' else 0)
+                validate_backward_state(value['backward_state'],job['arm'],3 if stage=='preflight' else 0,
+                                        plan['gather_schedule'])
     return result
 
 
@@ -228,6 +244,7 @@ def validate_launch(gemm,decoder,arm,role,tuning):
             decoder['args']['block']==[expected['decoder_threads'],1,1],'Actual decoder tile/grid changed')
     return dict(gemm_grid=gemm['args']['grid'],gemm_block=gemm['args']['block'],
                 decoder_grid=decoder['args']['grid'],decoder_block=decoder['args']['block'],
+                decoder_rows=expected['decoder_rows'],
                 decoder_kernel=decoder_name(arm,role,tuning))
 
 
@@ -275,6 +292,7 @@ def profile_summary(root,offline=False):
 
 def report(root,save=True,offline=False):
     result=_report(root,save=False,offline=offline)
+    result['gather_schedule']=verify(root,offline)['gather_schedule']
     result['limitation']='Forward-only complete projection+bias+residual API. F4-gather uses identical native F4; these timings do not measure its backward optimization.'
     if save:save_unchanged(Path(root)/'report.json',result);print(json.dumps(result['roles'],indent=2))
     return result

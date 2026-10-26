@@ -148,13 +148,26 @@ class FrozenOnlineWorkerTests(unittest.TestCase):
         root = self.base/'old-controller-replay'
         shutil.copytree(self.root, root)
         shutil.copy2(failed, root/'scripts/bench.py')
+        self.assertEqual(sha(failed), sha(root/'scripts/bench.py'))
         plan = read(root/'plan.json')
+        # This red-light control targets the historical import collision, not
+        # acceptance of v2 by a v1 controller. Match only the old controller's
+        # outer protocol/labels so execution can reach its real build_identity
+        # call. Keep the v2 build, all source checks, and every builder hash
+        # intact: the poisoned HERE must still fail at scripts/ma6_build.py.
+        historical_plan = read(failed.parents[1]/'plan.json')
+        self.assertNotEqual(plan['protocol'], historical_plan['protocol'])
+        for field in ('protocol', 'arm_labels'):
+            plan[field] = historical_plan[field]
         plan['source_files']['scripts/bench.py'] = sha(root/'scripts/bench.py')
         write(root/'plan.json', plan)
+        build_digest = sha(self.build/builder.MANIFEST)
         rows = self.invoke(root, ['F4'])
         self.assertEqual(rows[0]['status'], 'rejected')
         self.assertIn('FileNotFoundError', rows[0]['error'])
         self.assertIn('/scripts/ma6_build.py', rows[0]['error'])
+        self.assertEqual(sha(self.build/builder.MANIFEST), build_digest)
+        self.assertEqual(read(self.build/builder.MANIFEST)['protocol'], builder.PROTOCOL)
 
 
 if __name__ == '__main__':

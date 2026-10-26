@@ -16,7 +16,7 @@ from zoneinfo import ZoneInfo
 import detach_ablation5_run_two as launcher
 from common import HERE, REPO, read, write, require, sha, verify_files
 
-PROTOCOL = 'h100-ma6-f4-detached-v1'
+PROTOCOL = 'h100-ma6-f4-detached-v2'
 ARMS = ('F4', 'F4-tile', 'F4-gather')
 BLOCKS = 12
 STEPS = 50
@@ -25,7 +25,8 @@ STEPS = 50
 def tuning(args):
     from ma6_sources import tuning_config
     return tuning_config({role: {'decoder_threads': getattr(args, role + '_threads'),
-                                'decoder_blocks': getattr(args, role + '_blocks')}
+                                'decoder_blocks': getattr(args, role + '_blocks'),
+                                'decoder_rows': getattr(args, role + '_rows')}
                           for role in ('attn', 'mlp')})
 
 
@@ -39,10 +40,14 @@ def arguments(argv=None):
     parser.add_argument('--cuda-home', type=Path, default=Path('/usr/local/cuda-12.4'))
     parser.add_argument('--nccl-root', type=Path)
     parser.add_argument('--ma6-build', type=Path, help='Reuse a verified three-arm build with matching tuning')
-    parser.add_argument('--attn-threads', type=int, default=256)
-    parser.add_argument('--attn-blocks', type=int, default=528)
+    parser.add_argument('--attn-threads', type=int, default=128)
+    parser.add_argument('--attn-blocks', type=int, default=512)
+    parser.add_argument('--attn-rows', type=int, default=4)
     parser.add_argument('--mlp-threads', type=int, default=128)
-    parser.add_argument('--mlp-blocks', type=int, default=2048)
+    parser.add_argument('--mlp-blocks', type=int, default=512)
+    parser.add_argument('--mlp-rows', type=int, default=4)
+    parser.add_argument('--gather-schedule', choices=('overlap', 'wait-first'), default='overlap',
+                        help='F4-gather wait position; frozen before correctness/timing')
     parser.add_argument('--jobs', type=int, default=2)
     parser.add_argument('--worker-timeout', type=int, default=1800)
     parser.add_argument('--execute', action='store_true')
@@ -52,7 +57,7 @@ def arguments(argv=None):
     tuning(args)
     if args.out is None:
         stamp = datetime.now(ZoneInfo('Asia/Shanghai')).strftime('%Y%m%d-%H%M%S-%f')
-        args.out = REPO/'logs/h100/phase6'/f'ma6-f4-tile-gather-{args.trials}x-50steps-{stamp}'
+        args.out = REPO/'logs/h100/phase6'/f'ma6-v2-{args.gather_schedule}-{args.trials}x-50steps-{stamp}'
     for key, value in vars(args).items():
         if isinstance(value, Path):
             setattr(args, key, value.expanduser().absolute() if key == 'python' else value.expanduser().resolve())
@@ -84,7 +89,7 @@ def commands(args):
         flags = ['--cuda-home', str(args.build_cuda_home), '--jobs', str(args.jobs)]
         if args.nccl_root:
             flags += ['--nccl-root', str(args.nccl_root)]
-        tile = [item for role in ('attn', 'mlp') for field in ('threads', 'blocks')
+        tile = [item for role in ('attn', 'mlp') for field in ('threads', 'blocks', 'rows')
                 for item in ('--' + role + '-' + field, str(getattr(args, role + '_' + field)))]
         tasks += [('build-prepare', cli('ma6_build.py') + ['prepare', '--out', str(build), *tile]),
                   ('compile', cli('ma6_build.py') + ['build', '--build', str(build), *flags])]
@@ -92,11 +97,13 @@ def commands(args):
                '--worker-timeout', str(args.worker_timeout)]
     operator, train = args.out/'operator', args.out/'fullstep'
     tasks += [
-        ('operator-prepare', cli('ma6_bench.py') + ['prepare', str(operator), '--build', str(build), '--blocks', str(BLOCKS)]),
+        ('operator-prepare', cli('ma6_bench.py') + ['prepare', str(operator), '--build', str(build), '--blocks', str(BLOCKS),
+            '--gather-schedule', args.gather_schedule]),
         ('operator-timing', cli('ma6_bench.py') + ['run', str(operator), *runtime, '--execute']),
         ('operator-profile', cli('ma6_bench.py') + ['run', str(operator), *runtime, '--profile', '--execute']),
         ('fullstep-prepare', cli('ma6_fullstep.py') + ['prepare', str(train), '--build', str(build),
-            '--megatron', str(args.megatron), '--trials', str(args.trials), '--blocks', str(BLOCKS)]),
+            '--megatron', str(args.megatron), '--trials', str(args.trials), '--blocks', str(BLOCKS),
+            '--gather-schedule', args.gather_schedule]),
         ('fullstep-run', cli('ma6_fullstep.py') + ['run', str(train), '--stage', 'all', *runtime, '--execute']),
         ('fullstep-profile', cli('ma6_fullstep.py') + ['run', str(train), '--stage', 'profile', *runtime, '--execute'])]
     return tasks
@@ -145,7 +152,7 @@ def supervise(args):
     hashes = read(args.out/'handoff/controllers.json')
     windows = args.trials * BLOCKS * len(ARMS)
     state = dict(protocol=PROTOCOL, status='preparing', trials=args.trials, arms=list(ARMS),
-        main_contrasts=['F4-tile/F4', 'F4-gather/F4'], tuning=tuning(args),
+        main_contrasts=['F4-tile/F4', 'F4-gather/F4'], tuning=tuning(args), gather_schedule=args.gather_schedule,
         target_evaluated=False, target_validated=False,
         increment_over_F4_validated={arm: False for arm in ARMS[1:]},
         expected_timing_windows=windows, expected_formal_optimizer_steps=windows * STEPS, reports={})
@@ -190,7 +197,7 @@ def main(argv=None):
         print('PLAN ONLY: no directories, GPU queries, builds or workers.')
         for _, command in commands(args):
             print(shlex.join(command))
-        print(f'F4 / F4-tile / F4-gather; {args.trials} trial(s), {args.trials*36} windows, '
+        print(f'F4 / F4-tile / F4-gather; schedule={args.gather_schedule}; {args.trials} trial(s), {args.trials*36} windows, '
               f'{args.trials*1800} formal optimizer steps. Each window: 10 warmup + 50 measured steps. '
               'Negative and slow windows are retained. Gather forward timings do not measure its backward optimization.')
         return
