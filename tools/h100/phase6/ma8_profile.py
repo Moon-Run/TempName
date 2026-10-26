@@ -1,7 +1,7 @@
 """Launch-correlated path checks for MA8 activation retention.
 
-No profiler time is interpreted as an unprofiled speedup. The historical
-column reader is explicitly separate from the marker-required MA8 gate.
+No profiler time is interpreted as an unprofiled speedup. MA8-v2 uses automatic
+autograd events and launch correlation, without per-call Python instrumentation.
 """
 from bisect import bisect_left, bisect_right
 from collections import Counter, defaultdict
@@ -95,53 +95,92 @@ def _arm(arm):
     return arm != 'F4'
 
 
-def _role(module):
-    if module.endswith('.self_attention.linear_qkv'):
-        return 'qkv'
-    if module.endswith('.mlp.linear_fc1'):
-        return 'fc1'
-    raise ValueError('Unexpected retained-activation module')
+ORIGINAL_COLUMN = 'LinearWithGradAccumulationAndAsyncCommunication'
+CACHED_COLUMN = '_MA8CachedRawLinear'
 
 
-def _marked_column_pairs(index, arm):
+def _raw_column_pairs(index, arm, mode):
+    """Identify the fixed 32-layer, four-microbatch topology from raw Functions.
+
+    Each microbatch has 32 alternating QKV/FC1 pairs and one original vocabulary
+    head. Forward bias kernels independently verify the alternating roles. The
+    autograd sequence pairs each forward with its actual backward; list order
+    never pairs different calls. Historical analysis is an explicit mode, not
+    an alternate path used when a candidate fails its identity checks.
+    """
+    require(mode in ('ma8-v2', 'historical-f4'), 'Unknown column trace mode')
     candidate = _arm(arm)
-    classname = 'MA8RetainedActivationLinear' if candidate else 'MA8ReferenceLinear'
-    forwards = [e for e in index.events if e.get('cat') == 'cpu_op' and e['name'] == classname]
-    backwards = [e for e in index.events if e.get('cat') == 'cpu_op' and e['name'] == classname + 'Backward']
-    require(len(forwards) == len(backwards) == 256, 'Missing MA8 column autograd coverage')
-    expected_names = {classname, classname + 'Backward'}
-    require(not any(e.get('cat') == 'cpu_op' and e['name'].startswith('MA8')
-                    and e['name'] not in expected_names for e in index.events), 'Wrong column arm executed')
-    scopes = [e for e in index.events if e.get('cat') == 'user_annotation'
-              and e['name'].startswith('ma8.column.') and e['tid'] in index.runtime]
-    mapped = {}
-    used = set()
-    modules = Counter()
-    for phase, calls in (('forward', forwards), ('backward', backwards)):
-        for call in calls:
-            prefix = 'ma8.column.' + phase + '.'
-            matching = [e for e in scopes if e['name'].startswith(prefix) and contains(call, e)]
-            require(len(matching) == 1, 'Missing or duplicate column role marker')
-            scope = matching[0]
-            require(id(scope) not in used, 'Column marker was attributed twice')
-            used.add(id(scope))
-            module = scope['name'][len(prefix):]
-            seq = call['args']['Sequence number']
-            key = (seq, phase)
-            require(key not in mapped, 'Duplicate column autograd sequence')
-            mapped[key] = (_role(module), module, call)
-            modules[(module, phase)] += 1
-    require(len(used) == len(scopes) == 512, 'Unexpected column marker coverage')
-    require(len(modules) == 128 and set(modules.values()) == {4}, 'Expected 64 modules and four microbatches')
-    pairs = []
-    for forward in forwards:
-        seq = forward['args']['Sequence number']
-        role, module, _ = mapped[(seq, 'forward')]
-        require((seq, 'backward') in mapped, 'Missing matching column backward')
-        back_role, back_module, backward = mapped[(seq, 'backward')]
-        require((role, module) == (back_role, back_module), 'Forward/backward module identity differs')
-        pairs.append((role, forward, backward))
-    return pairs
+    require(mode != 'historical-f4' or not candidate, 'Historical mode only accepts original F4')
+    forbidden = ('MA8ReferenceLinear', 'MA8RetainedActivationLinear', 'ma8.column.')
+    require(not any(any(token in e.get('name', '') for token in forbidden) for e in index.events),
+            'MA8-v2 rejects old per-call wrappers or annotations')
+    automatic_cached_names = {CACHED_COLUMN, CACHED_COLUMN + 'Backward',
+                              'autograd::engine::evaluate_function: ' + CACHED_COLUMN + 'Backward'}
+    require(not any(e.get('cat') == 'cpu_op' and 'MA8' in e.get('name', '')
+                    and e['name'] not in automatic_cached_names for e in index.events),
+            'Unexpected MA8 wrapper in the raw column path')
+    names = (ORIGINAL_COLUMN, CACHED_COLUMN)
+    forwards = sorted([e for e in index.events if e.get('cat') == 'cpu_op' and e['name'] in names],
+                      key=lambda e: e['ts'])
+    backwards = [e for e in index.events if e.get('cat') == 'cpu_op'
+                 and e['name'] in tuple(n + 'Backward' for n in names)]
+    require(len(forwards) == len(backwards) == 260, 'Expected 256 raw columns and four original heads')
+    expected = {ORIGINAL_COLUMN: 4, CACHED_COLUMN: 256} if candidate else {ORIGINAL_COLUMN: 260}
+    require(dict(Counter(e['name'] for e in forwards)) == expected,
+            'Wrong raw column arm or original head coverage')
+    by_sequence = {}
+    for call in backwards:
+        seq = call.get('args', {}).get('Sequence number')
+        require(isinstance(seq, int) and seq not in by_sequence, 'Missing or duplicate raw backward sequence')
+        by_sequence[seq] = call
+    pairs, heads, seen = [], [], set()
+    for i, forward in enumerate(forwards):
+        seq = forward.get('args', {}).get('Sequence number')
+        require(isinstance(seq, int) and seq not in seen and seq in by_sequence,
+                'Missing or duplicate raw forward/backward sequence')
+        seen.add(seq)
+        backward = by_sequence[seq]
+        require(backward['name'] == forward['name'] + 'Backward', 'Raw forward/backward class differs')
+        require(end(forward) <= backward['ts'] + .01, 'Raw backward precedes its forward')
+        head = i % 65 == 64
+        classname = CACHED_COLUMN if candidate and not head else ORIGINAL_COLUMN
+        require(forward['name'] == classname, 'Raw column/head topology changed')
+        if head:
+            heads.append((forward, backward))
+        else:
+            pairs.append(('qkv' if i % 65 % 2 == 0 else 'fc1', forward, backward))
+    return pairs, heads
+
+
+def _head_records(index, heads):
+    """Keep all four unmodified vocabulary heads outside the 256-call target."""
+    require(len(heads) == 4, 'Expected four original vocabulary heads')
+    for forward, backward in heads:
+        fw, fl = index.work(forward)
+        bw, bl = index.work(backward)
+        index.clears(forward, fw, fl)
+        index.clears(backward, bw, bl)
+        fk = [e for e in fw if e['cat'] == 'kernel']
+        bk = [e for e in bw if e['cat'] == 'kernel']
+        fag = [e for e in fk if 'nccl' in e['name'].lower() and 'AllGather' in e['name']]
+        fm = [e for e in fk if 'gemm' in e['name'].lower()]
+        bag = [e for e in bk if 'nccl' in e['name'].lower() and 'AllGather' in e['name']]
+        rs = [e for e in bk if 'nccl' in e['name'].lower() and 'ReduceScatter' in e['name']]
+        mm = sorted([e for e in bk if 'gemm' in e['name'].lower()], key=lambda e: e['ts'])
+        require(len(fk) == 2 and len(fag) == len(fm) == 1 and
+                len(bk) == 4 and len(bag) == len(rs) == 1 and len(mm) == 2,
+                'Original vocabulary head path changed')
+        require(end(fag[0]) <= fm[0]['ts'] + .01 and
+                end(bag[0]) <= rs[0]['ts'] + .01 and end(bag[0]) <= mm[1]['ts'] + .01 and
+                end(mm[0]) <= rs[0]['ts'] + .01 and end(mm[0]) <= mm[1]['ts'] + .01,
+                'Original vocabulary head dependencies changed')
+        require(fm[0]['args']['stream'] == mm[0]['args']['stream'] == mm[1]['args']['stream'] and
+                fag[0]['args']['stream'] != fm[0]['args']['stream'] and
+                bag[0]['args']['stream'] == rs[0]['args']['stream'] != mm[0]['args']['stream'],
+                'Original vocabulary head streams changed')
+    return dict(calls=4, original_autograd_class=ORIGINAL_COLUMN, forward_allgather_kernels=4,
+                backward_allgather_kernels=4, reduce_scatter_kernels=4,
+                excluded_from_target_column_counts=True)
 
 
 def _column_records(index, pairs, candidate):
@@ -218,26 +257,25 @@ def _column_records(index, pairs, candidate):
 
 
 def trace_activation_cache_records(events, arm):
-    """Validate actual MA8 marked column paths; no historical fallback is allowed."""
+    """Validate MA8-v2 raw automatic profiler events without per-call markers."""
     index = TraceIndex(events)
-    return _column_records(index, _marked_column_pairs(index, arm), _arm(arm))
+    pairs, heads = _raw_column_pairs(index, arm, 'ma8-v2')
+    result = _column_records(index, pairs, _arm(arm))
+    result.update(attribution='raw_autograd_sequence_and_fixed_topology_v2',
+                  original_vocabulary_heads=_head_records(index, heads),
+                  per_call_wrappers_and_annotations=False)
+    return result
 
 
 def historical_column_records(events):
     """Diagnostic only: frozen 32-layer, four-microbatch F4 trace without MA8 markers.
 
-    The 65th original column call per microbatch is the vocabulary head and is
-    excluded. Forward QKV bias presence independently checks alternating roles.
+    This explicit diagnostic mode shares raw topology validation with MA8-v2;
+    it is never used to accept a candidate with missing raw Function events.
     """
     index = TraceIndex(events)
-    name = 'LinearWithGradAccumulationAndAsyncCommunication'
-    forwards = sorted([e for e in events if e.get('cat') == 'cpu_op' and e['name'] == name], key=lambda e: e['ts'])
-    backwards = [e for e in events if e.get('cat') == 'cpu_op' and e['name'] == name + 'Backward']
-    require(len(forwards) == len(backwards) == 260, 'Historical F4 topology changed')
-    by_sequence = {e['args']['Sequence number']: e for e in backwards}
-    require(len(by_sequence) == 260, 'Duplicate historical backward sequence')
-    pairs = [('qkv' if i % 65 % 2 == 0 else 'fc1', e, by_sequence[e['args']['Sequence number']])
-             for i, e in enumerate(forwards) if i % 65 != 64]
+    pairs, heads = _raw_column_pairs(index, 'F4', 'historical-f4')
+    _head_records(index, heads)
     return _column_records(index, pairs, False)
 
 

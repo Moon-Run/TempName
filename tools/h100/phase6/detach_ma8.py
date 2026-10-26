@@ -16,7 +16,7 @@ from zoneinfo import ZoneInfo
 import detach_ablation5_run_two as launcher
 from common import HERE, REPO, read, write, require, sha, verify_files
 
-PROTOCOL = 'h100-ma8-f4-cache-detached-v1'
+PROTOCOL = 'h100-ma8-f4-cache-detached-v2'
 ARMS = ('F4', 'F4-cache')
 BLOCKS = 8
 STEPS = 50
@@ -36,7 +36,7 @@ def arguments(argv=None):
     parser.add_argument('--build-cuda-home', type=Path, default=Path('/usr/local/cuda-12.8'))
     parser.add_argument('--cuda-home', type=Path, default=Path('/usr/local/cuda-12.4'))
     parser.add_argument('--nccl-root', type=Path)
-    parser.add_argument('--ma8-build', type=Path, help='Reuse a verified MA8-v1 build with unchanged F4 native sources')
+    parser.add_argument('--ma8-build', type=Path, help='Reuse a verified MA8-v2 build with unchanged F4 native sources')
     parser.add_argument('--jobs', type=int, default=2)
     parser.add_argument('--worker-timeout', type=int, default=1800)
     parser.add_argument('--execute', action='store_true')
@@ -46,7 +46,7 @@ def arguments(argv=None):
     tuning(args)
     if args.out is None:
         stamp = datetime.now(ZoneInfo('Asia/Shanghai')).strftime('%Y%m%d-%H%M%S-%f')
-        args.out = REPO/'logs/h100/phase6'/f'ma8-v1-cache-{args.trials}x-50steps-{stamp}'
+        args.out = REPO/'logs/h100/phase6'/f'ma8-v2-cache-{args.trials}x-50steps-{stamp}'
     for key, value in vars(args).items():
         if isinstance(value, Path):
             setattr(args, key, value.expanduser().absolute() if key == 'python' else value.expanduser().resolve())
@@ -140,7 +140,7 @@ def supervise(args):
     hashes = read(args.out/'handoff/controllers.json')
     windows = args.trials * BLOCKS * len(ARMS)
     state = dict(protocol=PROTOCOL, status='preparing', trials=args.trials, arms=list(ARMS),
-        main_contrasts=['F4-cache/F4'], tuning=tuning(args), activation_policy='retain_owned_column_input',
+        main_contrasts=['F4-cache/F4'], tuning=tuning(args), activation_policy='retain_owned_column_input_uninstrumented',
         target_evaluated=False, target_validated=False, target_percent=2.0, target_point_observed=False,
         increment_over_F4_validated={arm: False for arm in ARMS[1:]},
         expected_timing_windows=windows, expected_formal_optimizer_steps=windows * STEPS, reports={})
@@ -187,7 +187,7 @@ def main(argv=None):
         print('PLAN ONLY: no directories, GPU queries, builds or workers.')
         for _, command in commands(args):
             print(shlex.join(command))
-        print(f'CR3/F4 / F4-cache; unchanged row projection; retained column activations; '
+        print(f'CR3/F4 / F4-cache; original F4 control; no added per-call diagnostics; retained column activations; '
               f'{args.trials} trial(s), {args.trials*16} windows, '
               f'{args.trials*800} formal optimizer steps. Each window: 10 warmup + 50 measured steps. '
               'Negative and slow windows are retained. The 2% target requires CI95 lower >=2% in each trial.')
@@ -199,7 +199,7 @@ def main(argv=None):
     else:
         import ma8_build
         require(ma8_build.verify(args.ma8_build, built=True)['tuning'] == tuning(args),
-                'Reused build differs from fixed MA8-v1 F4 configuration')
+                'Reused build differs from fixed MA8-v2 F4 configuration')
     if args.nccl_root:
         require(all((args.nccl_root/name).is_file() for name in ('include/nccl.h', 'lib/libnccl_static.a')),
                 'NCCL development files missing')

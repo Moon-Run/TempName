@@ -11,7 +11,7 @@ import ma8_sources
 from common import HERE, read, require, sha, verify_files, write
 from scope_plan import model_config
 
-PROTOCOL = 'h100-ma8-f4-cache-v1'
+PROTOCOL = 'h100-ma8-f4-cache-v2'
 MANIFEST = 'ma8-manifest.json'
 VARIANTS = ma8_sources.VARIANTS
 RUNTIME = baseline.RUNTIME

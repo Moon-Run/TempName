@@ -40,7 +40,9 @@ assert plan['arms'] == ['F4', 'F4-cache']
 assert len(plan['schedule']) == 32
 for name in ('adapter_source', 'worker_source', 'taco_source'):
     ast.parse(controller[name]())
-assert 'ma8_activation_cache_state' in controller['worker_source']()
+assert 'ma8_activation_setup' in controller['worker_source']()
+assert 'ma8_cache_tracker' not in controller['worker_source']()
+assert plan['activation_policy'] == 'retain_owned_column_input_uninstrumented'
 '''
             result = subprocess.run([sys.executable, '-I', '-c', script, str(root)],
                                     cwd=root/'scripts', capture_output=True, text=True)

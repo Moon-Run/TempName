@@ -1,6 +1,6 @@
 # MA8：保留前向已收集的激活，删除反向重复 AllGather
 
-**2026-10-26，首次八卡批次在训练预检因源码指纹错误退出，现已修复，待重新上机。** 失败发生在 `smoke-F4` 的 `ColumnParallelLinear.forward` 源码校验，没有正式训练窗口或整步性能结果，详见[第 8 节](#8-首次上机失败与源码指纹修复)。相对同期 CR3 减少至少 2% 的完整 optimizer step 时间仍是实验目标。
+**2026-10-26，当前入口更新为 MA8-v2：删除两组额外的逐调用 Python 包装。** F4 直接使用原 column forward、linear 入口和 autograd Function；F4-cache 只保留独立保存前向激活、反向复用的机制改动。两组均不新增逐调用状态计数、输入检查或 `record_function`，详见第 9 节。相对同期 CR3 减少至少 2% 的完整 optimizer step 时间仍是实验目标，v2 尚未上机验证。
 
 本轮只引入一种机制：**QKV／FC1 前向 AllGather 的完整输入由该次 autograd 节点独立持有，反向 wgrad 直接复用，删除对同一输入的第二次 AllGather。** 实验名为 `F4-cache`，对照 `F4` 即 [baseline.md](baseline.md) 的 CR3。原 CR3 的 row-parallel 投影、选择性量化、producer、发布屏障、decoder＋bias/residual、LayerNorm 及其反向保持原实现。
 
@@ -110,7 +110,9 @@ flowchart LR
 
 入口为 [ma8_adapter.py](../../../../tools/h100/phase6/ma8_adapter.py)。仅覆盖每层 `.self_attention.linear_qkv` 和 `.mlp.linear_fc1`，不改 LM head 或 row-parallel 模块。安装时核对冻结 Megatron 函数身份与模型配置；不支持重计算、CUDA Graph、不同 TP／shape、梯度融合或 wgrad 延迟等组合实验。
 
-`ColumnParallelLinear.forward` 会在每次调用内重新设置 `_forward_impl`，因此单独给该属性赋值不足以安装机制。MA8 为目标实例绑定原 forward 的独立函数环境，只替换该实例的 linear 调用入口；不全局 monkeypatch Megatron 的 linear 函数。对照使用原类的算术，候选从同一冻结源码生成仅含上述缓存变换的路径；双方都有相同口径的模块计数与 profile 标记。
+`ColumnParallelLinear.forward` 会在每次调用内重新设置 `_forward_impl`，因此单独给该属性赋值不足以安装机制。v2 仅为候选目标实例绑定原 forward 的独立函数环境，并复制原 linear 入口的函数环境，将其最终调用的 autograd 类替换为缓存版本；这两个入口的原函数体与调用层数保持一致，不增加 dispatch 包装。F4 的实例方法、linear 入口与 autograd 类均不修改，也不安装候选适配器。
+
+源码身份、模型配置和 64 模块覆盖只在初始化阶段检查一次，在预热及计时开始之前结束。两组均无 MA8 新增的逐调用计数、输入／指针检查、异常包装、辅助 autograd Function 或 `record_function`；原 F4 本身已有的 row 投影执行逻辑继续作为对照的一部分。
 
 ## 4. 2% 的预算与显存代价
 
@@ -129,7 +131,7 @@ CR3 历史均值 501.433 ms 仅用于量级估算：
 32 层 × 2 个 column projection × 16 MiB = 1024 MiB / rank
 ```
 
-原 PP1 训练依次完成四个 microbatch 的前后向，首版不跨 microbatch 保留，不能误算成四倍同时驻留。1 GiB 是新增逻辑激活容量，不是测得的 allocator 峰值；缓存释放时机、原全局 buffer、临时 GEMM 张量和内存池可能使 `allocated`／`reserved` 增量与它不同。报告必须给出两种峰值，若存活缓存跨过反向边界则直接判失败。
+原 PP1 训练依次完成四个 microbatch 的前后向，首版不跨 microbatch 保留，不能误算成四倍同时驻留。1 GiB 是新增逻辑激活容量，不是测得的 allocator 峰值；缓存释放时机、原全局 buffer、临时 GEMM 张量和内存池可能使 `allocated`／`reserved` 增量与它不同。报告给出两种峰值；缓存生命周期由原 autograd 的保存／释放机制管理，并在独立正确性测试中检查，不为此在每次调用维护状态计数。
 
 按输入数据量计，每次 AllGather 的完整结果 16 MiB，其中远端贡献 14 MiB；删除 256 次对应每 rank 每 step 3.5 GiB 的远端有效载荷收集。该值不是 NVLink 链路实测流量，也不能用峰值带宽直接换算收益。
 
@@ -151,10 +153,11 @@ CR3 历史均值 501.433 ms 仅用于量级估算：
 
 ### 路径必须可验证
 
-- 每个正式窗口，64 个目标 column 模块各有 `(10+50)×4=240` 次前后向；候选复用次数为 240，反向输入 AllGather 为零，末态未完成缓存为零。对照保留原反向收集。
-- 独立 profile 每 rank 的 QKV／FC1 各 128 次：两组前向输入 AllGather 各 256 次；反向输入 AllGather 从 256 降到 0；原 dgrad ReduceScatter 仍为 256 次；两个 GEMM 与 bias 梯度保持完整。
+- 正式窗口不新增逐调用运行计数。候选安装的 64 模块身份在初始化后记录一次；全模型 smoke 与正式末态参数检查保留在各自原有的计时边界之外。
+- 独立 profile 使用 PyTorch 自动产生的 autograd 事件与 sequence number：F4 为原 `LinearWithGradAccumulationAndAsyncCommunication`，候选为 `_MA8CachedRawLinear`；两组 LM head 均为原类，不使用自定义 column `record_function` 标记。
+- 独立 profile 每 rank 的 QKV／FC1 各 128 次：两组前向输入 AllGather 各 256 次；反向输入 AllGather 从 256 降到 0；原 dgrad ReduceScatter 仍为 256 次；两个 GEMM 与 bias 梯度保持完整。原类的四次 LM head 单独识别，不能算入候选目标。
 - row projection 的原 producer→发布屏障→consumer decoder→LayerNorm 及 bias→AllGather→dgrad→wgrad 仍通过检查。LM head 继续使用原实现。
-- GPU 事件以 autograd sequence、CPU 调用范围、launch correlation 关联，不能仅根据 Python 计数认定通信已消失。
+- GPU 事件以 autograd sequence、CPU 调用范围、launch correlation 关联；冻结拓扑、角色 bias 行为与原 LM head 数量共同约束目标识别。旧版带包装的 Function 或自定义 column 标记不能通过 v2 验收。
 - MA7 曾误拒绝原 cuBLAS 的 4-byte memset。MA8 的审计器只按准确大小、父 `mm/matmul` 调用与对应 GEMM 关联允许原有清零；column QKV 的原 bias `sum` 中 48-byte 清零也单独归类。继续拒绝未知复制／清零，不整体过滤 `gpu_memset`。
 
 ### 结果判定
@@ -236,3 +239,31 @@ bash tools/h100/phase6/run_ma8.sh --execute
 ```
 
 默认命令会创建新 build 和新批次。旧 build 的身份记录包含 `ma8_adapter.py` 哈希，因此**不能直接用旧 `--ma8-build` 复用，也不能就地修改原失败快照继续计时**。修复后的 800 个正式训练步骤及 profile 仍须重新完成，才能判断 MA8 是否有收益。
+
+## 9. MA8-v2：删除额外的逐调用诊断包装
+
+原生源码一致只能证明 native 部分一致。v1 对 F4 也安装了 `MA8ReferenceLinear`，并在两组每次前后向执行状态字典更新、输入／参数检查和 `record_function`，因此其完整执行路径与原 F4 有差别。按本次要求，**这些新增工作在两组中全部删除**。
+
+| 路径 | v2 的执行方式 |
+| --- | --- |
+| F4 column 前后向 | 原 `ColumnParallelLinear.forward` → 原 linear 函数 → 原 `LinearWithGradAccumulationAndAsyncCommunication.apply`，不安装或绑定 MA8 方法 |
+| F4-cache column 前后向 | 原 forward 与 linear 函数的相同 code object，初始化时替换函数环境中的类引用，直接进入 `_MA8CachedRawLinear.apply`；原来的外层 Function 和 dispatch 包装均删除 |
+| 每次调用的诊断 | 删除 `CacheState`、tracker、计数／pending 字段、MA8 新增输入／指针检查、异常包装与 column `record_function` |
+| 初始化与结果检查 | 源码／模型／64 模块身份只在预热前检查一次；完整梯度和参数指纹沿用原计时边界，结果离线验收 |
+| 路径核对 | 另跑 profiler，通过自动 autograd 事件、sequence、kernel 关联以及四次原 LM head 验证；没有额外 column 标记 |
+
+候选 Function 的必要差异仍然只有：前向 AllGather 写入独立张量、保存该张量，以及反向复用它并删除重复 AllGather／wait。原 F4 已有的 row 投影、GEMM、归约和训练 step 函数保持原行为。
+
+两组旧批次约 40 ms 的步时差距没有经过隔离包装开销的同场消融，不能全部归因于包装，也不能据此认定 GPU 被其他任务占用。v2 是按要求移除额外开销后的新实验；目前不声称它消除了这 40 ms，更不把 v1 的性能结果改写为 v2 结果。
+
+构建、训练与启动协议升级到 `h100-ma8-f4-cache-v2` 系列，默认目录前缀改为 `ma8-v2-cache-`。旧 v1 的计数记录、带包装的 profile 和构建身份均不接受为 v2 证据。历史日志与验证记录保持原样。
+
+启动命令保持不变，执行后会创建新批次：
+
+```bash
+bash tools/h100/phase6/run_ma8.sh --execute
+```
+
+**v2 的 65 项本地测试通过，零跳过**：14 项 adapter、10 项构建／在线 worker、19 项控制器／启动器与 22 项 profile 检查。覆盖 F4 实例与方法完全不被安装过程修改、候选两个入口使用原 code object、无新增逐调用诊断，以及原 BF16／FP32 梯度和参数更新一致性。八份原 F4 trace 通过新版读取；旧 MA8 两组实际带包装的 trace 均被新版拒绝。
+
+记录见 [validation.json](../../../../outputs/h100/phase6/ma8-v2-validation-20261026/validation.json)。本次只修改代码、文档并做本地验证，没有启动新的八卡性能实验。

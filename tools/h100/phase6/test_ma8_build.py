@@ -32,6 +32,19 @@ class BuildIdentityTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, 'Missing MA8 runtime|Unbuilt'):
             builder.verify(self.root, built=True)
 
+    def test_v1_build_cannot_be_reused_for_uninstrumented_v2(self):
+        path = self.root / builder.MANIFEST
+        saved = path.read_bytes()
+        try:
+            record = read(path)
+            self.assertEqual(record['protocol'], 'h100-ma8-f4-cache-v2')
+            record['protocol'] = 'h100-ma8-f4-cache-v1'
+            write(path, record)
+            with self.assertRaisesRegex(ValueError, 'Wrong MA8 source protocol'):
+                builder.verify(self.root)
+        finally:
+            path.write_bytes(saved)
+
     def test_rehashing_native_candidate_changes_is_rejected(self):
         path = self.root / 'F4-cache' / source.RUNTIME
         manifest_path, record_path = self.root / 'manifest.json', self.root / builder.MANIFEST

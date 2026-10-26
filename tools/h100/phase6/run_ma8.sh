@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
-# MA8-v1: unchanged CR3/F4 versus retained column-parallel activations.
-# Native forward stays F4 for both arms. Preview unless --execute.
+# MA8-v2: unchanged CR3/F4 versus retained column-parallel activations.
+# F4 column path is untouched; candidate has no added per-call diagnostics. Preview unless --execute.
 ma8_repo=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/../../.." && pwd)
 ma8_runtime=/usr/local/cuda-12.4
 if [[ -f "$ma8_repo/outputs/h100/container-recovery/env.sh" ]]; then

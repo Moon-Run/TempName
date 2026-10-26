@@ -1,0 +1,152 @@
+{
+  "date": "2026-10-26",
+  "gpu_used": false,
+  "gpu_validated": false,
+  "performance_validated": false,
+  "linked_runtime": false,
+  "mechanism": "exact_multi_tensor_optimizer_zero_count",
+  "control": "original_MA4_F_CR3",
+  "ma8_performance_accepted": false,
+  "baseline_identity": {
+    "original_adapter_sha256": "a66c0124e514bc222a6b48eb2cd3da47263205ce393fb0ca6d1a0625073597c9",
+    "original_taco_sha256": "d994d174d2a367d2171f45f5c6dd977c84f697e20ee0728fb018b07728f66755",
+    "original_training_functions": true,
+    "original_timing_loop": true,
+    "candidate_only_installation": true
+  },
+  "total_unique_tests_passed": 59,
+  "skipped": 0,
+  "test_runs": [
+    {
+      "command": [
+        "python3",
+        "-m",
+        "unittest",
+        "-v",
+        "test_ma9_build",
+        "test_ma9_online_worker",
+        "test_ma9_launcher",
+        "test_ma9_harness",
+        "test_ma9_profile",
+        "test_ma9_review"
+      ],
+      "tests": 47,
+      "passed": 47,
+      "skipped": 0,
+      "returncode": 0,
+      "log": "controller-tests.log",
+      "sha256": "15f2385abc680f3ef36783d6586740380a8e7fcb8244e28e77f41c1807465ec1"
+    },
+    {
+      "command": [
+        "/data/run01/scyb672/conda_envs/flux-megatron-a800/bin/python",
+        "-S",
+        "-u",
+        "-c",
+        "import sys; sys.path.append(\"/data/run01/scyb672/conda_envs/flux-megatron-a800/lib/python3.10/site-packages\"); sys.path.insert(0,\"tools/h100/phase6\"); import torch; print(\"torch=\"+torch.__version__, flush=True); import unittest; suite=unittest.defaultTestLoader.loadTestsFromName(\"test_ma9_adapter\"); result=unittest.TextTestRunner(verbosity=2).run(suite); sys.exit(not result.wasSuccessful())"
+      ],
+      "tests": 10,
+      "passed": 10,
+      "skipped": 0,
+      "returncode": 0,
+      "log": "adapter-tests.log",
+      "sha256": "4306c011b65b8dfb46d71266fdee32ae6bbb7263940174c6985abe6763d6c3af"
+    },
+    {
+      "command": [
+        "python3",
+        "-m",
+        "unittest",
+        "-v",
+        "test_ma9_harness",
+        "test_ma9_review",
+        "test_ma9_launcher"
+      ],
+      "tests": 20,
+      "passed": 20,
+      "skipped": 0,
+      "returncode": 0,
+      "log": "final-integration-tests.log",
+      "sha256": "927a543b960d774e6acc84e9875fdabfb7f3e95755bdc31973e403943fce54dc"
+    }
+  ],
+  "test_environment": {
+    "cwd": "/data/run01/scyb672/hjr/TempName",
+    "PYTHONPATH": "tools/h100/phase6",
+    "adapter_env": {
+      "OMP_NUM_THREADS": "1",
+      "MKL_NUM_THREADS": "1"
+    }
+  },
+  "final_integration_note": "After fixing lazy scope_ops startup, added two regressions and repeated affected harness/review/launcher tests. Runs overlap; total unique tests is 59, not 77.",
+  "cuda_compile": {
+    "compiler": "/data/apps/cuda/12.8/bin/nvcc",
+    "architecture": "sm_90",
+    "returncodes": [
+      0,
+      0
+    ],
+    "spill_bytes": 0,
+    "commands": [
+      "nvcc -x cu -std=c++17 -arch=sm_90 -c tools/h100/phase6/ma9_zero_count.cuh -o /tmp/ma9_zero_count.o -Xptxas=-v",
+      "nvcc -x cu -std=c++17 -arch=sm_90 --use_fast_math -c tools/h100/phase6/ma9_zero_count.cuh -o /tmp/ma9_zero_count-fastmath.o -Xptxas=-v"
+    ],
+    "logs": [
+      "native-compile.log",
+      "native-compile-fastmath.log"
+    ],
+    "limitation": "Standalone CUDA header object compilation only; no complete Flux link or GPU execution."
+  },
+  "syntax": {
+    "python_files": 14,
+    "shell": "tools/h100/phase6/run_ma9.sh",
+    "passed": true
+  },
+  "launcher_preview": {
+    "command": "MA9_PYTHON=/usr/bin/python3 bash tools/h100/phase6/run_ma9.sh --trials 2 --out /tmp/ma9-final-preview",
+    "windows": 32,
+    "formal_optimizer_steps": 1600,
+    "created_batch_directory": false,
+    "log": "launcher-preview.log"
+  },
+  "original_trace_validation": {
+    "ranks": 8,
+    "report": "baseline-analysis/profile-validation.json",
+    "analysis": "baseline-analysis/analysis.json"
+  },
+  "source_sha256": {
+    "tools/h100/phase6/detach_ma9.py": "13774cb42496251494099bbd6801ab1ef1c8fc11ea177a99bb22991cb02c8346",
+    "tools/h100/phase6/ma9_adapter.py": "ab89d89761dde299a024d8da5956345723fab8fdcbcac725b1ec0419a293bb14",
+    "tools/h100/phase6/ma9_bench.py": "1d7c47d335be58ecd9b4d21268697a9a6d287d562cc2d0e8293332f8c327e5f8",
+    "tools/h100/phase6/ma9_build.py": "a3bc3450d19e562ab15edfc148e080f892b89ea1e5d025ae2061fe0cabfc1d23",
+    "tools/h100/phase6/ma9_fullstep.py": "d308074ae40ab3dd06e11b4c74aa52a424b81c04b81f6d884a0c3cbca6539a1b",
+    "tools/h100/phase6/ma9_profile.py": "948fe84f1b7cf155b86a259ae74180913ded623fd009f5638999859ad69d30bd",
+    "tools/h100/phase6/ma9_sources.py": "8c174559b45db1db1347a99b33e793f8682fe590372e9c949b2dfc270d6421c4",
+    "tools/h100/phase6/ma9_zero_count.cuh": "a907fb334a1a7c6f232943cb2c4fb3b3faf142bbe223b8b61699edfa0e0df84d",
+    "tools/h100/phase6/run_ma9.sh": "e8231d1c9d903c1646e962602ee4844fefe206492b8c06c56393cbd1d0cc9611",
+    "tools/h100/phase6/test_ma9_adapter.py": "f01b32535258ef20484b94351b64e89c0e782c902b43f54af33e853737e3629d",
+    "tools/h100/phase6/test_ma9_build.py": "c3c349b7f4348422324f956dc8f38a15052917ee94ed072d546fd83687b41397",
+    "tools/h100/phase6/test_ma9_harness.py": "ddcb9e279b78ab1f886f96c9931634418d7709abf1526b3e92055b4e0f7b7d9a",
+    "tools/h100/phase6/test_ma9_launcher.py": "110e8207cd3e6d78ac0019dc87e4feb7f923188f4b582fb633a00d6bbf6e03fd",
+    "tools/h100/phase6/test_ma9_online_worker.py": "7d7b04a682b2ae886fcc91d2ab7be2aa4c5dd537c600c6accb9751ca838702c1",
+    "tools/h100/phase6/test_ma9_profile.py": "5a71a5af6b5ed07dfd1fcf4d843dfc1c9a57fd0738569d8040daec0f983901e3",
+    "tools/h100/phase6/test_ma9_review.py": "e4229d90092bc928575811ca9977b43cbd9a54fbfef4be7abcc1079c4dedf5e2"
+  },
+  "evidence_sha256": {
+    "adapter-tests.log": "4306c011b65b8dfb46d71266fdee32ae6bbb7263940174c6985abe6763d6c3af",
+    "baseline-analysis/__pycache__/analyze.cpython-310.pyc": "720adf47b1b19939f06a41e5d7cb9f21991ab66368aae23d268856445eefb1f1",
+    "baseline-analysis/analysis.json": "4a537d0226cbc8624ed8b5b543e31663dda31ebb5744f12b4349431b54ba7fda",
+    "baseline-analysis/analyze.py": "2eae630328fb0803a53d176a4cc7b0cf6076a34fd2561fcee28db2ff107f8da4",
+    "baseline-analysis/profile-validation.json": "a423422c35f8167e328e8fa6902049b9440cd5ec9782e6388bf69425b589b5e1",
+    "controller-tests.log": "15f2385abc680f3ef36783d6586740380a8e7fcb8244e28e77f41c1807465ec1",
+    "final-integration-tests.log": "927a543b960d774e6acc84e9875fdabfb7f3e95755bdc31973e403943fce54dc",
+    "launcher-preview.log": "38c3ef36120ee75670c44d46fc0718850b1e74d8cda94a5c8877c82a845d7c5e",
+    "native-compile-fastmath.log": "3450df1687724927fc2950d7b6aad7700420421d178190ebb476542f071a4215",
+    "native-compile.log": "5187bb5dac20b0a1bc462df96794706066e2c4265827b36a8a11dbaefa70773a"
+  },
+  "limitations": [
+    "CPU adapter tests simulate CUDA ABI/collectives; do not validate native GPU arithmetic.",
+    "Online worker CPU tests hash explicitly marked placeholder libraries and stop before first Torch import.",
+    "No H100 GPU available; >=2% awaits untouched-CR3 paired trials plus correctness/profile gates."
+  ]
+}

@@ -21,7 +21,7 @@ _source = registered_replace(_source, 'import ma4_f_build as builder', 'import m
 _source = registered_replace(_source, "job['arm']=='F4'", "job['arm'] in ARMS", 2)
 _source = registered_replace(_source, "equivalence_pairs=[['F4','CR2']]", 'equivalence_pairs=EQUIVALENCE_PAIRS', 2)
 _source = registered_replace(_source, 'mechanism=MECHANISM, roles=ROLES',
-    "mechanism=MECHANISM, tuning=identity['tuning'], activation_policy='retain_owned_column_input', roles=ROLES")
+    "mechanism=MECHANISM, tuning=identity['tuning'], activation_policy='retain_owned_column_input_uninstrumented', roles=ROLES")
 _source = registered_replace(_source, "native_mechanism(op,job['arm'],plan)", "actual_tuning=native_tuning(op,job['arm'],plan)")
 _source = registered_replace(_source, "result['roles'][role]=dict(shape=shape", "result['roles'][role]=dict(native_tuning=actual_tuning, shape=shape")
 _source = registered_replace(_source, "comparisons={'F4/CR2':paired(values['F4'],values['CR2'])}",
@@ -31,7 +31,7 @@ __doc__ = 'MA8 unchanged native F4 sanity checks; activation retention is evalua
 
 import ma8_sources
 
-SOURCE_PROTOCOL = 'h100-ma8-f4-cache-v1'
+SOURCE_PROTOCOL = 'h100-ma8-f4-cache-v2'
 PROTOCOL = SOURCE_PROTOCOL + '-operator'
 ARMS = ('F4', 'F4-cache')
 MAIN_COMPARISONS = (('F4-cache', 'F4'),)
@@ -62,7 +62,7 @@ def validate_tuning(value):
 
 
 def validate_experiment(plan):
-    require(plan.get('activation_policy') == 'retain_owned_column_input',
+    require(plan.get('activation_policy') == 'retain_owned_column_input_uninstrumented',
             'MA8 requires column activation retention')
 
 

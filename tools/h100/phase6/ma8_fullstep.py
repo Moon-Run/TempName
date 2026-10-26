@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 """F4 / F4-cache full optimizer-step comparison with identical native forward."""
 from pathlib import Path
-from collections import Counter
 import ast
 
 
@@ -34,7 +33,7 @@ _source=registered_replace(_source,'MA8 tile/block tuning versus unchanged CR2; 
     'MA8 F4 / F4-cache; full optimizer steps; retained column activations.')
 _source=registered_replace(_source,'equivalence_pairs=[["T","CR2"]]','equivalence_pairs=bench.EQUIVALENCE_PAIRS',2)
 _source=registered_replace(_source,'                trial_ids={str(i+1): uuid.uuid4().hex for i in range(args.trials)},',
-    "                activation_policy='retain_owned_column_input',\n"
+    "                activation_policy='retain_owned_column_input_uninstrumented',\n"
     '                trial_ids={str(i+1): uuid.uuid4().hex for i in range(args.trials)},')
 _source=registered_replace(_source,'    plan = dict(protocol=PROTOCOL, run_id=uuid.uuid4().hex,',
                         '    freeze_helpers(scripts)\n    plan = dict(protocol=PROTOCOL, run_id=uuid.uuid4().hex,')
@@ -87,8 +86,10 @@ def verify(root,offline=False):
     require(not _FROZEN or offline,'Frozen controller supports offline replay only')
     plan=_verify(root,offline)
     bench.validate_experiment(plan)
-    require("ma8_adapter.install_activation_cache(raw, os.environ['H100_MA8_ARM'])" in
-            (Path(root)/'scripts/worker.py').read_text(), 'Plan/generated worker mechanism mismatch')
+    worker=(Path(root)/'scripts/worker.py').read_text()
+    require(activation_setup_source() in worker and
+            'ma8_cache_tracker' not in worker and 'ma8_activation_cache_state' not in worker,
+            'Plan/generated worker must use setup-only metadata and candidate-only installation')
     for source,name in [(_BASE_PATH,'ma8_fullstep_base.py'),(_F4_PATH,'ma8_fullstep_f4.py'),
                         (bench.TEMPLATE,'ma8_bench_base.py'),(bench.base_path,'ma4_f_bench_base.py'),
                         (Path(f4_adapter.__file__),'ma4_f_adapter.py'),
@@ -111,46 +112,45 @@ def taco_source():
     return f4_adapter.taco_source(_taco_source())
 
 
+def activation_setup_source():
+    return """import ma8_adapter
+if os.environ['H100_MA8_ARM'] == 'F4-cache':
+    ma8_activation_setup = ma8_adapter.install_activation_cache(raw, 'F4-cache')
+else:
+    ma8_activation_setup = ma8_adapter.inspect_activation_setup(raw, 'F4')"""
+
+
 def worker_source():
     source = _consumer_worker_source()
     anchor = "adapter = Adapter(raw, POLICY, SPEC['shapes'], SPEC['ring_reduction'])"
-    source = replace_once(source, anchor, anchor +
-        "\nimport ma8_adapter\n"
-        "ma8_cache_tracker = ma8_adapter.install_activation_cache(raw, os.environ['H100_MA8_ARM'])")
+    source = replace_once(source, anchor, anchor + '\n' + activation_setup_source())
     return replace_once(source, "report['ma8_consumer_state'] = adapter.consumer_state()",
-        "report['ma8_activation_cache_state'] = ma8_cache_tracker.state()\n"
+        "report['ma8_activation_setup'] = ma8_activation_setup\n"
         "report['ma8_consumer_state'] = adapter.consumer_state()")
 
 
-def validate_cache_state(states, arm, calls, target_modules):
+def validate_activation_setup(metadata, arm, target_modules):
     bench.family(arm)
     expected={name.replace('.self_attention.linear_proj', '.self_attention.linear_qkv')
-             .replace('.mlp.linear_fc2', '.mlp.linear_fc1') for name in target_modules}
-    require(set(states)==expected and len(states)==64, 'Missing column activation-cache module coverage')
-    cached=arm=='F4-cache'
-    for name,state in states.items():
-        role='qkv' if name.endswith('.self_attention.linear_qkv') else 'fc1'
-        require(state.get('protocol')==ma8_adapter.PROTOCOL and state.get('arm')==arm and state.get('role')==role,
-                'Wrong activation-cache identity')
-        for key in ('forward_calls','backward_calls','forward_all_gathers','reduce_scatters'):
-            require(type(state.get(key)) is int and state[key]==calls, 'Incomplete column '+key)
-        for key in ('retained_forward_inputs','reused_backward_inputs'):
-            require(state.get(key)==(calls if cached else 0), 'Wrong owned activation reuse count')
-        require(state.get('backward_all_gathers')==(0 if cached else calls), 'Wrong backward input AllGather count')
-        require(state.get('pending')==0 and state.get('retained_bytes')==0 and state.get('failed') is False,
-                'Activation cache retained unfinished or failed work')
-        require(state.get('peak_pending')==1 and
-                state.get('peak_retained_bytes')==(2048*4096*2 if cached else 0),
-                'Unexpected activation cache allocation/lifetime')
+             .replace('.mlp.linear_fc2', '.mlp.linear_fc1'):
+             'qkv' if name.endswith('.self_attention.linear_proj') else 'fc1'
+             for name in target_modules}
+    require(len(expected)==64 and metadata==dict(
+        protocol=ma8_adapter.PROTOCOL, arm=arm, installed=arm=='F4-cache',
+        function='_MA8CachedRawLinear' if arm=='F4-cache' else 'LinearWithGradAccumulationAndAsyncCommunication',
+        module_roles=expected,
+        source_sha256=dict(class_source=ma8_adapter.CLASS_SHA256,
+                           column_forward=ma8_adapter.COLUMN_FORWARD_SHA256,
+                           linear_wrapper=ma8_adapter.LINEAR_WRAPPER_SHA256)),
+        'Wrong setup-only activation metadata or column module coverage')
 
 
 def window(root,plan,job):
     rows=_consumer_window(root,plan,job)
-    count=1 if job['mode']=='profile' else 3 if job['mode']=='smoke' else 50
-    warmup=2 if job['mode']=='smoke' else 10
     for row in rows:
         require(len(row['ma8_trainable_parameters'])==389, 'Changed trainable parameter universe')
-        validate_cache_state(row['ma8_activation_cache_state'],job['arm'],(warmup+count)*4,row['target_modules'])
+        require('ma8_activation_cache_state' not in row, 'MA8-v1 per-call counter evidence is not accepted')
+        validate_activation_setup(row['ma8_activation_setup'],job['arm'],row['target_modules'])
     return rows
 
 
@@ -192,7 +192,7 @@ def report(root,offline=False,save=True):
         acceptance_status={arm:'positive_F4_increment' if good else 'F4_increment_not_validated'
                            for arm,good in result['increment_over_F4_validated'].items()},
         main_contrasts=[c+'/'+b for c,b in bench.MAIN_COMPARISONS],
-        activation_cache_counters_validated=True)
+        activation_setup_validated=True, per_call_instrumentation=False)
     result['bootstrap']['unit']='complete fresh-process F4/F4-cache block'
     result.pop('target_ms',None)
     if save:

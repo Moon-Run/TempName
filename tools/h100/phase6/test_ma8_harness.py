@@ -36,9 +36,37 @@ class ScheduleAndFrozenSources(unittest.TestCase):
         for source in (full.worker_source(), full.adapter_source(), full.taco_source()):
             ast.parse(source)
         self.assertIn("audit_parameters = MODE == 'smoke'", full.worker_source())
-        self.assertIn("report['ma8_activation_cache_state']", full.worker_source())
+        self.assertIn("report['ma8_activation_setup']", full.worker_source())
+        self.assertNotIn('ma8_cache_tracker', full.worker_source())
+        self.assertNotIn('ma8_activation_cache_state', full.worker_source())
         self.assertIn('H100_MA8_ARM', full.adapter_source())
         self.assertNotIn('H100_MA4_F_ARM', full.adapter_source())
+
+    def test_baseline_setup_never_installs_and_step_functions_are_unchanged(self):
+        from types import SimpleNamespace
+        setup=ast.parse(full.activation_setup_source())
+        # Execute the exact generated branch with setup functions replaced by
+        # observers; no model or torch import is involved.
+        branch=compile(ast.Module(body=setup.body[1:], type_ignores=[]), '<MA8 setup branch>', 'exec')
+        for arm in bench.ARMS:
+            actions=[]
+            adapter=SimpleNamespace(
+                install_activation_cache=lambda model, value: actions.append(('install',value)) or {'arm':value},
+                inspect_activation_setup=lambda model, value: actions.append(('inspect',value)) or {'arm':value})
+            scope=dict(ma8_adapter=adapter,os=SimpleNamespace(environ={'H100_MA8_ARM':arm}),raw=object())
+            exec(branch,scope)
+            self.assertEqual(actions,[('install' if arm=='F4-cache' else 'inspect',arm)])
+        baseline=ast.parse(full._consumer_worker_source())
+        candidate=ast.parse(full.worker_source())
+        functions=lambda tree:{node.name:ast.dump(node,include_attributes=False) for node in tree.body
+                               if isinstance(node,(ast.FunctionDef,ast.AsyncFunctionDef))}
+        self.assertEqual(functions(baseline),functions(candidate))
+        original_source=full.f4_adapter.consumer_autograd_source()
+        actual_source=full.adapter_source()
+        original=ast.parse(original_source).body[0]
+        actual=next(node for node in ast.parse(actual_source).body
+                    if isinstance(node,ast.ClassDef) and node.name=='ConsumerGemmRSFunction')
+        self.assertEqual(ast.get_source_segment(original_source,original),ast.get_source_segment(actual_source,actual))
 
     def test_frozen_operator_import_is_self_contained(self):
         with tempfile.TemporaryDirectory() as temp:
@@ -79,7 +107,7 @@ class FullModelEvidenceTests(unittest.TestCase):
         self.root=Path(self.temp.name)
         self.plan=fixture_plan();self.plan.pop('target_percent')
         tuning=bench.validate_tuning(None)
-        self.plan.update(protocol=full.PROTOCOL,trials=1,blocks=8,activation_policy='retain_owned_column_input',
+        self.plan.update(protocol=full.PROTOCOL,trials=1,blocks=8,activation_policy='retain_owned_column_input_uninstrumented',
             trial_ids={'1':'trial1'},arms=list(bench.ARMS),schedule=full.expected_schedule(1,8),
             target_ms=None,acceptance_rule=full.ACCEPTANCE_RULE,tuning=tuning,build_identity={'tuning':tuning},
             libraries={a:{'files':{f'/synthetic/{a}/{n}':a+n for n in ('libflux_cuda.so','libflux_cuda_ths_op.so')}} for a in bench.ARMS})
@@ -94,7 +122,8 @@ class FullModelEvidenceTests(unittest.TestCase):
                 if key.startswith('cr2_'):row['ma8_'+key[4:]]=row.pop(key)
             row.update(protocol=full.PROTOCOL,ma8_protocol=bench.SOURCE_PROTOCOL,ma8_arm=arm,
                 ma8_native_tuning={name:bench.expected_tuning(self.plan,arm) for name in row['ma8_codec_state']},
-                ma8_final_parameters_sha256='c'*64,ma8_consumer_state={},ma8_activation_cache_state={})
+                ma8_final_parameters_sha256='c'*64,ma8_consumer_state={})
+            row['ma8_activation_setup']=activation_setup_fixture(arm,row['target_modules'])
             universe={name+suffix:dict(shape=[4096],dtype='torch.bfloat16')
                       for name in row['target_modules'] for suffix in ('.weight','.bias')}
             universe.update({f'other.parameter{i}':dict(shape=[1],dtype='torch.bfloat16') for i in range(389-len(universe))})
@@ -106,20 +135,22 @@ class FullModelEvidenceTests(unittest.TestCase):
                 calls=sum(s['successful_calls'] for s in states)
                 row['ma8_consumer_state'][name]=dict(projection_calls=calls,bda_calls=calls,bias_parameter_id=100+i,
                     native=[dict(s,bias_residual_calls=s['successful_calls']) for s in states])
-                column=name.replace('.self_attention.linear_proj', '.self_attention.linear_qkv').replace('.mlp.linear_fc2', '.mlp.linear_fc1')
-                row['ma8_activation_cache_state'][column]=cache_state_fixture(arm,calls,'qkv' if '.self_attention.' in column else 'fc1')
             row['peak_allocated_gib']=40.0
             row['peak_reserved_gib']=42.0
             row['elapsed_seconds']=(means or {'F4':501.,'F4-cache':499.})[arm]*len(row['losses'])/1000
         return rows
 
-    def test_fullstep_window_checks_pending_work_and_every_module(self):
+    def test_fullstep_window_checks_setup_identity_and_rejects_v1_counters(self):
         job=dict(self.plan['schedule'][0],arm='F4-cache',mode='timing')
         rows=self.rows(job)
         with patch.object(full,'read',side_effect=lambda p:rows[int(p.stem[4:])]):
             self.assertEqual(len(full.window(self.root,self.plan,job)),8)
-            next(iter(rows[0]['ma8_activation_cache_state'].values()))['pending']=1
-            with self.assertRaisesRegex(ValueError,'unfinished or failed'):
+            rows[0]['ma8_activation_setup']['installed']=False
+            with self.assertRaisesRegex(ValueError,'setup-only'):
+                full.window(self.root,self.plan,job)
+            rows[0]['ma8_activation_setup']['installed']=True
+            rows[0]['ma8_activation_cache_state']={}
+            with self.assertRaisesRegex(ValueError,'per-call counter'):
                 full.window(self.root,self.plan,job)
 
     def test_all_parameter_gradient_and_update_fingerprints_are_compared(self):
@@ -155,14 +186,16 @@ class FullModelEvidenceTests(unittest.TestCase):
                 full.report(self.root,save=False)
 
 
-def cache_state_fixture(arm,calls,role):
-    cached=arm=='F4-cache'
-    return dict(protocol=full.ma8_adapter.PROTOCOL,arm=arm,role=role,
-        forward_calls=calls,backward_calls=calls,forward_all_gathers=calls,
-        backward_all_gathers=0 if cached else calls,
-        retained_forward_inputs=calls if cached else 0,reused_backward_inputs=calls if cached else 0,
-        reduce_scatters=calls,pending=0,peak_pending=1,retained_bytes=0,
-        peak_retained_bytes=2048*4096*2 if cached else 0,failed=False)
+def activation_setup_fixture(arm,target_modules):
+    roles={name.replace('.self_attention.linear_proj', '.self_attention.linear_qkv')
+           .replace('.mlp.linear_fc2', '.mlp.linear_fc1'):
+           'qkv' if name.endswith('.self_attention.linear_proj') else 'fc1'
+           for name in target_modules}
+    return dict(protocol=full.ma8_adapter.PROTOCOL,arm=arm,installed=arm=='F4-cache',module_roles=roles,
+        function='_MA8CachedRawLinear' if arm=='F4-cache' else 'LinearWithGradAccumulationAndAsyncCommunication',
+        source_sha256=dict(class_source=full.ma8_adapter.CLASS_SHA256,
+                           column_forward=full.ma8_adapter.COLUMN_FORWARD_SHA256,
+                           linear_wrapper=full.ma8_adapter.LINEAR_WRAPPER_SHA256))
 
 
 class AcceptanceTests(unittest.TestCase):
