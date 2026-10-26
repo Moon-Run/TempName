@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Compare F4, F4-tile and F4-gather in complete, balanced training blocks.
+"""Compare F4, F4-mask and F4-layout in complete, balanced training blocks.
 
 Preview does not create directories or query GPUs. Each trial measures twelve
 three-arm blocks, with ten warmup and fifty measured optimizer steps per window.
@@ -16,18 +16,15 @@ from zoneinfo import ZoneInfo
 import detach_ablation5_run_two as launcher
 from common import HERE, REPO, read, write, require, sha, verify_files
 
-PROTOCOL = 'h100-ma6-f4-detached-v2'
-ARMS = ('F4', 'F4-tile', 'F4-gather')
+PROTOCOL = 'h100-ma6-f4-detached-v3'
+ARMS = ('F4', 'F4-mask', 'F4-layout')
 BLOCKS = 12
 STEPS = 50
 
 
 def tuning(args):
     from ma6_sources import tuning_config
-    return tuning_config({role: {'decoder_threads': getattr(args, role + '_threads'),
-                                'decoder_blocks': getattr(args, role + '_blocks'),
-                                'decoder_rows': getattr(args, role + '_rows')}
-                          for role in ('attn', 'mlp')})
+    return tuning_config()
 
 
 def arguments(argv=None):
@@ -39,15 +36,7 @@ def arguments(argv=None):
     parser.add_argument('--build-cuda-home', type=Path, default=Path('/usr/local/cuda-12.8'))
     parser.add_argument('--cuda-home', type=Path, default=Path('/usr/local/cuda-12.4'))
     parser.add_argument('--nccl-root', type=Path)
-    parser.add_argument('--ma6-build', type=Path, help='Reuse a verified three-arm build with matching tuning')
-    parser.add_argument('--attn-threads', type=int, default=128)
-    parser.add_argument('--attn-blocks', type=int, default=512)
-    parser.add_argument('--attn-rows', type=int, default=4)
-    parser.add_argument('--mlp-threads', type=int, default=128)
-    parser.add_argument('--mlp-blocks', type=int, default=512)
-    parser.add_argument('--mlp-rows', type=int, default=4)
-    parser.add_argument('--gather-schedule', choices=('overlap', 'wait-first'), default='overlap',
-                        help='F4-gather wait position; frozen before correctness/timing')
+    parser.add_argument('--ma6-build', type=Path, help='Reuse a verified MA6-v3 build with fixed R1 geometry')
     parser.add_argument('--jobs', type=int, default=2)
     parser.add_argument('--worker-timeout', type=int, default=1800)
     parser.add_argument('--execute', action='store_true')
@@ -57,7 +46,7 @@ def arguments(argv=None):
     tuning(args)
     if args.out is None:
         stamp = datetime.now(ZoneInfo('Asia/Shanghai')).strftime('%Y%m%d-%H%M%S-%f')
-        args.out = REPO/'logs/h100/phase6'/f'ma6-v2-{args.gather_schedule}-{args.trials}x-50steps-{stamp}'
+        args.out = REPO/'logs/h100/phase6'/f'ma6-v3-receiver-{args.trials}x-50steps-{stamp}'
     for key, value in vars(args).items():
         if isinstance(value, Path):
             setattr(args, key, value.expanduser().absolute() if key == 'python' else value.expanduser().resolve())
@@ -89,21 +78,17 @@ def commands(args):
         flags = ['--cuda-home', str(args.build_cuda_home), '--jobs', str(args.jobs)]
         if args.nccl_root:
             flags += ['--nccl-root', str(args.nccl_root)]
-        tile = [item for role in ('attn', 'mlp') for field in ('threads', 'blocks', 'rows')
-                for item in ('--' + role + '-' + field, str(getattr(args, role + '_' + field)))]
-        tasks += [('build-prepare', cli('ma6_build.py') + ['prepare', '--out', str(build), *tile]),
+        tasks += [('build-prepare', cli('ma6_build.py') + ['prepare', '--out', str(build)]),
                   ('compile', cli('ma6_build.py') + ['build', '--build', str(build), *flags])]
     runtime = ['--python', str(args.python), '--cuda-home', str(args.cuda_home),
                '--worker-timeout', str(args.worker_timeout)]
     operator, train = args.out/'operator', args.out/'fullstep'
     tasks += [
-        ('operator-prepare', cli('ma6_bench.py') + ['prepare', str(operator), '--build', str(build), '--blocks', str(BLOCKS),
-            '--gather-schedule', args.gather_schedule]),
+        ('operator-prepare', cli('ma6_bench.py') + ['prepare', str(operator), '--build', str(build), '--blocks', str(BLOCKS)]),
         ('operator-timing', cli('ma6_bench.py') + ['run', str(operator), *runtime, '--execute']),
         ('operator-profile', cli('ma6_bench.py') + ['run', str(operator), *runtime, '--profile', '--execute']),
         ('fullstep-prepare', cli('ma6_fullstep.py') + ['prepare', str(train), '--build', str(build),
-            '--megatron', str(args.megatron), '--trials', str(args.trials), '--blocks', str(BLOCKS),
-            '--gather-schedule', args.gather_schedule]),
+            '--megatron', str(args.megatron), '--trials', str(args.trials), '--blocks', str(BLOCKS)]),
         ('fullstep-run', cli('ma6_fullstep.py') + ['run', str(train), '--stage', 'all', *runtime, '--execute']),
         ('fullstep-profile', cli('ma6_fullstep.py') + ['run', str(train), '--stage', 'profile', *runtime, '--execute'])]
     return tasks
@@ -135,16 +120,16 @@ def check_fullstep(root, trials, profile=False):
             and result['formal_optimizer_steps'] == windows * STEPS
             and result['timing_rank_records'] == windows * 8 and len(result['all_samples']) == windows
             and set(result['comparisons']) == {f'compare{i+1}' for i in range(trials)},
-            'Incomplete requested F4/tile/gather training')
+            'Incomplete requested F4/mask/layout training')
     require(result == full.report(root, save=False), 'Training report differs from raw evidence')
     require(set(result['increment_over_F4_validated']) == set(ARMS[1:])
             and all(type(v) is bool for v in result['increment_over_F4_validated'].values()),
-            'Missing separate tile and gather performance outcomes')
+            'Missing separate mask and layout performance outcomes')
     if profile:
         evidence = read(root/'profile-summary.json')
         require(evidence['protocol'] == full.PROTOCOL and evidence['run_id'] == plan['run_id']
                 and evidence['completed'] and evidence['execution_validated']
-                and evidence == full.profile_summary(root), 'Full-model tile/gather execution evidence missing')
+                and evidence == full.profile_summary(root), 'Full-model mask/layout execution evidence missing')
     return result
 
 
@@ -152,7 +137,7 @@ def supervise(args):
     hashes = read(args.out/'handoff/controllers.json')
     windows = args.trials * BLOCKS * len(ARMS)
     state = dict(protocol=PROTOCOL, status='preparing', trials=args.trials, arms=list(ARMS),
-        main_contrasts=['F4-tile/F4', 'F4-gather/F4'], tuning=tuning(args), gather_schedule=args.gather_schedule,
+        main_contrasts=['F4-mask/F4', 'F4-layout/F4'], tuning=tuning(args), backward_schedule='baseline',
         target_evaluated=False, target_validated=False,
         increment_over_F4_validated={arm: False for arm in ARMS[1:]},
         expected_timing_windows=windows, expected_formal_optimizer_steps=windows * STEPS, reports={})
@@ -197,9 +182,9 @@ def main(argv=None):
         print('PLAN ONLY: no directories, GPU queries, builds or workers.')
         for _, command in commands(args):
             print(shlex.join(command))
-        print(f'F4 / F4-tile / F4-gather; schedule={args.gather_schedule}; {args.trials} trial(s), {args.trials*36} windows, '
+        print(f'F4 / F4-mask / F4-layout; original F4 backward; 2048 blocks x 128 threads; {args.trials} trial(s), {args.trials*36} windows, '
               f'{args.trials*1800} formal optimizer steps. Each window: 10 warmup + 50 measured steps. '
-              'Negative and slow windows are retained. Gather forward timings do not measure its backward optimization.')
+              'Negative and slow windows are retained. Mask representation and CTA layout are tested separately.')
         return
     require(args.python.is_file() and args.megatron.is_dir(), 'Python/Megatron missing')
     require((args.cuda_home/'lib64').is_dir(), 'Runtime CUDA missing')
@@ -208,7 +193,7 @@ def main(argv=None):
     else:
         import ma6_build
         require(ma6_build.verify(args.ma6_build, built=True)['tuning'] == tuning(args),
-                'Reused build tuning differs from requested tile configuration')
+                'Reused build differs from fixed MA6-v3 receiver configuration')
     if args.nccl_root:
         require(all((args.nccl_root/name).is_file() for name in ('include/nccl.h', 'lib/libnccl_static.a')),
                 'NCCL development files missing')

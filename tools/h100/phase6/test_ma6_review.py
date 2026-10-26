@@ -36,7 +36,7 @@ root = Path(sys.argv[1])
 sys.path.insert(0, str(root/'scripts'))
 controller = runpy.run_path(str(root/'scripts/fullstep-controller.py'))
 plan = controller['verify'](root, offline=True)
-assert plan['arms'] == ['F4', 'F4-tile', 'F4-gather']
+assert plan['arms'] == ['F4', 'F4-mask', 'F4-layout']
 assert len(plan['schedule']) == 72
 for name in ('adapter_source', 'worker_source', 'taco_source'):
     ast.parse(controller[name]())

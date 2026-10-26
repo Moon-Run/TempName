@@ -32,22 +32,17 @@ class MA6LaunchTests(unittest.TestCase):
                 hashes.assert_not_called()
                 self.assertIn(f'{windows} windows', output.getvalue())
                 self.assertIn(f'{steps} formal optimizer steps', output.getvalue())
-                self.assertIn('F4 / F4-tile / F4-gather', output.getvalue())
+                self.assertIn('F4 / F4-mask / F4-layout', output.getvalue())
 
-    def test_tuning_reaches_build_and_reuse_does_not_rebuild(self):
-        args = launch.arguments(['--attn-threads', '128', '--attn-blocks', '528',
-                                 '--attn-rows', '2', '--mlp-rows', '1',
-                                 '--mlp-threads', '256', '--mlp-blocks', '1024',
-                                 '--gather-schedule', 'wait-first'])
+    def test_fixed_geometry_and_reuse_does_not_rebuild(self):
+        args = launch.arguments([])
+        self.assertEqual(launch.tuning(args), {
+            role: dict(decoder_threads=128, decoder_blocks=2048, decoder_rows=1)
+            for role in ('attn', 'mlp')})
         tasks = launch.commands(args)
-        command = dict(tasks)['build-prepare']
-        for flag, value in (('--attn-threads', '128'), ('--attn-blocks', '528'),
-                            ('--attn-rows', '2'), ('--mlp-rows', '1'),
-                            ('--mlp-threads', '256'), ('--mlp-blocks', '1024')):
-            self.assertEqual(command[command.index(flag)+1], value)
-        for stage in ('operator-prepare','fullstep-prepare'):
-            command=dict(tasks)[stage]
-            self.assertEqual(command[command.index('--gather-schedule')+1],'wait-first')
+        for _, command in tasks:
+            self.assertNotIn('--gather-schedule', command)
+            self.assertNotIn('--attn-rows', command)
         args.ma6_build = Path('/synthetic/already-built')
         reused = dict(launch.commands(args))
         self.assertNotIn('compile', reused)
@@ -57,11 +52,15 @@ class MA6LaunchTests(unittest.TestCase):
         self.assertIn(str(args.ma6_build), reused['fullstep-prepare'])
 
     def test_invalid_launch_sizes_are_rejected(self):
-        for flags in (['--jobs', '0'], ['--worker-timeout', '0'],
-                      ['--attn-threads', '127'], ['--mlp-blocks', '0'],
-                      ['--attn-rows','3'], ['--attn-rows','16']):
+        for flags in (['--jobs', '0'], ['--worker-timeout', '0']):
             with self.assertRaises(ValueError):
                 launch.arguments(flags)
+
+    def test_v2_tuning_and_gather_flags_are_rejected(self):
+        for flag in ('--attn-threads', '--attn-blocks', '--attn-rows',
+                     '--mlp-threads', '--mlp-blocks', '--mlp-rows', '--gather-schedule'):
+            with contextlib.redirect_stderr(io.StringIO()), self.assertRaises(SystemExit):
+                launch.arguments([flag, '128'])
 
     def test_negative_performance_completes_every_stage(self):
         with tempfile.TemporaryDirectory() as temp:
@@ -70,7 +69,7 @@ class MA6LaunchTests(unittest.TestCase):
             handoff.mkdir()
             (handoff/'controllers.json').write_text('{}')
             result = dict(acceptance_status='no_positive_increment',
-                          increment_over_F4_validated={'F4-tile': False, 'F4-gather': False},
+                          increment_over_F4_validated={'F4-mask': False, 'F4-layout': False},
                           formal_optimizer_steps=3600, all_samples=[None]*72)
             with patch.object(launch.launcher, 'invoke') as invoke, \
                  patch.object(launch, 'check_operator', return_value={}), \

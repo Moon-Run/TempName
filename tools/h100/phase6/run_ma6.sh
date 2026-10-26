@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
-# MA6-v2: row-tiled decoder + cached gather metadata. Forward all flags to the
-# frozen three-arm controller; --gather-schedule wait-first selects its control.
+# MA6-v3: fixed R1 geometry; independently compare packed mask and CTA layout.
+# All three arms retain the original F4 backward. Preview unless --execute.
 ma6_repo=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/../../.." && pwd)
 ma6_runtime=/usr/local/cuda-12.4
 if [[ -f "$ma6_repo/outputs/h100/container-recovery/env.sh" ]]; then

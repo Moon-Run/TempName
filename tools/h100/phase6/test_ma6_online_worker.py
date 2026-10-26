@@ -130,12 +130,12 @@ class FrozenOnlineWorkerTests(unittest.TestCase):
         self.reject_mutation(path, json.dumps(record).encode(), 'ma6_build.py')
 
     def test_native_source_drift_fails_before_gpu(self):
-        path = self.build/'F4-tile'/builder.RUNTIME
+        path = self.build/'F4-mask'/builder.RUNTIME
         self.reject_mutation(path, path.read_bytes()+b'\n// unexpected native source edit\n',
                              'taco_runtime.cu')
 
     def test_linked_library_drift_fails_before_gpu(self):
-        path = self.build/'F4-gather/python/flux/lib/libflux_cuda.so'
+        path = self.build/'F4-layout/python/flux/lib/libflux_cuda.so'
         self.reject_mutation(path, path.read_bytes()+b'\nchanged runtime\n', 'Linked libraries changed')
 
     def test_original_failed_controller_reproduces_wrong_builder_directory(self):
@@ -151,14 +151,16 @@ class FrozenOnlineWorkerTests(unittest.TestCase):
         self.assertEqual(sha(failed), sha(root/'scripts/bench.py'))
         plan = read(root/'plan.json')
         # This red-light control targets the historical import collision, not
-        # acceptance of v2 by a v1 controller. Match only the old controller's
+        # acceptance of v3 by a v1 controller. Match only the old controller's
         # outer protocol/labels so execution can reach its real build_identity
-        # call. Keep the v2 build, all source checks, and every builder hash
+        # call. Keep the v3 build, all source checks, and every builder hash
         # intact: the poisoned HERE must still fail at scripts/ma6_build.py.
         historical_plan = read(failed.parents[1]/'plan.json')
         self.assertNotEqual(plan['protocol'], historical_plan['protocol'])
-        for field in ('protocol', 'arm_labels'):
+        for field in ('protocol', 'arm_labels', 'arms', 'schedule'):
             plan[field] = historical_plan[field]
+        plan['libraries'] = {old:plan['libraries'][current]
+                             for old,current in zip(historical_plan['arms'],bench.ARMS)}
         plan['source_files']['scripts/bench.py'] = sha(root/'scripts/bench.py')
         write(root/'plan.json', plan)
         build_digest = sha(self.build/builder.MANIFEST)

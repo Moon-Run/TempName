@@ -1,9 +1,10 @@
-"""MA6: frozen F4, F4 decoder tile scheduling, and F4 backward gather arms."""
+"""MA6-v3: frozen F4, packed selection masks, and homogeneous CTA layout."""
 import argparse
 import copy
 import hashlib
 import json
 import os
+import re
 from pathlib import Path
 import shutil
 import subprocess
@@ -16,9 +17,9 @@ import ma6_sources
 from common import HERE, REPO, read, require, sha, verify_files, write
 from scope_plan import model_config
 
-PROTOCOL = 'h100-ma6-f4-v2'
+PROTOCOL = 'h100-ma6-f4-v3'
 MANIFEST = 'ma6-manifest.json'
-VARIANTS = ('F4', 'F4-tile', 'F4-gather')
+VARIANTS = ma6_sources.VARIANTS
 RUNTIME = baseline.RUNTIME
 C_POLICY = baseline.C_POLICY
 INPUTS = tuple(dict.fromkeys(('ma6_build.py', 'ma6_sources.py', *baseline.INPUTS)))
@@ -35,18 +36,19 @@ def prepare(out, tuning=None):
     frozen = old['variants']['F4']['source_sha256']
     for arm in VARIANTS:
         copy_registered(reference/'F4', out/arm, frozen)
-    updates = ma6_sources.sources(reference/'F4', tuning)
-    for name, text in updates.items():
-        destination = out/'F4-tile'/name
-        destination.parent.mkdir(parents=True, exist_ok=True)
-        destination.write_text(text)
+    updates = {arm:ma6_sources.sources(reference/'F4', arm, tuning) for arm in VARIANTS[1:]}
+    for arm, changes in updates.items():
+        for name, text in changes.items():
+            destination = out/arm/name
+            destination.parent.mkdir(parents=True, exist_ok=True)
+            destination.write_text(text)
     for name in ('selection-plan.json', 'config.json', 'TACO_LICENSE.txt'):
         shutil.copy2(reference/name, out/name)
     write(out/'tuning.json', tuning)
     variants = {}
     for arm in VARIANTS:
         item = copy.deepcopy(old['variants']['F4'])
-        names = set(frozen) | (set(updates) if arm == 'F4-tile' else set())
+        names = set(frozen) | set(updates.get(arm, {}))
         item.update(python=arm+'/python', source_sha256={name:sha(out/arm/name) for name in sorted(names)})
         variants[arm] = item
     inputs = {str(HERE/name):sha(HERE/name) for name in INPUTS}
@@ -85,10 +87,11 @@ def verify(root, built=False):
     require(read(root/'selection-plan.json')==read(root/'reference/selection-plan.json'), 'C masks/order changed')
     tuning = ma6_sources.tuning_config(record['tuning'])
     require(read(root/'tuning.json') == tuning, 'MA6 tuning identity changed')
-    updates = ma6_sources.sources(root/'F4', tuning)
-    expected = {'F4':frozen, 'F4-gather':frozen,
-                'F4-tile':dict(frozen, **{name:hashlib.sha256(text.encode()).hexdigest()
-                                         for name,text in updates.items()})}
+    expected = {'F4':frozen}
+    for arm in VARIANTS[1:]:
+        updates = ma6_sources.sources(root/'F4', arm, tuning)
+        expected[arm] = dict(frozen, **{name:hashlib.sha256(text.encode()).hexdigest()
+                                      for name,text in updates.items()})
     for arm in VARIANTS:
         hashes = info['variants'][arm]['source_sha256']
         require(hashes==record['variants'][arm]==expected[arm], arm+' differs from registered transform')
@@ -123,7 +126,8 @@ def compile_check(root, out, cuda_home=None, cxx='g++', host_only=False, torch_p
                   build_manifest_sha256=sha(root/'manifest.json'),
                   ma6_manifest_sha256=sha(root/MANIFEST),
                   builder_inputs=read(root/MANIFEST)['inputs'],
-                  changed_sources={name:sha(root/'F4-tile'/name) for name in ma6_sources.sources(root/'F4', read(root/MANIFEST)['tuning'])},
+                  changed_sources={arm:{name:sha(root/arm/name) for name in ma6_sources.sources(
+                      root/'F4', arm, read(root/MANIFEST)['tuning'])} for arm in VARIANTS[1:]},
                   checks={}, commands=[], objects={})
     env = dict(os.environ, CUDA_VISIBLE_DEVICES='')
 
@@ -138,10 +142,10 @@ def compile_check(root, out, cuda_home=None, cxx='g++', host_only=False, torch_p
                 log.write(child.stdout)
                 return child.stdout
 
-    def original_decoder_ptx(path):
+    def decoder_ptx(path, kernel):
         text = path.read_text()
         entries = [line for line in text.splitlines()
-                   if '.entry ' in line and 'taco_ma4f_decode_consumer_kernel' in line]
+                   if '.entry ' in line and kernel in line]
         require(len(entries) == 1, 'Missing original F4 PTX decoder')
         start = text.index(entries[0])
         opening = text.index('{', start)
@@ -167,6 +171,35 @@ def compile_check(root, out, cuda_home=None, cxx='g++', host_only=False, torch_p
             host.write_text(body+'return phase6_host_lookup(16,32,1024,0,0)==-1?0:2;}\n')
             run([cxx, '-std=c++17', '-O2', '-I'+str(src), host, '-o', dest/'mapping'])
             run([dest/'mapping']); result['checks'][arm] = dict(host_mapping=True)
+            if arm == 'F4-mask':
+                host = dest/'mask.cc'
+                body = '#include "gemm_rs/ma6_mask.h"\nint main(){\n'
+                for role in ma6_sources.ROLES:
+                    mask = role_entries[role]['entry']['mask']
+                    flat = ','.join(str(v) for row in mask for v in row)
+                    body += ('{const uint8_t selected[]={' + flat + '}; uint8_t packed[512];\n'
+                             'if(!taco_ma6_pack_mask(selected,packed))return 1;\n'
+                             'for(int rank=0;rank<8;++rank)for(int group=0;group<8192;++group){\n'
+                             'int tile=(rank*2+(group/32)/128)*32+group%32;\n'
+                             'for(int src=0;src<8;++src)if(((packed[tile]>>src)&1)!='
+                             '(src!=rank && selected[src*512+tile]))return 2;}}\n')
+                host.write_text(body+'return 0;}\n')
+                run([cxx, '-std=c++17', '-O2', '-I'+str(src/'src'), host, '-o', dest/'mask'])
+                run([dest/'mask'])
+                result['checks'][arm]['frozen_role_masks_equivalent'] = True
+            elif arm == 'F4-layout':
+                host = dest/'layout.cc'
+                mapping = ma6_sources.GROUP_MAPPING.replace('blockIdx.x','block').replace('threadIdx.x','thread')
+                host.write_text('int main(){int seen[8192]={}; for(int rank=0;rank<8;++rank){'
+                    'for(int block=0;block<2048;++block){int tile0=-1;'
+                    'for(int thread=0;thread<128;thread+=32){int group='+mapping+';'
+                    'if(group<0||group>=8192)return 1; if(rank==0)++seen[group];'
+                    'int tile=(rank*2+(group/32)/128)*32+group%32;'
+                    'if(tile0<0)tile0=tile;else if(tile!=tile0)return 2;}}}'
+                    'for(int group=0;group<8192;++group)if(seen[group]!=1)return 3;return 0;}')
+                run([cxx, '-std=c++17', '-O2', host, '-o', dest/'layout'])
+                run([dest/'layout'])
+                result['checks'][arm]['complete_homogeneous_cta_mapping'] = True
             if host_only:
                 continue
             cuda_home = Path(cuda_home).resolve()
@@ -184,11 +217,19 @@ def compile_check(root, out, cuda_home=None, cxx='g++', host_only=False, torch_p
                                env=env, stdout=f, check=True)
             result['checks'][arm]['runtime_object'] = True
         if not host_only:
-            original = original_decoder_ptx(out/'F4/runtime.ptx')
-            for arm in ('F4-tile', 'F4-gather'):
-                require(original_decoder_ptx(out/arm/'runtime.ptx') == original,
+            original = decoder_ptx(out/'F4/runtime.ptx', ma6_sources.kernel_name('attn', arm='F4'))
+            for arm in VARIANTS[1:]:
+                require(decoder_ptx(out/arm/'runtime.ptx', ma6_sources.kernel_name('attn', arm='F4')) == original,
                         'Original F4 decoder PTX changed: ' + arm)
                 result['checks'][arm]['original_f4_decoder_ptx_identical'] = True
+            mask_ptx = decoder_ptx(out/'F4-mask/runtime.ptx', ma6_sources.kernel_name('attn', arm='F4-mask'))
+            require(not re.search(r'\b(?:ld|st)\.local', mask_ptx), 'P1 still uses PTX local memory')
+            sass = (out/'F4-mask/runtime.sass').read_text()
+            sections = [part for part in sass.split('Function : ') if
+                        ma6_sources.kernel_name('attn', arm='F4-mask') in part.splitlines()[0]]
+            require(len(sections)==1 and not re.search(r'\b(?:LDL|STL)(?:\.|\s)', sections[0]),
+                    'P1 still uses SASS local memory')
+            result['checks']['F4-mask']['decoder_no_ptx_or_sass_local_memory'] = True
             # The experiment changes the native submission wrapper, not the
             # decoder alone. Compile that real translation unit with PyTorch
             # headers; a runtime-only check would miss its C++ integration.
@@ -196,19 +237,16 @@ def compile_check(root, out, cuda_home=None, cxx='g++', host_only=False, torch_p
                 'import json, sysconfig, torch; from torch.utils.cpp_extension import include_paths; '
                 'print(json.dumps(dict(includes=include_paths()+[sysconfig.get_path("include")], '
                 'abi=int(torch._C._GLIBCXX_USE_CXX11_ABI))))'], capture=True))
-            src, dest = root/'F4-tile', out/'F4-tile'
-            includes = [src, src/'src', src/'include', Path(cuda_home)/'include',
-                        src/'3rdparty/cutlass/include', src/'3rdparty/cutlass/tools/util/include']
-            run([cxx, '-std=c++17', '-O0', '-fPIC', '-DFLUX_TACO_BASELINE',
-                 '-D_GLIBCXX_USE_CXX11_ABI='+str(metadata['abi']),
-                 *['-I'+str(p) for p in includes], *['-I'+p for p in metadata['includes']],
-                 '-c', src/ma6_sources.WRAPPER, '-o', dest/'wrapper.o'])
-            result['checks']['F4-tile']['ths_wrapper_object'] = True
-            run([cxx, '-std=c++17', '-O0', '-fPIC', '-DFLUX_TACO_BASELINE',
-                 '-D_GLIBCXX_USE_CXX11_ABI='+str(metadata['abi']),
-                 *['-I'+str(p) for p in includes], *['-I'+p for p in metadata['includes']],
-                 '-c', src/'src/pybind/gemm_rs.cc', '-o', dest/'pybind.o'])
-            result['checks']['F4-tile']['pybind_object'] = True
+            for arm in VARIANTS[1:]:
+                src, dest = root/arm, out/arm
+                includes = [src, src/'src', src/'include', Path(cuda_home)/'include',
+                            src/'3rdparty/cutlass/include', src/'3rdparty/cutlass/tools/util/include']
+                for unit, relative in [('wrapper', ma6_sources.WRAPPER), ('pybind', ma6_sources.PYBIND)]:
+                    run([cxx, '-std=c++17', '-O0', '-fPIC', '-DFLUX_TACO_BASELINE',
+                         '-D_GLIBCXX_USE_CXX11_ABI='+str(metadata['abi']),
+                         *['-I'+str(p) for p in includes], *['-I'+p for p in metadata['includes']],
+                         '-c', src/relative, '-o', dest/(unit+'.o')])
+                    result['checks'][arm][('ths_' if unit == 'wrapper' else '') + unit + '_object'] = True
         result['completed'] = True
     finally:
         result['objects'] = {str(p.relative_to(out)): sha(p) for p in out.rglob('*')

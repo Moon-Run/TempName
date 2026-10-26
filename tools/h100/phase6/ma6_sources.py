@@ -1,7 +1,7 @@
-"""F4-tile: reuse physical-tile masks across rows of the exact fused decoder.
+"""MA6-v3: independent packed-mask and homogeneous-CTA receiver experiments.
 
-Only F4-tile receives these native transforms. F4 and F4-gather retain the
-original F4 sources; gather overlap is an independent Python backward change.
+Both retain F4's 2048 CTAs, 128 threads, one H128 group per warp, producer,
+packet ABI, source fold order, and two BF16 consumer additions.
 """
 from pathlib import Path
 
@@ -9,165 +9,223 @@ from common import replace_once, require
 import ma4_f_sources as f4
 
 RUNTIME, HEADER, WRAPPER, DECODER = f4.RUNTIME, f4.HEADER, f4.WRAPPER, f4.DECODER
+WRAPPER_HEADER, PYBIND, FRONTEND = f4.WRAPPER_HEADER, f4.PYBIND, f4.FRONTEND
+MASK_HEADER = 'src/gemm_rs/ma6_mask.h'
 BASELINE_TUNING = dict(decoder_threads=128, decoder_blocks=2048, decoder_rows=1)
-DEFAULT_TUNING = {role:dict(decoder_threads=128, decoder_blocks=512, decoder_rows=4)
-                  for role in ('attn', 'mlp')}
 ROLES = ('attn', 'mlp')
 ROLE_K = dict(attn=512, mlp=2048)
+DEFAULT_TUNING = {role:dict(BASELINE_TUNING) for role in ROLES}
+VARIANTS = ('F4', 'F4-mask', 'F4-layout')
+RECEIVER_VARIANTS = {'F4':0, 'F4-mask':1, 'F4-layout':2}
+GROUP_MAPPING = '(blockIdx.x / 32) * 128 + blockIdx.x % 32 + (threadIdx.x / 32) * 32'
 
 
 def tuning_config(tuning=None):
     tuning = DEFAULT_TUNING if tuning is None else tuning
     require(isinstance(tuning, dict) and set(tuning) == set(ROLES),
-            'MA6 tile tuning requires attn and mlp')
-    result = {}
+            'MA6 tuning requires attn and mlp')
     for role in ROLES:
         item = tuning[role]
-        require(isinstance(item, dict) and set(item) == set(BASELINE_TUNING),
-                'MA6 only tunes decoder threads, blocks, and row tiles: ' + role)
-        require(all(type(v) is int for v in item.values()), 'MA6 tile values must be integers')
-        threads, blocks, rows = (item[key] for key in BASELINE_TUNING)
-        require(threads in (64, 128, 256, 512), 'Unsupported MA6 decoder threads')
-        require(rows in (1, 2, 4, 8, 16), 'Unsupported MA6 decoder rows')
-        require(1 <= blocks <= (8192 // rows) // (threads // 32),
-                'MA6 decoder blocks must be positive and no greater than the row-tile grid')
-        result[role] = dict(decoder_threads=threads, decoder_blocks=blocks, decoder_rows=rows)
-    return result
+        require(isinstance(item, dict) and set(item) == set(BASELINE_TUNING)
+                and all(type(v) is int for v in item.values()) and item == BASELINE_TUNING,
+                'MA6-v3 fixes decoder geometry to 128 threads, 2048 blocks, one row: ' + role)
+    return {role:dict(BASELINE_TUNING) for role in ROLES}
 
 
-def kernel_name(role, tuning=None):
-    tuning = tuning_config(tuning)
-    require(role in ROLES, 'Unknown MA6 decoder role')
-    if tuning[role] == BASELINE_TUNING:
-        return 'taco_ma4f_decode_consumer_kernel'
-    return 'taco_ma6_' + ('attention' if role == 'attn' else 'mlp') + '_decode_consumer_kernel'
+def kernel_name(role, tuning=None, arm='F4-mask'):
+    tuning_config(tuning)
+    require(role in ROLES and arm in VARIANTS, 'Unknown MA6 decoder role or arm')
+    return ('taco_ma4f_decode_consumer_kernel' if arm == 'F4' else
+            'taco_ma6_' + arm.removeprefix('F4-') + '_decode_consumer_kernel')
 
 
-def decode_entry(role, tuning):
-    return ('taco_ma4f_decode_reduce' if tuning[role] == BASELINE_TUNING else
-            'taco_ma6_decode_' + ('attention' if role == 'attn' else 'mlp'))
+def decode_entry(arm):
+    require(arm in VARIANTS[1:], 'MA6 receiver transform needs a candidate arm')
+    return 'taco_ma6_decode_' + arm.removeprefix('F4-')
 
 
-def decoder(source, tuning):
-    tuning = tuning_config(tuning)
+# Host-only helper is compiled and executed against frozen A/M masks in compile-check.
+# Keeping it separate also makes the exact production packer independently testable.
+PACK_MASK = '''#pragma once
+#include <cstdint>
+inline bool taco_ma6_pack_mask(const uint8_t* selected, uint8_t* packed) {
+  for (int tile = 0; tile < 512; ++tile) {
+    uint8_t bits = 0;
+    for (int src = 0; src < 8; ++src) {
+      const uint8_t value = selected[src * 512 + tile];
+      if (value > 1 || (src == tile / 64 && value != 0)) return false;
+      bits |= static_cast<uint8_t>(value << src);
+    }
+    packed[tile] = bits;
+  }
+  return true;
+}
+'''
+
+
+def decoder(source, arm, tuning=None):
+    tuning_config(tuning)
     signature = '''__global__ void taco_ma4f_decode_consumer_kernel(const __grid_constant__ FluxTacoConfig c,
     const __nv_bfloat16* local, __nv_bfloat16* output,
     const __nv_bfloat16* bias, const __nv_bfloat16* residual) {'''
     require(source.count(signature) == 1, 'MA6 requires the exact fused F4 kernel')
     original = source[source.index(signature):]
-    group = replace_once(original, signature,
-        '''__device__ __forceinline__ void taco_ma6_decode_consumer_group(const FluxTacoConfig& c,
-    const __nv_bfloat16* local, __nv_bfloat16* output,
-    const __nv_bfloat16* bias, const __nv_bfloat16* residual, int group) {''')
-    group = replace_once(group, '  const int group = blockIdx.x * 4 + threadIdx.x / 32;\n', '')
-    # The original kernel stays verbatim for any role with baseline geometry.
-    # In the looped kernel the BF16-path return exits only this group helper.
-    result = source + '\n' + group
-    # The selection mask covers one physical 128x128 producer tile. Rows of a
-    # decoder row tile share this mask, but each H128 group keeps its original
-    # data, coefficient transforms, source folds and BF16 consumer rounding.
-    mask_start = group.index('  const int row = group / 32;')
-    arithmetic_start = group.index('  if (!any_quant) {', mask_start)
-    mask = group[mask_start:arithmetic_start]
-    masked_group = group[:mask_start] + group[arithmetic_start:]
-    masked_group = replace_once(masked_group, 'taco_ma6_decode_consumer_group(',
-                                 'taco_ma6_decode_consumer_masked_group(')
-    masked_group = replace_once(masked_group,
-        'const __nv_bfloat16* bias, const __nv_bfloat16* residual, int group) {',
-        'const __nv_bfloat16* bias, const __nv_bfloat16* residual, int group,\n'
-        '    const bool (&selected)[8], bool any_quant) {')
-    if any(tuning[role]['decoder_rows'] > 1 for role in ROLES):
-        result += '\n' + masked_group
-    for role in ROLES:
-        if tuning[role] == BASELINE_TUNING:
-            continue
-        rows = tuning[role]['decoder_rows']
-        if rows == 1:
-            body = '''  for (int group = blockIdx.x * kWarps + threadIdx.x / 32;
-       group < 8192; group += gridDim.x * kWarps) {
-    taco_ma6_decode_consumer_group(c, local, output, bias, residual, group);
-  }
-'''
-        else:
-            # Row tile boundaries divide 128; no tile can cross the source
-            # selection boundary. The inner loop is kept rolled to bound
-            # instruction size/register pressure for the quantized path.
-            body = f'''  constexpr int kRows = {rows};
-  for (int tile = blockIdx.x * kWarps + threadIdx.x / 32;
-       tile < 8192 / kRows; tile += gridDim.x * kWarps) {{
-    const int group = (tile / 32) * kRows * 32 + tile % 32;
-{mask}    #pragma unroll 1
-    for (int row_offset = 0; row_offset < kRows; ++row_offset) {{
-      taco_ma6_decode_consumer_masked_group(c, local, output, bias, residual,
-          group + row_offset * 32, selected, any_quant);
-    }}
-  }}
-'''
-        result += f'''
-// Every warp owns complete H128 groups. Tile/row iterations are warp-uniform;
-// unchanged full-mask shuffles never mix rows or change source reduction order.
-__global__ void {kernel_name(role, tuning)}(const __grid_constant__ FluxTacoConfig c,
-    const __nv_bfloat16* local, __nv_bfloat16* output,
-    const __nv_bfloat16* bias, const __nv_bfloat16* residual) {{
-  constexpr int kWarps = {tuning[role]['decoder_threads'] // 32};
-{body}}}
-'''
-    return result
+    changed = replace_once(original, 'taco_ma4f_decode_consumer_kernel', kernel_name('attn', tuning, arm))
+    if arm == 'F4-layout':
+        changed = replace_once(changed, 'blockIdx.x * 4 + threadIdx.x / 32', GROUP_MAPPING)
+    elif arm == 'F4-mask':
+        changed = replace_once(changed, 'const __nv_bfloat16* residual) {',
+                               'const __nv_bfloat16* residual, const uint8_t* packed_mask) {')
+        begin = changed.index('  bool selected[8];')
+        end = changed.index('  if (!any_quant) {', begin)
+        changed = changed[:begin] + '  const uint8_t source_mask = packed_mask[physical_tile];\n' + changed[end:]
+        changed = replace_once(changed, '  if (!any_quant) {', '  if (source_mask == 0) {')
+        require(changed.count('selected[src]') == 2, 'Unexpected F4 mixed source loads')
+        changed = changed.replace('selected[src]', '((source_mask >> src) & 1) != 0')
+    else:
+        raise ValueError('Only MA6 candidate kernels are transformed')
+    # Keep the original F4 entry verbatim for projection/reference provenance.
+    return source + '\n' + changed
 
 
-def runtime(source, tuning):
-    tuning = tuning_config(tuning)
+def runtime(source, arm, tuning=None):
+    tuning_config(tuning)
     require('taco_ma4f_protocol_version() { return 1; }' in source,
             'MA6 requires frozen F4 native consumption')
-    result = source
-    for role in ROLES:
-        if tuning[role] == BASELINE_TUNING:
-            continue
-        params = tuning[role]
-        result += f'''
-extern "C" int {decode_entry(role, tuning)}(FluxTacoConfig c, const void* local,
-    void* output, const void* bias, const void* residual, cudaStream_t stream) {{
+    mask = arm == 'F4-mask'
+    result = source + f'''
+extern "C" int {decode_entry(arm)}(FluxTacoConfig c, const void* local,
+    void* output, const void* bias, const void* residual,{" const void* packed_mask," if mask else ""} cudaStream_t stream) {{
   if (!c.enabled || !local || !output || !bias || !residual || !c.selected ||
-      !taco_ma2_exact_shape(c) || !c.deferred_reuse_barrier || c.allow_capture)
+      {"!packed_mask || " if mask else ""}!taco_ma2_exact_shape(c) || !c.deferred_reuse_barrier || c.allow_capture)
     return int(cudaErrorInvalidValue);
-  {kernel_name(role, tuning)}<<<{params['decoder_blocks']}, {params['decoder_threads']}, 0, stream>>>(c,
+  {kernel_name('attn', tuning, arm)}<<<2048, 128, 0, stream>>>(c,
       static_cast<const __nv_bfloat16*>(local), static_cast<__nv_bfloat16*>(output),
-      static_cast<const __nv_bfloat16*>(bias), static_cast<const __nv_bfloat16*>(residual));
+      static_cast<const __nv_bfloat16*>(bias), static_cast<const __nv_bfloat16*>(residual){", static_cast<const uint8_t*>(packed_mask)" if mask else ""});
   return int(cudaGetLastError());
 }}
+extern "C" int taco_ma6_protocol_version() {{ return 3; }}
+extern "C" int taco_ma6_receiver_variant() {{ return {RECEIVER_VARIANTS[arm]}; }}
 '''
-    result += '\nextern "C" int taco_ma6_protocol_version() { return 2; }\n'
-    for field in BASELINE_TUNING:
-        result += f'''extern "C" int taco_ma6_{field}(int k) {{
-  return k == 512 ? {tuning['attn'][field]} : k == 2048 ? {tuning['mlp'][field]} : -2;
-}}
-'''
+    for field, value in BASELINE_TUNING.items():
+        result += f'extern "C" int taco_ma6_{field}(int k) {{ return k == 512 || k == 2048 ? {value} : -2; }}\n'
     return result
 
 
-def header(source, tuning):
-    tuning = tuning_config(tuning)
-    for role in ROLES:
-        if tuning[role] != BASELINE_TUNING:
-            source += f'''\nextern "C" int {decode_entry(role, tuning)}(FluxTacoConfig,
-    const void*, void*, const void*, const void*, cudaStream_t);
+def header(source, arm, tuning=None):
+    tuning_config(tuning)
+    return source + f'''\nextern "C" int {decode_entry(arm)}(FluxTacoConfig,
+    const void*, void*, const void*, const void*,{" const void*," if arm == 'F4-mask' else ""} cudaStream_t);
 '''
-    return source
 
 
-def wrapper(source, tuning):
-    tuning = tuning_config(tuning)
-    source = replace_once(source, '  const int cr2_k = taco_cr2_bound_k();', f'''  const int cr2_k = taco_cr2_bound_k();
-  // Immutable instance K, not mutable thread-local configuration on forward.
-  const decltype(&taco_ma4f_decode_reduce) ma6_decode =
-      cr2_k == 512 ? &{decode_entry('attn', tuning)} : &{decode_entry('mlp', tuning)};''')
-    return replace_once(source, 'CUDA_CHECK(static_cast<cudaError_t>(taco_ma4f_decode_reduce(',
-                        'CUDA_CHECK(static_cast<cudaError_t>(ma6_decode(')
+MASK_METHODS = '''  void ma6_bind_packed_mask(torch::Tensor selection_cpu, torch::Tensor selected) {
+    std::lock_guard<std::recursive_mutex> lock(ma4_consumer_mutex);
+    TORCH_CHECK(!cr2_failed && !ma4_consumer_active && cr2_calls == 0 &&
+                    cr2_initializations == 0 && ma6_mask_bindings == 0,
+                "MA6 packed mask can only bind once before first submission");
+    try {
+      auto stream = c10::cuda::getCurrentCUDAStream();
+      cudaStreamCaptureStatus status;
+      CUDA_CHECK(cudaStreamIsCapturing(stream, &status));
+      TORCH_CHECK(stream == taco_stream && status == cudaStreamCaptureStatusNone &&
+                      owned_taco.enabled && owned_taco.world == 8 && owned_taco.m == 2048 &&
+                      owned_taco.n == 4096 && (cr2_k == 512 || cr2_k == 2048) &&
+                      owned_taco.deferred_reuse_barrier && !owned_taco.allow_capture,
+                  "MA6 mask initialization requires frozen eager instance creation stream");
+      TORCH_CHECK(selection_cpu.device().is_cpu() && selection_cpu.scalar_type() == at::kByte &&
+                      selection_cpu.is_contiguous() && selection_cpu.dim() == 2 &&
+                      selection_cpu.size(0) == 8 && selection_cpu.size(1) == 512 &&
+                      selected.is_cuda() && selected.device().index() == taco_stream.device_index() &&
+                      selected.scalar_type() == at::kByte && selected.is_contiguous() &&
+                      selected.dim() == 2 && selected.size(0) == 8 && selected.size(1) == 512 &&
+                      selected.data_ptr() == owned_taco.selected,
+                  "MA6 mask binding must use the immutable instance selection");
+      // Validate against the actual producer selection once, outside all timed forwards.
+      TORCH_CHECK(selection_cpu.equal(selected.cpu()), "MA6 CPU and producer selection differ");
+      auto packed_cpu = torch::empty({512}, selection_cpu.options());
+      TORCH_CHECK(taco_ma6_pack_mask(selection_cpu.data_ptr<uint8_t>(), packed_cpu.data_ptr<uint8_t>()),
+                  "MA6 selection must be binary with local contributions in BF16");
+      // Blocking setup copy, private allocation: neither CPU metadata nor Python
+      // can alias the decoder's immutable CUDA mask. No per-forward repacking.
+      ma6_packed_mask = packed_cpu.to(selected.device(), at::kByte, false, true);
+      ma6_selected_owner = std::move(selected);
+      ++ma6_mask_bindings;
+    } catch (...) {
+      cr2_failed = true;
+      throw;
+    }
+  }
+
+  std::vector<int64_t> ma6_mask_state() const {
+    std::lock_guard<std::recursive_mutex> lock(ma4_consumer_mutex);
+    return {3, ma6_mask_bindings,
+            ma6_packed_mask.defined() ? static_cast<int64_t>(reinterpret_cast<uintptr_t>(ma6_packed_mask.data_ptr())) : 0,
+            static_cast<int64_t>(reinterpret_cast<uintptr_t>(owned_taco.selected))};
+  }
+
+'''
 
 
-def sources(reference, tuning=None):
+def wrapper(source, arm, tuning=None):
+    tuning_config(tuning)
+    if arm == 'F4-layout':
+        return replace_once(source, 'taco_ma4f_decode_reduce(owned_taco,',
+                            decode_entry(arm) + '(owned_taco,')
+    require(arm == 'F4-mask', 'Unknown MA6 receiver wrapper')
+    source = replace_once(source, '#include <mutex>', '#include <mutex>\n#include "gemm_rs/ma6_mask.h"')
+    source = replace_once(source, '  torch::Tensor ma4_bias, ma4_residual;', '''  torch::Tensor ma4_bias, ma4_residual;
+  torch::Tensor ma6_packed_mask, ma6_selected_owner;
+  int64_t ma6_mask_bindings = 0;''')
+    source = replace_once(source, '  torch::Tensor ma4_consumer_forward(', MASK_METHODS + '  torch::Tensor ma4_consumer_forward(')
+    source = replace_once(source, '    TORCH_CHECK(!cr2_failed, "CR2 cannot retry a failed submission");',
+                          '    TORCH_CHECK(!cr2_failed, "CR2 cannot retry a failed submission");\n'
+                          '    TORCH_CHECK(ma6_mask_bindings == 1 && ma6_packed_mask.defined(), "MA6 packed mask was not bound");')
+    source = replace_once(source, '      if (ma4_consumer_active) {', '''      if (ma4_consumer_active) {
+        c10::cuda::CUDACachingAllocator::recordStream(ma6_packed_mask.storage().data_ptr(), stream);''')
+    source = replace_once(source, '''taco_ma4f_decode_reduce(owned_taco,
+            output_buffer.data_ptr(), output.data_ptr(), ma4_bias.data_ptr(), ma4_residual.data_ptr(), stream)''',
+        '''taco_ma6_decode_mask(owned_taco,
+            output_buffer.data_ptr(), output.data_ptr(), ma4_bias.data_ptr(), ma4_residual.data_ptr(),
+            ma6_packed_mask.data_ptr(), stream)''')
+    return replace_once(source, 'GemmRS::~GemmRS() { delete impl_; }', '''GemmRS::~GemmRS() { delete impl_; }
+void GemmRS::ma6_bind_packed_mask(torch::Tensor selection_cpu, torch::Tensor selected) {
+  FLUX_CHECK(impl_ != nullptr);
+  impl_->ma6_bind_packed_mask(std::move(selection_cpu), std::move(selected));
+}
+std::vector<int64_t> GemmRS::ma6_mask_state() const {
+  FLUX_CHECK(impl_ != nullptr);
+  return impl_->ma6_mask_state();
+}''')
+
+
+def wrapper_header(source):
+    return replace_once(source, '  std::vector<int64_t> ma4_consumer_state() const;', '''  std::vector<int64_t> ma4_consumer_state() const;
+  void ma6_bind_packed_mask(torch::Tensor, torch::Tensor);
+  std::vector<int64_t> ma6_mask_state() const;''')
+
+
+def pybind(source):
+    return replace_once(source, '        .def("ma4_consumer_state", &GemmRSOpCls::ma4_consumer_state)', '''        .def("ma4_consumer_state", &GemmRSOpCls::ma4_consumer_state)
+        .def("ma6_bind_packed_mask", &GemmRSOpCls::ma6_bind_packed_mask)
+        .def("ma6_mask_state", &GemmRSOpCls::ma6_mask_state)''')
+
+
+def frontend(source):
+    return replace_once(source, '        self.option = cpp_mod.ReduceScatterOption()', '''        # Native packs and privately owns one immutable 512-byte mask per slot.
+        self.op.ma6_bind_packed_mask(self.selection_cpu, self.selected)
+        self.option = cpp_mod.ReduceScatterOption()''')
+
+
+def sources(reference, arm='F4-mask', tuning=None):
     tuning = tuning_config(tuning)
     reference = Path(reference)
-    return {name: transform((reference / name).read_text(), tuning)
-            for name, transform in ((RUNTIME, runtime), (HEADER, header),
-                                    (WRAPPER, wrapper), (DECODER, decoder))}
+    require(arm in VARIANTS[1:], 'Only MA6 candidate sources are transformed')
+    result = {name: transform((reference / name).read_text(), arm, tuning)
+              for name, transform in ((RUNTIME, runtime), (HEADER, header),
+                                      (WRAPPER, wrapper), (DECODER, decoder))}
+    if arm == 'F4-mask':
+        result.update({name:transform((reference / name).read_text()) for name,transform in
+                       ((WRAPPER_HEADER, wrapper_header), (PYBIND, pybind), (FRONTEND, frontend))})
+        result[MASK_HEADER] = PACK_MASK
+    return result

@@ -1,18 +1,20 @@
-# MA6：在 F4 上缩短真实依赖链的下一步设计
+# MA6：CR3（原 F4）的接收端优化与反向重叠实验
 
-**2026-10-25 第二轮代码更新（MA6-v2，尚未八卡实测）：** 本轮已确认继续以 **F4** 为基线。新候选将 decoder 改为可配置的多行 tile，共享物理 tile 的量化选择 mask；反向路径缓存固定 TP 元数据，并补上 `wait-first` 调度对照与逐 rank 主机提交间隙统计。当前入口仍为 `bash tools/h100/phase6/run_ma6.sh --execute`，具体配置、验证边界见[第 12 节](#12-ma6-v2重新减少工作量与反向提交开销)。**下文第 9–11 节的参数、命令和测量是 v1 历史记录；它们不代表 v2 已获加速，旧 build 不能复用于 v2。**
+**更新：2026-10-26，MA6-v3 已实现，待 H100 实测。** 本轮依据第 14 节实现两个独立候选：`F4-mask` 在初始化时打包接收端选择 mask；`F4-layout` 将同 CTA 的四个 warp 分配到同物理 tile 的四行。两者均保留 **2048 blocks × 128 threads、每 warp 一行**，且与 F4 共用原反向。新启动命令、冻结协议和本地验证见[第 15 节](#15-ma6-v3-实现与启动命令)。当前没有 v3 八卡数值/性能结果。
 
-更新：2026-10-25，已纳入修复后完整八卡批次 `ma6-f4-tile-gather-1x-50steps-20261025-160359-496883`。**这次两项优化都没有验证相对 F4 的端到端增量：F4-tile 为 −0.146%［95% CI：−0.551%, +0.242%］；F4-gather 为 −0.876%［−1.257%, −0.482%］，本轮明确退化。** 三组平均步时分别为 **508.637 / 509.381 / 513.096 ms**。批次正常完成，正确性与实际执行路径通过，详见第 11 节。
+**上一轮 MA6-v2 八卡实测已完成并离线复核。** 批次 `ma6-v2-overlap-1x-50steps-20261026-105751-476798` 中，F4 / F4-tile / F4-gather 平均为 **508.456 / 510.175 / 511.918 ms/step**。tile 相对 F4 为 **−0.339%［95% CI：−0.609%, −0.093%］**，gather 为 **−0.680%［−0.971%, −0.382%］**，两项均有本轮退化证据。正确性与实际路径通过，四份报告由原始记录/trace 重算一致，详见[第 13 节](#13-ma6-v2-八卡实测两项候选均退化)。
 
-设计阶段优先验证了反向 AllGather 与 bias 梯度归约的重叠。**本轮确实观察到重叠，但没有兑现为整步收益**：F4-gather 的 2048 次 rank-local backward 中有 2016 次重叠，完整 step 仍比同期 F4 平均多 4.459 ms。因此当前继续保留 F4，不默认叠加这版 gather 调度；当前 tile 配置也不列为已验证加速方案。
+本页保留原始实验组名 **F4**，它就是当前 [baseline.md](baseline.md) 中的 **CR3**。当前继续使用该基线，不将默认四行 tile 或当前 gather 调度作为已验证优化叠加。第 14 节的分析现已落实为第 15 节的独立 mask／布局实验；收益仍需同期 F4 对照确认。gather 的调度归因与 decoder＋LayerNorm 融合保留为后续方向，本轮 v3 不包含这两项。
 
-第 1–8 节保留当时基于原 F4 trace 的设计依据，原 B6 对应本轮 F4-gather；v1 未实现 S6、N6，v2 新增的 S6 串行对照入口见第 12 节。第 9 节记录三组实现，第 10 节保留首次启动失败与修复，第 11 节给出本轮结果。下文的设计假设不视为已实现的收益，尤其不能将 barrier/NCCL 时长或局部 overlap 直接折算成整步节省。
+**历史 v1（2026-10-25）：** 批次 `ma6-f4-tile-gather-1x-50steps-20261025-160359-496883` 的 tile 为 −0.146%［−0.551%, +0.242%］，gather 为 −0.876%［−1.257%, −0.482%］；三组平均 508.637 / 509.381 / 513.096 ms。v1 gather 有 2016/2048 次重叠，仍平均慢 4.459 ms，详见第 11 节。v2 改了 tile 实现和 gather 元数据路径，两个批次不能合并成同一候选的重复实验，也不能相减其收益来估算单项改动的贡献。
+
+第 1–8 节保留原设计依据，第 9–11 节为 v1 实现与结果，第 12 节为 v2 上机前设计与本地验证，第 13–14 节保留 v2 复核结果和据此作出的设计判断，当前代码入口以第 15 节 v3 为准。v2 历史版本已提供 `wait-first` 串行对照入口，但本次只运行 `overlap`；S6 的实测归因与 N6 的 LayerNorm 融合均未完成。设计假设不视为已实现收益，barrier/NCCL 时长和局部 overlap 也不能直接折算成整步节省。
 
 ## 1. 起点是同期 F4，不再从历史 CR2 估算增量
 
 F4 批次为 `ma4-f-1x-50steps-20261025-115124-977713`。完整训练 F4 / CR2 平均为 **501.433 / 509.852 ms/step**，配对收益 **+1.652%［95% CI：+1.297%, +2.034%］**，8 个块全部更快。逐位前向、梯度/参数更新指纹和实际融合路径通过；但仍只有一次独立 trial。见 [MA4 实测](ma-4.md#6-本轮-ma4-f-结果相对-cr2-有端到端增量)及[原始报告](../../../../logs/h100/phase6/ma4-f-1x-50steps-20261025-115124-977713/fullstep/report.json)。
 
-下一次应冻结原 F4，使用**新候选/F4 同场比较**。历史 501.433 ms 只说明量级：再减少 1% 约需净省 **5.014 ms/step**；它不是新批次的固定基准。`baseline.md` 的跨批次中位数比也不用于验收新机制，更不能把多个批次的收益相加。
+下一次应冻结原 F4，使用**新候选/F4 同场比较**。历史 501.433 ms 只说明量级：再减少 1% 约需净省 **5.014 ms/step**；它不是新批次的固定基准。`baseline.md` 的跨批次描述值（当前还包含最快／最慢窗口选值）不用于验收新机制，更不能把多个批次的收益相加。
 
 固定当前模型和数值边界：TP8、32 层、hidden=4096、sequence=2048、global batch=4、四个 microbatch、BF16、零 dropout、原 selective mask、原逐来源累加与舍入。每步每 rank 有 Attention/MLP 投影各 128 次，合计 256 次。
 
@@ -458,9 +460,11 @@ python3 -I outputs/h100/phase6/ma6-results-audit-20261025/audit.py
 
 ## 12. MA6-v2：重新减少工作量与反向提交开销
 
+本节保留 2026-10-25 的上机前设计与本地验证；服务器随后已完成本次默认配置的八卡比较，结果见第 13 节。
+
 ### 12.1. 从上一轮负结果缩小假设
 
-本轮继续使用 F4 基线，保留 v1 的原始批次和冻结脚本。`baseline.md` 的约 2% 是跨批次中位数比；F4/CR2 的同期配对收益为 1.652%。本轮验收仍只看新候选相对**同期 F4** 的完整训练增量。
+本轮继续使用 F4 基线，保留 v1 的原始批次和冻结脚本。设计时汇总表的约 2% 是跨批次中位数比，不能作为本轮固定增量；F4/CR2 的同期配对收益为 1.652%。当前汇总表已将 F4 更名为 CR3，并采用另行标注的窗口选值口径。本轮验收仍只看新候选相对**同期 F4** 的完整训练增量。
 
 旧 tile 只改变一个 warp 处理 H128 group 的调度和 grid，没有减少每个 group 重复执行的 mask 查询。旧 gather 已出现 98.438% overlap，继续提高重叠比例的空间很小；应该检查提前发起通信所增加的主机路径，以及最晚到达 rank 的后继提交。
 
@@ -545,7 +549,7 @@ bash tools/h100/phase6/run_ma6.sh --execute \
 
 若要对照 v1 的几何配置，须显式指定 `--attn-rows 1 --attn-threads 256 --attn-blocks 528 --mlp-rows 1 --mlp-threads 128 --mlp-blocks 2048`；这只恢复 tile 几何，gather 仍是 v2 的缓存实现，不是 v1 整套复刻。输出依然保存在新批次，不能覆盖旧结果。
 
-优先查看 `batch-state.json`、`fullstep/report.json` 的 `gather_schedule` 和 `increment_over_F4_validated`，以及 `fullstep/profile-summary.json` 的逐 rank 记录。`MA6_PYTHON` 可覆盖解释器。只有完成八卡数值、路径和正式训练后，才能把候选升级为已验证优化；本轮本地环境无 GPU，尚无新的速度结论。
+优先查看 `batch-state.json`、`fullstep/report.json` 的 `gather_schedule` 和 `increment_over_F4_validated`，以及 `fullstep/profile-summary.json` 的逐 rank 记录。`MA6_PYTHON` 可覆盖解释器。上面是实验启动入口，不是默认启用优化的建议；本次默认配置的八卡结果已回传，两项候选均未通过性能验收，见第 13 节。
 
 ### 12.6. 本轮本地验证
 
@@ -557,4 +561,259 @@ CPU 日志与计数见[验证汇总](../../../../outputs/h100/phase6/ma6-v2-vali
 
 原生检查也已完成：三组 host mapping 通过，SM90 runtime、GPU mapping 程序、PTX/SASS 及真实 C++ wrapper/pybind 对象编译通过；GPU mapping 程序只编译、未执行。三组保留的原 F4 decoder PTX 一致。新 Attention/MLP 行 tile kernel 均为 **48 registers、8-byte stack、零 spill**，原 F4 为 51 registers。这个资源变化不是速度结论；本地未链接完整 Flux 动态库，也未执行八卡数值或性能测试。见[原生编译结果](../../../../outputs/h100/phase6/ma6-v2-validation-20261025/native-compile/validation.json)、[编译日志](../../../../outputs/h100/phase6/ma6-v2-validation-20261025/native-compile/compile.log)和[代码/证据摘要](../../../../outputs/h100/phase6/ma6-v2-validation-20261025/validation.json)。
 
-shell 语法、Python AST 和两种启动计划检查通过；[默认预览](../../../../outputs/h100/phase6/ma6-v2-validation-20261025/launch-preview.txt)及[wait-first 预览](../../../../outputs/h100/phase6/ma6-v2-validation-20261025/wait-first-preview.txt)只打印命令，不创建正式批次。服务器测试结果尚未产生，v1 的负结果和 F4 作为已验证基线的选择保持有效。
+shell 语法、Python AST 和两种启动计划检查通过；[默认预览](../../../../outputs/h100/phase6/ma6-v2-validation-20261025/launch-preview.txt)及[wait-first 预览](../../../../outputs/h100/phase6/ma6-v2-validation-20261025/wait-first-preview.txt)只打印命令，不创建正式批次。以上描述上机前的本地检查；后续服务器实测另记于第 13 节，不将 CPU 或编译结果当作 GPU 性能证据。
+
+## 13. MA6-v2 八卡实测：两项候选均退化
+
+### 13.1. 批次与实际执行配置
+
+新批次为 `ma6-v2-overlap-1x-50steps-20261026-105751-476798`，[batch-state.json](../../../../logs/h100/phase6/ma6-v2-overlap-1x-50steps-20261026-105751-476798/batch-state.json) 为 **`completed/done`**。这里“完成”表示规定阶段执行完毕，不表示候选获得性能收益。
+
+[启动记录](../../../../logs/h100/phase6/ma6-v2-overlap-1x-50steps-20261026-105751-476798/handoff/launch.json)与[训练计划](../../../../logs/h100/phase6/ma6-v2-overlap-1x-50steps-20261026-105751-476798/fullstep/plan.json)一致：
+
+| 组别 | Attention / MLP decoder | 反向 |
+| --- | --- | --- |
+| F4（即 CR3） | 两角色均为原 `2048 blocks × 128 threads`，每 warp 一行 | 原 bias → AG → dgrad → wgrad |
+| F4-tile | 两角色均为 `512 × 128`，每 warp 串行四行，共享物理 tile 的选择 mask | 与 F4 相同 |
+| F4-gather | 两角色均为原 F4 decoder | 缓存固定元数据，async AG → bias → wait → dgrad → wgrad |
+
+GEMM 仍为 `512 blocks × 128 threads`；量化 mask、来源累加及两次消费 BF16 舍入、原发布屏障和 LayerNorm 均保留。环境为 `gxn75` 的 8×H100 80GB HBM3、每卡 132 SM、PyTorch 2.6.0+cu124、运行 CUDA 12.4、NCCL 2.21.5，继续 `CUDA_DEVICE_MAX_CONNECTIONS=1`、`NCCL_NVLS_ENABLE=0`。
+
+本批为 **一次独立 trial、12 个完整三组块、36 个正式窗口、288 份正式 rank 记录、1800 个正式 optimizer step**。每组各 12 窗口、600 正式步；每窗口 10 步预热＋50 步正式。另有算子和完整梯度/更新检查、48 份算子 trace、24 份训练 trace。只运行 `overlap`，未运行 `wait-first`、R2 行 tile、tile＋gather 合并候选或同期 C/R。
+
+### 13.2. 完整 optimizer step：均未验证正增量
+
+来自[完整训练报告](../../../../logs/h100/phase6/ma6-v2-overlap-1x-50steps-20261026-105751-476798/fullstep/report.json)。步时为每窗口八 rank 最大总墙钟 / 50；收益为完整块配对对数比及 10000 次 bootstrap，正数表示候选更快。
+
+| 范围 | 配对块 | F4 平均 ms | F4-tile 平均 ms | F4-gather 平均 ms | tile/F4 %［95% CI］ | gather/F4 %［95% CI］ |
+| --- | ---: | ---: | ---: | ---: | --- | --- |
+| 前半程 | 6 | 508.549 | 510.129 | 513.063 | −0.311 [−0.644, −0.008] | −0.887 [−1.247, −0.418] |
+| 后半程 | 6 | 508.363 | 510.221 | 510.774 | −0.366 [−0.804, +0.012] | −0.474 [−0.849, −0.158] |
+| **完整一轮** | **12** | **508.456** | **510.175** | **511.918** | **−0.339 [−0.609, −0.093]** | **−0.680 [−0.971, −0.382]** |
+
+- **F4-tile：** 平均增加 **1.718 ms/step**，4/12 个块更快。后半程区间跨零，但整轮区间为负，本批默认四行 tile 有退化证据。
+- **F4-gather：** 平均增加 **3.462 ms/step**，2/12 个块更快，前后半程及整轮区间均为负。
+- 次要比较 tile/gather 为 **+0.339%［+0.039%, +0.660%］**，只说明本批 tile 比 gather 快，不能作为 tile 相对 F4 的收益。
+
+F4/tile/gather 全部窗口范围分别为 **503.422–512.521 / 505.535–512.873 / 506.362–516.864 ms**，全部保留；两个 `increment_over_F4_validated` 均为 false。两半程仍属于同一 trial，不是两次独立复现。
+
+v1 gather 为 −0.876%，v2 为 −0.680%，**不能相减后宣称元数据缓存贡献了 0.196 个百分点**：它们不在同一配对实验中，基线窗口与调度状态不同。本批也不能用历史 F4 的 501.433 ms，或汇总表选出的最快 498.478 ms，替代同期 508.456 ms 基线。
+
+### 13.3. 正确性与真实路径通过
+
+算子前向逐位一致，input/weight/bias/residual 完整梯度及三步更新检查通过。训练 smoke 覆盖每 rank 的 **389 个可训练参数张量**及三步梯度/更新指纹；正式窗口的 loss、grad_norm 轨迹与最终参数指纹一致。三组 mean loss 均为 `3.793363792030723`、final loss 为 `0.00030573460389859974`、final grad norm 为 `0.01800245891878419`。这些仍是固定合成输入的短程检查，不代表长期收敛验证。
+
+每组 96 份正式 rank 记录覆盖 **6144 份模块记录、12288 份槽记录**。每槽初始化一次，`successful_calls=bias_residual_calls=120`，K 为 512/2048，零失败；每模块 forward/backward 各 240 次，包含预热。F4/F4-tile 原反向各 240 次、async/wait 均为 0；F4-gather 原反向为 0、async/wait 各 240 次，模式身份为 `overlap`。
+
+[训练 profile](../../../../logs/h100/phase6/ma6-v2-overlap-1x-50steps-20261026-105751-476798/fullstep/profile-summary.json)核对了实际 kernel、grid/block/rows，每 rank 每角色各 128 次投影、原发布屏障和后继 LayerNorm，独立 bias/residual add 均为 0。退化不是候选未启用或回退造成的。
+
+### 13.4. Tile：局部 consumer 明显变慢，MLP 均值有慢窗口干扰
+
+[算子报告](../../../../logs/h100/phase6/ma6-v2-overlap-1x-50steps-20261026-105751-476798/operator/report.json)计时范围仍是前向完整 `projection+bias+residual`，每角色 12 个三组块：
+
+| 角色 | F4 平均 μs | tile 平均 μs | gather 平均 μs | tile/F4 %［95% CI］ |
+| --- | ---: | ---: | ---: | --- |
+| Attention | 92.792 | 101.340 | 92.798 | −9.202 [−10.193, −8.619] |
+| MLP | 154.048 | 153.299 | 139.741 | −2.576 [−9.835, +10.294] |
+
+**MLP 的 F4 `block03` 为 310.268 μs，其他 11 个窗口为 139.403–140.308 μs。** 它使算术均值明显增大；F4/tile 的全部窗口中位数实际为 **139.884 / 153.160 μs**。因此不能从“tile 均值比 F4 略小”得出 MLP 加速结论，也不能删除该窗口后重写主要比较。MLP 的主要配对区间跨零；次要 tile/gather 为 −9.702%［−10.008%, −9.414%］。F4 与 gather 的原生前向相同，此处的前向差异不能归因于反向优化，也没有依据把慢窗口归因于外部 GPU 占用。
+
+以下先取每 rank 的角色中位数，再取八 rank 中位数；单位 μs：
+
+| 指标 | F4：Attention / MLP | F4-tile：Attention / MLP |
+| --- | ---: | ---: |
+| 独立算子 decoder | 10.840 / 11.400 | 19.288 / 22.328 |
+| 训练 decoder | 11.313 / 11.656 | 20.344 / 22.376 |
+| 训练 decoder 开始→LayerNorm 结束 | 30.416 / 30.616 | 39.768 / 41.312 |
+
+新行 tile 在两类 profile 中都使 decoder 接近翻倍，消费链也变长。它将每 warp 工作量增至四行，同时将独立 warp 数从 **8192 降至 2048**；读取、累加和写出字节并没有相应减少。减少并行工作与逐 warp 串行化是需要验证的解释，**本批没有硬件计数器来证明 occupancy、缓存或带宽中的某项是唯一原因**。本地编译记录中的 51→48 registers、零 spill 也不等于实测性能改善。
+
+### 13.5. Gather：99.219% overlap 仍未缩短整步
+
+| 组别 | Attention overlap / 1024 | MLP overlap / 1024 | 合计 |
+| --- | ---: | ---: | ---: |
+| F4 | 0 | 0 | 0 / 2048 |
+| F4-tile | 0 | 0 | 0 / 2048 |
+| F4-gather | 1017 | 1015 | **2032 / 2048，99.219%** |
+
+相同的“每 rank 中位数→八 rank 中位数”统计如下，单位 μs：
+
+| 反向指标 | F4：Attention / MLP | F4-gather：Attention / MLP |
+| --- | ---: | ---: |
+| CPU backward | 362.501 / 364.125 | 364.060 / 366.737 |
+| AG launch API 结束→dgrad launch 开始 | 115.991 / 115.234 | 148.500 / 146.766 |
+| bias reduction | 8.896 / 8.856 | 9.248 / 9.256 |
+| AllGather GPU kernel | 512.096 / 580.111 | 472.391 / 550.399 |
+| bias 与 AG 实际重叠 | 0 / 0 | 9.216 / 9.200 |
+| `min(bias_start, AG_start)→wgrad_end` | 563.143 / 695.975 | 510.535 / 654.127 |
+| AG GPU 结束→dgrad GPU 开始 | 2.608 / 2.608 | 2.696 / 2.712 |
+
+局部 overlap 和 span 改善没有兑现为无 profiler 的整步收益；缓存固定元数据也没有消除 AG 到后继提交之间的全部主机工作。上述不同中位数不能相加还原一次 backward，更不能将局部差值乘以 256 来分摊整步时间。
+
+逐 rank 的中位数仍可能掩盖间歇性尾部。对诊断中出现尾部的 [F4 rank2](../../../../logs/h100/phase6/ma6-v2-overlap-1x-50steps-20261026-105751-476798/fullstep/results/profile-F4/rank2-profile.json.gz)、[gather rank4](../../../../logs/h100/phase6/ma6-v2-overlap-1x-50steps-20261026-105751-476798/fullstep/results/profile-F4-gather/rank4-profile.json.gz)及 [gather rank6](../../../../logs/h100/phase6/ma6-v2-overlap-1x-50steps-20261026-105751-476798/fullstep/results/profile-F4-gather/rank6-profile.json.gz)进一步关联 launch/GPU 时间：
+
+| 抽查 trace | AG 完成后才提交 dgrad 的调用数，A/M | 仅这些调用的主机间隙中位 μs，A/M | AG→dgrad GPU 间隙 P90 μs，A/M |
+| --- | --- | ---: | ---: |
+| F4 rank2 | 98/128、100/128 | 44.245 / 40.292 | 61.600 / 58.848 |
+| gather rank4 | 63/128、62/128 | 68.844 / 66.328 | 85.024 / 86.464 |
+| gather rank6 | 59/128、59/128 | 74.400 / 73.106 | 90.784 / 87.648 |
+
+“主机间隙”从 AG GPU 结束到 dgrad launch 开始，只对正间隙调用取中位；P90 使用对应角色的全部 128 次调用。这是同一 trace 内的关联，没有跨 rank 相减绝对时间戳。它说明少数/间歇性后继提交仍值得检查，**尚不能证明它们造成正式计时的 3.462 ms 退化，也不能固定优化 rank4/6**。本批仍未建立统一的上游梯度就绪边界，没有 `wait-first` 同场对照。
+
+### 13.6. 离线复核及证据边界
+
+使用本批冻结 v2 控制器，以 `offline=True`、报告 `save=False` 重放算子/完整训练报告及两份 profile 汇总，**四份结果均与回传 JSON 逐字段一致**。37 个冻结脚本/配置文件通过计划哈希校验；启动记录中的 60 个本地控制器依赖与 v2 复核时的仓库文件一致（第 15 节 v3 改动之前）。12 份原始状态、计划、预检和报告文件在复核前后 SHA256 不变。该次 v2 复核只写临时诊断文件，未覆盖原始批次或修改实验代码；后续 v3 实现在第 15 节单独记录。
+
+三组独立训练 profile 的 GPU span 八 rank 中位数为 **837.313 / 826.101 / 828.127 ms**，显著高于正式计时的约 508–512 ms；其排序也不能代替正式结果。额外 LayerNorm 抽查中，F4 rank2 有 260 次 `cuApplyLayerNorm<BFloat16,float,BFloat16>`，总 kernel 工作 4.638 ms，中位 17.920 μs；这包含四个非目标首层输入 LN，不是可全部删除的后继开销。
+
+本次回传目录未包含服务器 `build/` 和动态库本体。离线核对的是冻结身份记录、脚本、rank 记录与实际执行 trace，**没有重新加载/校验服务器二进制本体，也没有重跑 GPU**。结果支持在本批配置下保留 F4/CR3，不能外推到所有行 tile、所有通信调度或长期训练。
+
+## 14. 下一步优化：先保留并行度，再减少接收端开销
+
+### 14.1. 决策与预算
+
+当前应保持原 F4/CR3 为性能基线，将本批默认 R4 和 gather 保留为负结果。下一步不再以“减少 block 数”“增加 overlap 比例”作为验收目标，而是要求**减少实际执行工作或缩短完整消费链，并且不牺牲关键 rank 的执行供给**。
+
+同期步时约 508.456 ms，稳定再减少 1% 需要净省约 **5.085 ms/step**。按本批 profile 的 decoder 角色中位数粗估，256 次 decoder 本体合计约 2.94 ms；这不是无 profiler 的严格上界，也不是可全部删除预算，但足以提醒：只优化很小的 mask 开销，不能预先承诺 1% 整步收益。应先用低风险、单变量原型确认方向，同时准备更长消费链的融合研究。
+
+### 14.2. 第一条路线：保留 R1 并行度，分别验证 mask 表示与 CTA 布局
+
+先回到 **每 warp 一个 H128 group、2048 blocks × 128 threads、8192 个独立 warp**。R4 的实现把四行工作串到一个 warp；“同物理 tile 的 mask 可复用”不要求一定这样串行化。Hopper 的活跃 warp 同时受寄存器、线程块及其他资源约束，不能仅凭寄存器更少判断利用率更高，见 [CUDA 12.8 Hopper occupancy 说明](https://docs.nvidia.com/cuda/archive/12.8.0/hopper-tuning-guide/index.html#occupancy)。
+
+**候选 P1：打包选择 mask，保持原映射。** 当前每物理 tile 的八来源标记可在初始化时编码成一个不可变 8-bit 值。kernel 一次读取后判断是否全 BF16，并按 source 取位；保留原每 warp 工作量、grid、来源累加和 bias/residual 两次舍入。它改变的是选择元数据的表示，不改量化选择、不改 FP8 packet 或通信量。
+
+这里有具体的源码/编译线索：[ma2_c_decode.cuh](../../../../tools/h100/phase6/ma2_c_decode.cuh) 在分支前构造 `selected[8]`；[既有本地 F4 SM90 编译产物](../../../../outputs/h100/phase6/ma6-v2-validation-20261025/native-compile/validation.json)中有 8 条带谓词的 mask 字节读取指令（跳过本地来源，实际读七个远端标记）、8 条 `STL.U8`，混合分支还有动态 `LDL.U8`。因此 **“零 spill”不等于没有 local-memory 数组访问**。这是此前本地编译的观察，本批服务器二进制没有回传，需在将来原型构建中重新核对 SASS，不能把该观察当作本批硬件瓶颈已被证明。
+
+冻结选择计划还显示：含至少一个量化来源的输出物理 tile，Attention 为 **47/512**、MLP 为 **46/512**，故全 BF16 路径覆盖 **90.820% / 91.016%** 的 H128 组。原 53/3584、50/3584 的约 1.4% 是“来源贡献”的量化比例，不能混同为输出组的混合路径比例。P1 的目标是在保留并行度的前提下，减少这两条分支共同经过的元数据访问；是否值得仍需实测。
+
+**候选 P2：让同一 CTA 的四个 warp 处理同一物理 tile 的四行。** 每 warp 仍只处理一行，保持原 launch 和总 warp 数，只替换 group 映射；下面的映射已在第 15 节 `F4-layout` 中独立实现：
+
+```text
+warp  = threadIdx.x / 32
+group = (blockIdx.x / 32) * 128 + (blockIdx.x % 32) + warp * 32
+```
+
+对全部八 rank 的静态穷举已确认：2048 CTA×4 warp 完整且唯一覆盖 8192 个 group；同 CTA 四行属于相同物理 tile，因为四行分组不跨 128 行选择边界。首个布局原型可让每个 warp 仍独立读取原 mask，**无需 shared memory、额外同步、额外 kernel 或逐 warp 多行循环**。布局本身不减少显式 mask 读取次数，应与 P1 分开消融。
+
+本批冻结 mask 下，合计八 rank 的静态工作分配为：
+
+| 指标 | Attention | MLP |
+| --- | ---: | ---: |
+| 原布局同时包含 BF16/混合路径 warp 的 CTA | 4864/16384，29.688% | 4992/16384，30.469% |
+| 这些 CTA 中的纯 BF16 warp 数 | 13440 | 14080 |
+| P2 布局的异质 CTA 数 | 0 | 0 |
+| P2 布局中全部走混合路径的 CTA 数 | 1504 | 1472 |
+
+当前 **warp 内本来就使用同一 mask**，P2 不是消除 warp 内分支发散；它尝试减少一个 CTA 内不同 warp 路径长短不一的尾部。上表是映射/选择计划的静态计数，不是实测 CTA 驻留时间或 occupancy。跨 warp 地址由相邻列改为跨行，可能损伤 cache/写出局部性，也可能因长路径集中而退化，所以不能仅凭“异质 CTA 变少”认定成功。
+
+第 15 节已按 **F4、仅 P1、仅 P2** 实现独立验证；只有单项有依据后再测组合。先检查 mask 位身份、全部 group 覆盖、逐位输出和完整梯度，再看 decoder、decoder→LN→后继 GEMM 的完整链及正式整步。保留所有 rank 与负窗口，不能只看最快 rank 或量化分支。
+
+v2 历史入口的 `--attn-rows/--mlp-rows` 调的是**每 warp 串行行数**，不能表达 P2 的**跨 warp 分配**。当前 v3 使用独立 kernel 身份与 profile 检查，并固定 R1，不再通过主启动器接受这些调参选项。R2（1024×128、每 warp 两行）仍只是后续有界诊断设想，未纳入 v3，也没有新的实测收益。
+
+### 14.3. Gather 转为归因实验，先拆开调度成本
+
+两轮不同实现都已经观察到高比例 GPU overlap 而整步变慢。继续增加辅助 stream、缓存完整 gather 输出或跨层延迟 wgrad，会同时引入更多生命周期与数值变量，目前不应作为第一步。
+
+v2 历史版本的 `wait-first` 入口可先提供一个通信先提交、bias 串行执行的诊断。但独立 `wait-first` 批次与本次 overlap 批次不能直接形成同块配对归因。若后续正式检验原因，应该在同一冻结协议和均衡完整块内放入 **原 F4、同一 cached helper 的 wait-first、同一 helper 的 overlap**，保持相同前向和审计包装。**后两组之间只改变 wait 相对 bias 的位置；它们与原 F4 的比较仍包含 helper、元数据缓存及通信先提交等差异。**
+
+重点同时观察每 rank 的 AG→dgrad **CPU 提交间隙、GPU 间隙的分布/P90、完整 backward span 和正式 step**；明确是否从同一个上游梯度就绪点起算。若 overlap 相对 wait-first 无稳定优势，就停止围绕 bias 这项约 9 μs kernel 堆叠调度。若两种新 helper 均比原 F4 慢，则优先检查 helper/提交路径，再考虑是否有依据把该段提交下沉；不从 profiler 的正间隙直接推出 CPU 是整步唯一瓶颈。
+
+不能为了提前消费而删除 `Work.wait()`。它必须在首次读取 gathered gradient 之前建立当前 stream 的依赖，见 [PyTorch 2.6 collective 语义](https://docs.pytorch.org/docs/2.6/distributed.html#synchronous-and-asynchronous-collective-operations)。NCCL 算法、连接数和消息形状应继续作为控制变量；本次没有证据支持同时改这些参数。
+
+### 14.4. 更长链的机制方向：先做 Attention 的归约—消费—归一化融合可行性分析
+
+若 P1/P2 只能带来很小局部收益，下一条较大的研究方向仍是第 4 节 N6：让接收端在保持原数值语义下继续产生归一化结果。新 trace 仍见 decoder 后约 19 μs 的 LayerNorm/间隙段，因此它比已接近饱和的 bias overlap 有更大的工作量级，但不是可全部删除的时间。
+
+推进前必须完成三个条件：
+
+1. **取得目标服务器实际 Apex 版本和 CUDA 源码。** 本次快照有 Megatron wrapper、trace 有 `cuApplyLayerNorm` 名称，尚没有足以复现其统计归约树的 Apex 源码身份。不能拿本地另一版或通用 Welford 替代后放宽逐位检查。
+2. **同时保留 residual 输出 Z 与归一化输出 Y。** LN 统计必须使用已经过 bias/residual 两次 BF16 舍入的 Z；保存量、gamma/beta 梯度和原 backward 均需对应。可省的是 Z 的独立读取与一个 kernel 边界，不是 Z 的全部写出，更不是整个 LN 计算。
+3. **重新证明行级并行布局的成本。** 4096 维一行跨 32 个 H128 group，原 F4 跨八个 CTA，不能用一次 CTA 内同步完成全行统计。R4 的负结果已经表明“把工作装入更大的 tile”可能抵消融合收益，必须检查寄存器、并行度和完整链，不能只数少了几个 launch。
+
+先限定 Attention 的 128 次消费/LN 边界，接口在同一层内较清楚；MLP 跨下一层/最终 LayerNorm 的扩展后置。理论上可避免约 256 MiB/rank/step 的 Z 逻辑读取，但这些读取可能命中 cache，不能直接按 HBM 带宽换算收益。只有前向/全参数梯度保持、后继 GEMM 和无 profiler 完整 step 同时得到验证，才把它升级为已验证机制。
+
+**v2 分析结论：保留 F4/CR3；停止把 R4 与当前 gather 当作加速配置。该判断已落实为下面的 v3 接收端元数据／布局实验。N6 的精确数值实现条件仍需补齐，新候选仍待 H100 实测。**
+
+
+## 15. MA6-v3：实现与启动命令
+
+### 15.1. 三组分别改变什么
+
+源码协议为 `h100-ma6-f4-v3`，算子／训练协议分别追加 `-operator`／`-fullstep`；批次监督协议为 `h100-ma6-f4-detached-v3`。F4 对应正文和汇总表中的 CR3，原生基线从已注册的 MA4-F 变换生成，并校验源码身份。
+
+| 组别 | 接收端选择元数据 | warp 分配 | 反向 |
+| --- | --- | --- | --- |
+| `F4` | 原 `selected[8]` | 原连续 H128 group | 原 F4 |
+| `F4-mask`（P1） | 每物理 tile 一个 8-bit mask | 与 F4 相同 | 原 F4 |
+| `F4-layout`（P2） | 与 F4 相同 | 同 CTA 四个 warp 处理同物理 tile 的四行 | 原 F4 |
+
+Attention K=512 与 MLP K=2048 均固定 **2048 blocks × 128 threads、每 warp 一个 H128 group**；每 rank 一次投影仍覆盖 8192 个 group。本轮不测试 P1＋P2 组合。原 producer、选择计划、FP8 packet、逐 source 累加顺序、bias 与 residual 两次 BF16 舍入及输出独立存储语义保持不变。
+
+原生实现集中在 [ma6_sources.py](../../../../tools/h100/phase6/ma6_sources.py)，由 [ma6_build.py](../../../../tools/h100/phase6/ma6_build.py) 生成并冻结三组源码：
+
+- **P1 的打包仅发生在实例初始化。** C++ 先检查原 CPU 计划与实例实际 GPU `selected` 相等，再验证 4096 个选择项只取 0/1、本地来源为 BF16，将八来源标记打包成 512 字节。每个双缓冲槽的 native 实例私有持有一份 CUDA packed mask，保留原选择张量所有权；原 producer 仍使用原 mask。禁止重复绑定、已有提交后绑定或捕获期间绑定。每槽初始化有一次 4096 字节 D2H 校验与 512 字节 H2D 私有复制，均在计时前完成；forward 无打包 kernel 或新拷贝，使用 `recordStream` 维持分配生命周期。
+- **P1 kernel 用取位判断替代 `bool selected[8]` 数组。** 一次读取当前物理 tile 的 byte，0 表示全部 BF16，否则按原来源顺序解码、归约。此改动针对元数据访问，不改变通信量，也不代表已经证明 mask 是硬件瓶颈。
+- **P2 只替换 group 映射。** 使用第 14.2 节公式，无 shared memory、额外同步或 warp 内多行循环。每个 warp 仍独立读取原选择标记；它改变同 CTA 各 warp 的任务组合，保留总并行工作数。
+
+[ma6_adapter.py](../../../../tools/h100/phase6/ma6_adapter.py) 的三组反向均调用原 MA4-F 的 `bias reduction → AllGather → dgrad → wgrad`。保留所有权、重复反向及失败状态检查；每组均要求 `baseline_backward_calls == backward_calls`、`async_gather_calls == wait_calls == 0`。v2 gather 辅助路径未混入本轮比较。
+
+### 15.2. 验证、计时及判定
+
+[算子控制器](../../../../tools/h100/phase6/ma6_bench.py)与[训练控制器](../../../../tools/h100/phase6/ma6_fullstep.py)分别检查：
+
+1. **源码与身份。** 三组源码、编译输入、动态库及冻结脚本哈希对应当前协议；在线 worker 在独立子进程核验仓库构建身份，避免冻结模块污染。候选必须报告 native protocol=3、正确 receiver variant、两角色固定 launch；P1 每槽必须仅绑定一次，packed 地址独立且对应本槽原 selected 地址。
+2. **数值。** 算子前向逐位对照、input/weight/bias/residual 四类梯度及三步更新；完整训练继续校验每 rank 的 389 个可训练参数张量、梯度/更新指纹和正式 loss／grad_norm 轨迹。任一预检失败即停止，不以更宽容差换取通过。
+3. **实际路径。** profile 分别要求原 F4、`taco_ma6_mask_decode_consumer_kernel`、`taco_ma6_layout_decode_consumer_kernel`，并检查 2048×128 launch、发布屏障、后继 LayerNorm、零独立 bias/residual add，以及三组相同反向顺序。候选不能回退到原 F4 kernel 后仍计作通过。
+4. **同期整步比较。** 一轮 12 个完整三组块，前后六块分别覆盖三组全部六种排列；共 36 个训练计时窗口，每窗口 10 步预热＋50 步正式计时，即 **1800 个正式 optimizer steps**。配对统计以完整块为单位，分别报告 `F4-mask/F4` 和 `F4-layout/F4` 的收益及 95% bootstrap CI；所有负结果、慢窗口及八 rank 保留。`--trials 2` 为两轮、72 窗口、3600 正式步；两半程不冒充独立 trial。
+
+正增量仍需通过原数值／路径门槛并具有正的配对置信区间。单轮是探索性结果；局部 decoder 变快、静态 CTA 更同质或指令减少，都不能代替完整训练收益。本地编译也不代替服务器完整链接和八卡运行。
+
+### 15.3. 启动命令
+
+在 H100 容器的仓库根目录运行，沿用既有恢复环境中的 Python、CUDA 12.8 构建工具链及 CUDA 12.4 运行时配置：
+
+```bash
+# 只预览；不构建、不创建批次、不启动 GPU worker
+bash tools/h100/phase6/run_ma6.sh
+
+# 默认一轮：构建 → 算子正确性/计时/profile → 完整训练预检/计时/profile
+bash tools/h100/phase6/run_ma6.sh --execute
+
+# 需要两轮独立比较时，在启动前指定
+bash tools/h100/phase6/run_ma6.sh --trials 2 --execute
+```
+
+启动脚本为 [run_ma6.sh](../../../../tools/h100/phase6/run_ma6.sh)，监督器为 [detach_ma6.py](../../../../tools/h100/phase6/detach_ma6.py)。默认后台运行，批次位于 `logs/h100/phase6/ma6-v3-receiver-1x-50steps-<时间戳>/`；实际路径由启动器打印。检查 `batch-state.json` 与 `handoff/container-supervisor.log`，再看 `operator/report.json`、`operator/profile-summary.json`、`fullstep/report.json` 和 `fullstep/profile-summary.json`。需要前台等待时追加 `--foreground`。性能为负仍保留完整报告，`completed` 只表示流程完成；应分别查看 `increment_over_F4_validated`。
+
+只允许复用同协议、当前源码身份完全一致的 v3 build：
+
+```bash
+bash tools/h100/phase6/run_ma6.sh \
+  --ma6-build /absolute/path/to/verified-ma6-v3-build \
+  --execute
+```
+
+旧 v1/v2 build 不能复用。主启动器拒绝旧 `--attn-threads/blocks/rows`、`--mlp-threads/blocks/rows` 和 `--gather-schedule`，防止在同一 v3 名称下混入串行 tile 或 gather 调度变体。第 9–12 节中的这些选项只属于当时的历史版本；历史 `logs/` 快照及其报告保持原样。
+
+### 15.4. 本地验证边界
+
+本地检查在无可见 GPU 的环境执行。CPU 检查记录见 [cpu-validation.json](../../../../outputs/h100/phase6/ma6-v3-validation-20261026/cpu-validation.json) 和[完整通用测试日志](../../../../outputs/h100/phase6/ma6-v3-validation-20261026/cpu-tests.log)：
+
+- 通用测试共 **59 项**，系统 Python 下 **56 项通过、3 项因缺少 PyTorch 跳过**。这三项已在实际 PyTorch 环境执行，独立 adapter 测试 **11/11 通过、无跳过**，包括 BF16/FP32 四类梯度、三步参数更新、非连续梯度和输出存储独立性。
+- 实际 C++ packer 遍历所有合法远端选择组合；冻结 Attention/MLP mask 的位身份及八 rank 全部 group 覆盖通过。P2 的 8192 个 group 无重复/遗漏，所有 CTA 的四个 warp 均属于同一物理 tile。
+- 在线冻结 worker 三组均通过仓库身份核验并停在 Torch/GPU 边界；修改构建输入、原生源码或动态库证据均被拒绝。冻结完整训练控制器的离线隔离检查通过。
+- 实际 shell 启动预览通过：两轮显示 72 窗口／3600 正式步，未创建批次目录、未启动 GPU worker。
+
+CUDA 12.8 **SM90 编译检查已通过**，见 [validation.json](../../../../outputs/h100/phase6/ma6-v3-validation-20261026/native-compile/validation.json) 与[编译日志](../../../../outputs/h100/phase6/ma6-v3-validation-20261026/native-compile/compile.log)。三组 runtime、GPU mapping 工具编译成功，两候选的实际 PyTorch C++ wrapper 和 pybind 对象均编译成功；host mapping、冻结 mask 身份及完整 CTA 映射均实际运行通过。两个候选保留的原 F4 decoder PTX 与对照完全一致，13 份编译产物的 SHA256 已复核。
+
+[静态 kernel 记录](../../../../outputs/h100/phase6/ma6-v3-validation-20261026/native-compile/kernel-static-evidence.json)如下，SASS 数量为对应 decoder 的静态指令条数，不能当作动态访存次数或耗时：
+
+| 接收端 kernel | registers/thread | stack bytes/thread | spill load/store bytes | `LDL` / `STL` | `LDG.E.U8` |
+| --- | ---: | ---: | --- | --- | ---: |
+| F4 | 51 | 8 | 0 / 0 | 2 / 8 | 8 |
+| F4-mask | 49 | 0 | 0 / 0 | 0 / 0 | 1 |
+| F4-layout | 51 | 8 | 0 / 0 | 2 / 8 | 8 |
+
+P1 的 PTX/SASS 均已消除原 `selected[8]` 的 local-memory 访问，证明元数据变换确实落到了机器码。P2 的设计目标是任务映射，其资源与指令类别保持原量级符合预期；两者都还不能推出整步收益。编译只有既有的未使用变量及 pybind visibility 警告，无错误。
+
+**上述为 CPU／编译验证；`gpu_used=false`、`gpu_validated=false`、`linked_runtime=false`。** 当前没有 v3 的服务器完整动态库链接、八卡前向逐位／全模型梯度检查或正式性能结果。请使用第 15.3 节命令完成 H100 预检和计时，再判断候选是否优于 F4/CR3。

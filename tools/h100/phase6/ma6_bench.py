@@ -2,8 +2,8 @@
 """MA6 three-arm F4 consumer checks and forward-only microbenchmarks.
 
 The unchanged MA4-F implementation is frozen as a source template. Registered
-changes select three fused consumers and the explicitly validated backward.
-Full-step measurements, not these forward timings, evaluate F4-gather.
+changes select three fused consumers and the same explicitly audited backward.
+Full-step measurements evaluate the independently varied receiver mechanisms.
 """
 from pathlib import Path
 import ast
@@ -35,17 +35,10 @@ _source = registered_replace(_source,"result['roles'][role]=dict(shape=shape", "
 _source = registered_replace(_source,'def get_tensor_model_parallel_world_size():return 8',
     'def get_tensor_model_parallel_world_size():return 8\n        @staticmethod\n'
     '        def get_tensor_model_parallel_group():return group')
-_source = registered_replace(_source,'namespace=dict(torch=torch,parallel_state=Parallel,_gather_along_first_dim=gather)',
-    'namespace=dict(torch=torch,parallel_state=Parallel,_gather_along_first_dim=gather,\n'
-    '                   dist_all_gather_func=dist.all_gather_into_tensor)')
 _source = registered_replace(_source,"gradients=[]\n        if args.preflight:",
-    "gradients=[]\n        backward_state=ma4_f_adapter.new_backward_state(job['arm'], plan['gather_schedule'])\n        if args.preflight:")
-_source = registered_replace(_source, 'ma4_f_adapter.consumer_autograd_source()',
-                            "ma4_f_adapter.consumer_autograd_source(plan['gather_schedule'])")
+    "gradients=[]\n        backward_state=ma4_f_adapter.new_backward_state(job['arm'])\n        if args.preflight:")
 _source = registered_replace(_source, "mechanism=MECHANISM, tuning=identity['tuning'], roles=ROLES",
-    "mechanism=MECHANISM, tuning=identity['tuning'], gather_schedule=validate_gather_schedule(getattr(args, 'gather_schedule', 'overlap')), roles=ROLES")
-_source = registered_replace(_source, "p.add_argument('--iterations',type=int,default=200)",
-    "p.add_argument('--iterations',type=int,default=200);p.add_argument('--gather-schedule',choices=('overlap','wait-first'),default='overlap')")
+    "mechanism=MECHANISM, tuning=identity['tuning'], backward_schedule='baseline', roles=ROLES")
 _source = registered_replace(_source,'fused_fn.apply(*left,OpAdapter(op),None)',
                          'fused_fn.apply(*left,OpAdapter(op),None,backward_state)')
 _source = registered_replace(_source,'OpAdapter(op)', 'candidate_adapter',2)
@@ -57,20 +50,20 @@ _source = registered_replace(_source,"comparisons={'F4/CR2':paired(values['F4'],
                          "comparisons={c+'/'+b:paired(values[c],values[b]) for c,b in COMPARISONS}")
 _source = registered_replace(_source,"default=8);p.add_argument('--warmup'", "default=12);p.add_argument('--warmup'")
 exec(compile(_source, str(TEMPLATE), 'exec'), globals())
-__doc__ = 'MA6 F4 / F4-tile / F4-gather consumer correctness and forward-only operator timings.'
+__doc__ = 'MA6 F4 / F4-mask / F4-layout consumer correctness and forward-only operator timings.'
 
 import ma6_adapter
 import ma6_sources
 
-SOURCE_PROTOCOL = 'h100-ma6-f4-v2'
+SOURCE_PROTOCOL = 'h100-ma6-f4-v3'
 PROTOCOL = SOURCE_PROTOCOL + '-operator'
-ARMS = ('F4', 'F4-tile', 'F4-gather')
-MAIN_COMPARISONS = (('F4-tile', 'F4'), ('F4-gather', 'F4'))
-COMPARISONS = MAIN_COMPARISONS + (('F4-tile', 'F4-gather'),)
+ARMS = ('F4', 'F4-mask', 'F4-layout')
+MAIN_COMPARISONS = (('F4-mask', 'F4'), ('F4-layout', 'F4'))
+COMPARISONS = MAIN_COMPARISONS + (('F4-mask', 'F4-layout'),)
 EQUIVALENCE_PAIRS = [list(pair) for pair in COMPARISONS]
 LABELS = {'F4':'Unchanged fused decoder and original backward',
-          'F4-tile':'F4 with row-tiled mask-reusing decoder; original backward',
-          'F4-gather':'F4 with cached gather metadata; explicitly frozen overlap or wait-first schedule'}
+          'F4-mask':'F4 with immutable packed source-selection mask; original backward',
+          'F4-layout':'F4 with same-physical-tile warp assignment; original backward'}
 SCHEDULE_SEED = 20261025
 _verify, _validate_rows, _freeze_helpers, _report = verify, validate_rows, freeze_helpers, report
 
@@ -89,35 +82,50 @@ def schedule(blocks=12):
 def expected_tuning(plan,arm):
     family(arm)
     tuning=ma6_sources.tuning_config(plan['tuning'])
-    return tuning if arm=='F4-tile' else {role:dict(ma6_sources.BASELINE_TUNING) for role in ROLES}
+    variant={'F4':0,'F4-mask':1,'F4-layout':2}[arm]
+    return {role:dict(config,receiver_variant=variant,native_protocol=0 if arm=='F4' else 3,
+                      packed_mask_bound=arm=='F4-mask') for role,config in tuning.items()}
 
 
 def validate_tuning(value):
     return ma6_sources.tuning_config(value)
 
 
-def validate_gather_schedule(value):
-    require(value in ('overlap', 'wait-first'), 'Unknown MA6 gather schedule')
-    return value
+def validate_backward_schedule(plan):
+    require(plan.get('backward_schedule') == 'baseline' and 'gather_schedule' not in plan,
+            'MA6-v3 requires the unchanged baseline backward schedule')
 
 
 def native_tuning(op,arm,plan):
     expected=expected_tuning(plan,arm)
+    require(len(op.slots)==2,'Missing receiver slots')
+    packed_pointers=set()
     for slot in op.slots:
         fn=slot.lib.taco_ma4f_protocol_version;fn.argtypes=[];fn.restype=ctypes.c_int
         require(fn()==1,'Missing native fused consumer')
         state=slot.cr2_submission_state()
         k=state['bound_k'];require(k in (512,2048),'Wrong immutable K')
-        role='attn' if k==512 else 'mlp'
-        if arm=='F4-tile':
-            version=slot.lib.taco_ma6_protocol_version;version.argtypes=[];version.restype=ctypes.c_int
-            require(version()==2,'Wrong MA6 tile protocol')
-            actual={}
+        if arm=='F4':
+            require(not hasattr(slot.lib,'taco_ma6_protocol_version'),
+                    'Baseline unexpectedly loaded a candidate native receiver')
+            continue
+        version=slot.lib.taco_ma6_protocol_version;version.argtypes=[];version.restype=ctypes.c_int
+        variant=slot.lib.taco_ma6_receiver_variant;variant.argtypes=[];variant.restype=ctypes.c_int
+        identity=dict(native_protocol=version(),receiver_variant=variant(),packed_mask_bound=False)
+        if arm=='F4-mask':
+            mask=list(slot.op.ma6_mask_state())
+            require(len(mask)==4 and mask[:2]==[3,1] and mask[2]>0 and
+                    mask[2]!=mask[3] and mask[3]==slot.selected.data_ptr() and
+                    mask[2] not in packed_pointers,
+                    'Packed mask was not privately bound exactly once to this slot selection')
+            packed_pointers.add(mask[2]);identity['packed_mask_bound']=True
+        for role,role_k in (('attn',512),('mlp',2048)):
+            actual=dict(identity)
             for key,symbol in [('decoder_threads','taco_ma6_decoder_threads'),('decoder_blocks','taco_ma6_decoder_blocks'),
                                ('decoder_rows','taco_ma6_decoder_rows')]:
                 query=getattr(slot.lib,symbol);query.argtypes=[ctypes.c_int];query.restype=ctypes.c_int
-                actual[key]=query(k)
-            require(actual==expected[role],'Native tile differs from immutable role configuration')
+                actual[key]=query(role_k)
+            require(actual==expected[role],'Native receiver differs from immutable arm configuration')
     return expected
 
 
@@ -174,8 +182,8 @@ def freeze_helpers(scripts):
 
 def verify(root,offline=False):
     plan=_verify(root,offline)
-    validate_gather_schedule(plan['gather_schedule'])
-    require(plan['tuning']==plan['build_identity']['tuning'],'Tile plan/build mismatch')
+    validate_backward_schedule(plan)
+    require(plan['tuning']==plan['build_identity']['tuning'],'Receiver plan/build mismatch')
     validate_tuning(plan['tuning'])
     for current,name in [(TEMPLATE,'ma6_bench_base.py'),(base_path,'ma4_f_bench_base.py'),
                           (HERE/'ma4_f_adapter.py','ma4_f_adapter.py'),
@@ -202,13 +210,11 @@ def validate_consumer(states,submissions,arm):
                 'Fused consumer fallback/counter drift')
 
 
-def validate_backward_state(state,arm,calls,gather_schedule='overlap'):
-    validate_gather_schedule(gather_schedule)
+def validate_backward_state(state,arm,calls):
+    family(arm)
     require(state==dict(protocol=ma6_adapter.PROTOCOL,arm=arm,forward_calls=calls,backward_calls=calls,
-        gather_schedule=gather_schedule if arm=='F4-gather' else 'baseline',
-        baseline_backward_calls=0 if arm=='F4-gather' else calls,
-        async_gather_calls=calls if arm=='F4-gather' else 0,
-        wait_calls=calls if arm=='F4-gather' else 0,failed=False,active=False),
+        gather_schedule='baseline',baseline_backward_calls=calls,
+        async_gather_calls=0,wait_calls=0,failed=False,active=False),
         'Wrong backward schedule identity or coverage')
 
 
@@ -218,21 +224,22 @@ def validate_rows(root,plan,jobs,stage,reference=None):
         for rank in range(8):
             row=read(Path(root)/'results'/job['directory']/f'rank{rank}.json')
             for value in row['roles'].values():
-                require(value['native_tuning']==expected_tuning(plan,job['arm']),'Wrong native tile evidence')
-                validate_backward_state(value['backward_state'],job['arm'],3 if stage=='preflight' else 0,
-                                        plan['gather_schedule'])
+                require(value['native_tuning']==expected_tuning(plan,job['arm']),'Wrong native receiver evidence')
+                validate_backward_state(value['backward_state'],job['arm'],3 if stage=='preflight' else 0)
     return result
 
 
 def decoder_name(arm,role,tuning):
     family(arm);validate_tuning(tuning)
-    if arm!='F4-tile' or tuning[role]==ma6_sources.BASELINE_TUNING:
-        return 'taco_ma4f_decode_consumer_kernel'
-    return 'taco_ma6_'+('attention' if role=='attn' else 'mlp')+'_decode_consumer_kernel'
+    require(role in ROLES,'Unknown decoder role')
+    return {'F4':'taco_ma4f_decode_consumer_kernel','F4-mask':'taco_ma6_mask_decode_consumer_kernel',
+            'F4-layout':'taco_ma6_layout_decode_consumer_kernel'}[arm]
 
 
 def decoder_matches(name,arm,role=None,tuning=None):
-    if role is None:return any(token in name for token in ('taco_ma4f_decode_consumer_kernel','taco_ma6_attention_decode_consumer_kernel','taco_ma6_mlp_decode_consumer_kernel'))
+    if role is None:
+        family(arm)
+        return decoder_name(arm,next(iter(ROLES)),validate_tuning(None)) in name
     return decoder_name(arm,role,tuning) in name
 
 
@@ -241,10 +248,10 @@ def validate_launch(gemm,decoder,arm,role,tuning):
     require(decoder_matches(decoder['name'],arm,role,tuning),'Wrong role decoder kernel')
     require(gemm['args']['grid']==[512,1,1] and gemm['args']['block']==[128,1,1], 'GEMM launch changed')
     require(decoder['args']['grid']==[expected['decoder_blocks'],1,1] and
-            decoder['args']['block']==[expected['decoder_threads'],1,1],'Actual decoder tile/grid changed')
+            decoder['args']['block']==[expected['decoder_threads'],1,1],'Actual decoder geometry changed')
     return dict(gemm_grid=gemm['args']['grid'],gemm_block=gemm['args']['block'],
                 decoder_grid=decoder['args']['grid'],decoder_block=decoder['args']['block'],
-                decoder_rows=expected['decoder_rows'],
+                decoder_rows=expected['decoder_rows'],receiver_variant=expected['receiver_variant'],
                 decoder_kernel=decoder_name(arm,role,tuning))
 
 
@@ -287,13 +294,13 @@ def profile_summary(root,offline=False):
                 files[str(path.relative_to(root))]=sha(path)
     return dict(protocol=PROTOCOL,run_id=plan['run_id'],completed=True,execution_path_validated=True,
         target_validated=False,profiles=profiles,evidence_files=files,
-        limitation='Forward-only profiles; F4-gather backward execution and overlap are checked in fullstep.')
+        limitation='Forward-only profiles; identical original backward execution is independently checked in fullstep.')
 
 
 def report(root,save=True,offline=False):
     result=_report(root,save=False,offline=offline)
-    result['gather_schedule']=verify(root,offline)['gather_schedule']
-    result['limitation']='Forward-only complete projection+bias+residual API. F4-gather uses identical native F4; these timings do not measure its backward optimization.'
+    result['backward_schedule']=verify(root,offline)['backward_schedule']
+    result['limitation']='Forward-only complete projection+bias+residual API. End-to-end benefit requires the independent full-step comparisons; every arm retains original backward.'
     if save:save_unchanged(Path(root)/'report.json',result);print(json.dumps(result['roles'],indent=2))
     return result
 
