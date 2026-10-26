@@ -1,0 +1,94 @@
+{
+  "date": "2026-10-26",
+  "protocol": "h100-ma7-f4-wgrad-v1",
+  "gpu_used": false,
+  "gpu_validated": false,
+  "performance_validated": false,
+  "linked_runtime": false,
+  "generic_suite": {
+    "command": [
+      "/usr/bin/python3",
+      "-m",
+      "unittest",
+      "discover",
+      "-s",
+      "tools/h100/phase6",
+      "-p",
+      "test_ma7_*.py",
+      "-v"
+    ],
+    "returncode": 0,
+    "elapsed_seconds": 190.07983902199703,
+    "gpu_used": false,
+    "tests": 44,
+    "passed": 35,
+    "skipped": 9,
+    "log": "cpu-tests.log"
+  },
+  "torch_suite": {
+    "command": [
+      "/data/run01/scyb672/conda_envs/flux-megatron-a800/bin/python",
+      "-S",
+      "-u",
+      "-c",
+      "import sys; sys.path.append(\"/data/run01/scyb672/conda_envs/flux-megatron-a800/lib/python3.10/site-packages\"); import torch; print(torch.__version__, torch.cuda.is_available(), flush=True); import unittest; suite=unittest.defaultTestLoader.discover(\"tools/h100/phase6\", pattern=\"test_ma7_adapter.py\"); result=unittest.TextTestRunner(verbosity=2).run(suite); sys.exit(not result.wasSuccessful())"
+    ],
+    "returncode": 0,
+    "elapsed_seconds": 173.84657388699998,
+    "gpu_used": false,
+    "tests": 12,
+    "passed": 12,
+    "skipped": 0,
+    "torch": "2.6.0+cu124",
+    "cuda_available": false,
+    "log": "torch-tests-nosite.log"
+  },
+  "unique_tests_covered": 44,
+  "generated_sources_parse": true,
+  "shell_syntax": true,
+  "launcher_preview": {
+    "command": [
+      "bash",
+      "tools/h100/phase6/run_ma7.sh",
+      "--out",
+      "/tmp/ma7-final-preview-jj9rcj2y/never-created",
+      "--trials",
+      "2"
+    ],
+    "python_override": "/usr/bin/python3",
+    "returncode": 0,
+    "output_directory_created": false,
+    "windows": 32,
+    "formal_steps": 1600,
+    "elapsed_seconds": 0.22158558299997821
+  },
+  "startup_diagnostic": {
+    "command": [
+      "/data/run01/scyb672/conda_envs/flux-megatron-a800/bin/python",
+      "-I",
+      "-c",
+      "import sys, unittest; sys.path.insert(0, 'tools/h100/phase6'); import torch; print('torch', torch.__version__, 'cuda_available', torch.cuda.is_available(), flush=True); suite=unittest.defaultTestLoader.loadTestsFromName('test_ma7_adapter'); result=unittest.TextTestRunner(verbosity=2).run(suite); sys.exit(not result.wasSuccessful())"
+    ],
+    "returncode": 124,
+    "elapsed_seconds": 150.05278167000142,
+    "gpu_used": false,
+    "log": "torch-tests.log",
+    "note": "Local isolated Python invocation timed out before version/test output; successful -S invocation and complete numeric log retained separately."
+  },
+  "source_sha256": {
+    "tools/h100/phase6/detach_ma7.py": "890ffed99baf2c7cb1b3197ac87dc8032b5bea92134f4fa9e9c32720dec29055",
+    "tools/h100/phase6/ma7_adapter.py": "3b59b9c9b24a40741b080a00428b12e0c6d70d4e4e68f77ecfcbd06b0754ff28",
+    "tools/h100/phase6/ma7_bench.py": "4dc2c63dcbb5072812733496050cccd0d833111c1ac74e80c360655b6a875018",
+    "tools/h100/phase6/ma7_build.py": "f997c2292f51d40540b69079a4b8db7fe4ebe9f0da42059288d2418e3801a6e0",
+    "tools/h100/phase6/ma7_fullstep.py": "4a2d74c1b61e7cd5328086d5ce695cef6b3b844d17b6d41873bf4850f028793f",
+    "tools/h100/phase6/ma7_sources.py": "76996d6ed252448d654193d5813a31507823c4be4add4669c1fc4d892e5553fd",
+    "tools/h100/phase6/run_ma7.sh": "3308397775100369a0a74bc3cf288dea27d3260b94e9c81c1110829cd84b28dc",
+    "tools/h100/phase6/test_ma7_adapter.py": "db4e8940c9e3070acc27c7e7445454d169fe30624b7a727793d80c964a9f5d53",
+    "tools/h100/phase6/test_ma7_build.py": "e7ab8f023e0d4b9abcbe6be9ce27a1021b1a3de2b40f51b7f160cbb0eee79493",
+    "tools/h100/phase6/test_ma7_harness.py": "9de8953aea3ee86a12d1975133c8a8b3e072121fee2329236fca28151f76f3ad",
+    "tools/h100/phase6/test_ma7_launcher.py": "91dffb8cffebbde19264a6c65dcd9d2e9a5420d9907ca2184fd175e361b7e373",
+    "tools/h100/phase6/test_ma7_online_worker.py": "4ae66797c33ba6475d917d72dce51f4b88ed08f41831b47470cb83f84a524e15",
+    "tools/h100/phase6/test_ma7_review.py": "aaab287dc2107d81777bdc7eba1c55def27893626b22910ed80897933d06a80e"
+  },
+  "limitation": "CPU tests and registered-source/frozen-worker checks only. Native fixtures in tests are explicitly marked CPU placeholders, never loaded. No H100 build, multi-GPU run, stream overlap, or performance result has been produced."
+}
