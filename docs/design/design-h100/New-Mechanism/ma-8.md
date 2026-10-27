@@ -1,6 +1,8 @@
 # MA8：保留前向已收集的激活，删除反向重复 AllGather
 
-**2026-10-26，当前入口更新为 MA8-v2：删除两组额外的逐调用 Python 包装。** F4 直接使用原 column forward、linear 入口和 autograd Function；F4-cache 只保留独立保存前向激活、反向复用的机制改动。两组均不新增逐调用状态计数、输入检查或 `record_function`，详见第 9 节。相对同期 CR3 减少至少 2% 的完整 optimizer step 时间仍是实验目标，v2 尚未上机验证。
+**2026-10-27，MA8-v2 八卡实测达到本轮 2% 目标。** 相对同期 F4／CR3，F4-cache 完整训练均值由 **502.381 降至 474.004 ms/step**，平均减少 **28.377 ms**；配对收益 **+5.648%［95% CI：+5.252%, +6.035%］**，8/8 个块更快。数值与实际路径检查通过，目标反向输入 AllGather 从每 rank 每步 256 次降为 0；allocated 峰值的窗口均值增加约 **0.995 GiB**。这是 **一次独立 trial**，已通过本轮门槛，尚需独立复现，详见第 10 节。
+
+本次使用第 9 节的无新增逐调用包装版本：F4 直接使用原 column forward、linear 入口和 autograd Function；F4-cache 只保留独立保存前向激活、反向复用的机制改动。两组均不新增逐调用状态计数、输入检查或 column `record_function`。
 
 本轮只引入一种机制：**QKV／FC1 前向 AllGather 的完整输入由该次 autograd 节点独立持有，反向 wgrad 直接复用，删除对同一输入的第二次 AllGather。** 实验名为 `F4-cache`，对照 `F4` 即 [baseline.md](baseline.md) 的 CR3。原 CR3 的 row-parallel 投影、选择性量化、producer、发布屏障、decoder＋bias/residual、LayerNorm 及其反向保持原实现。
 
@@ -46,7 +48,7 @@ MA6 中提到的 gather buffer 缓存，是为 row 反向 `grad_output` 收集�
 
 前后向间，这一节点的输入没有改变，前向已经获得所需的 `X`。反向再次通信是原实现选择少保留激活的代价，并不是数学上必须重新获取的数据。原实现已经让输入 AllGather 与 dgrad 有重叠，但 `handle.wait()` 在 ReduceScatter 提交之前；因此 **dgrad 完成后尚未结束的输入 AllGather，仍会推迟向前一层传播 dX**。
 
-### 最新 CR3 trace 的依据
+### 设计时的 CR3 trace 依据
 
 只读分析使用 `ma6-v3-receiver-1x-50steps-20261026-145811-248551/fullstep/results/profile-F4/` 的八份 trace。每 rank 有 260 对该 Linear 的前后向：四个 microbatch，各 32 对 QKV／FC1 加一个 LM head。排除四次 LM head 后，目标为 **每 rank 256 次，八 rank 共 2048 次**。每次都关联到一个反向输入 AllGather、一个 dgrad ReduceScatter 和两个 GEMM。
 
@@ -123,7 +125,7 @@ CR3 历史均值 501.433 ms 仅用于量级估算：
 10.02866 ms ÷ 256 = 39.17445 μs / 被删除的 backward AllGather
 ```
 
-因此合理的待测假设是：删除 256 次重复通信及其提交／等待后，扣除前向独立分配、缓存压力和调度变化，平均每次能净省约 39 μs。**当前证据说明值得测，尚不能保证达到这个值。** 若原通信在无 profiler 环境下多数已被隐藏、或删除后仍等待其他 rank，收益可能很小。
+因此设计时的待测假设是：删除 256 次重复通信及其提交／等待后，扣除前向独立分配、缓存压力和调度变化，平均每次能净省约 39 μs。**设计时的 trace 只能说明值得测，不能保证达到这个值。** 若原通信在无 profiler 环境下多数已被隐藏、或删除后仍等待其他 rank，收益可能很小。第 10 节给出了后续同场实测结果，不用上述局部时间估算替代整步计时。
 
 每个完整输入为 `[2048, 1, 4096]` BF16，16 MiB；local input 为 `[256, 1, 4096]`，2 MiB。首版保留原 local input，因此新增缓存的逻辑容量为：
 
@@ -197,7 +199,7 @@ bash tools/h100/phase6/run_ma8.sh --foreground --execute
 - 30 项 harness／launcher／profile 检查：完整梯度和末态参数比较、平衡配对、2% 判定、负结果保留、冻结控制器独立复算，以及错误通信次数、依赖、stream、复制和未知清零的拒绝。
 - 实际 shell 两轮预览确认 32 窗口／1600 正式步骤，未创建预览批次目录；生成 Python 源码与 shell 语法通过。八份历史 trace 的列／行投影检查也全部通过。
 
-上述为首次上机前的历史验证，未覆盖实际 `inspect.getsource()` 读取类方法的缩进；安装测试当时 mock 了取源接口，因此没有发现第 8 节的问题。后续批次已完成构建和独立算子阶段，但在完整训练预检退出。CPU collective 仍为模拟实现，实际 NCCL、显存峰值、GPU 数值与性能需重新上机验收；**2% 是实验目标，不是已实现结论**。
+上述为首次上机前的历史验证，未覆盖实际 `inspect.getsource()` 读取类方法的缩进；安装测试当时 mock 了取源接口，因此没有发现第 8 节的问题。首次批次完成构建和独立算子阶段后，在完整训练预检退出。CPU collective 为模拟实现，这些历史验证不构成 GPU 性能证据；修复及删除包装后的 v2 八卡结果见第 10 节。
 
 
 ## 8. 首次上机失败与源码指纹修复
@@ -266,4 +268,97 @@ bash tools/h100/phase6/run_ma8.sh --execute
 
 **v2 的 65 项本地测试通过，零跳过**：14 项 adapter、10 项构建／在线 worker、19 项控制器／启动器与 22 项 profile 检查。覆盖 F4 实例与方法完全不被安装过程修改、候选两个入口使用原 code object、无新增逐调用诊断，以及原 BF16／FP32 梯度和参数更新一致性。八份原 F4 trace 通过新版读取；旧 MA8 两组实际带包装的 trace 均被新版拒绝。
 
-记录见 [validation.json](../../../../outputs/h100/phase6/ma8-v2-validation-20261026/validation.json)。本次只修改代码、文档并做本地验证，没有启动新的八卡性能实验。
+记录见 [validation.json](../../../../outputs/h100/phase6/ma8-v2-validation-20261026/validation.json)。以上是 v2 上机前的本地验证，记录未随 GPU 结果回写；后续八卡实测见下一节。
+
+## 10. MA8-v2 八卡结果与离线复核（2026-10-27）
+
+### 10.1. 完成范围与主要结论
+
+批次 [`ma8-v2-cache-1x-50steps-20261027-002245-655981`](../../../../logs/h100/phase6/ma8-v2-cache-1x-50steps-20261027-002245-655981/batch-state.json) 已完成所有阶段，`status=completed`、`stage=done`。完整训练为 **1 trial、8 个平衡两组块、16 个窗口、128 份正式 rank 记录、800 个正式 optimizer steps**；每窗另有 10 步预热，两组各 400 个正式步骤。算子和完整训练的正确性、计时及独立 profile 均完成。
+
+环境为 `gxn75` 的 8×H100 80GB HBM3，每卡 132 SM，PyTorch `2.6.0+cu124`、运行 CUDA 12.4、NCCL 2.21.5；继续使用原 TP8／PP1、32 层、sequence 2048、global batch 4、BF16 与选择性量化配置，`CUDA_DEVICE_MAX_CONNECTIONS=1`、`NCCL_NVLS_ENABLE=0`。
+
+**本轮确认了完整训练正增量，且达到预先规定的 2% 门槛。** `increment_over_F4_validated["F4-cache"]`、`target_point_observed` 与 `target_validated` 均为 `true`；整轮配对区间下界为 5.252%，高于 2%。这不等于已经完成独立复现；前半／后半是同一个 trial 的两个分段。
+
+### 10.2. 同期完整 optimizer step
+
+来源为[完整训练报告](../../../../logs/h100/phase6/ma8-v2-cache-1x-50steps-20261027-002245-655981/fullstep/report.json)。每窗取八 rank 最大墙钟 / 50；百分比采用完整块配对对数比及 10000 次 bootstrap，正数表示候选更快。表内时间均为各范围全部窗口的算术均值。
+
+| 范围 | 配对块 | F4 ms/step | F4-cache ms/step | F4-cache／F4 收益 %［95% CI］ |
+| --- | ---: | ---: | ---: | --- |
+| 前半程 | 4 | 502.015 | 475.247 | +5.333 [ +4.823, +5.840 ] |
+| 后半程 | 4 | 502.747 | 472.762 | +5.963 [ +5.640, +6.415 ] |
+| **完整一轮** | **8** | **502.381** | **474.004** | **+5.648 [ +5.252, +6.035 ]** |
+
+整轮平均减少 **28.377 ms/step**；8/8 个块更快，每块减少 **23.940–33.503 ms/step**。F4 全部窗口范围为 **498.323–506.615 ms**，F4-cache 为 **470.568–477.383 ms**，没有删除慢窗口。窗口中位数为 **502.207／473.600 ms**。按每 step 8192 token 换算，吞吐为 **16306.35／17282.55 tokens/s**。
+
+本节只比较本批同期 F4 和 F4-cache，不以历史 501.433 ms 作分母，也不把与 v1 的跨批次差值当作删除 Python 包装的净收益。第 9 节关于旧批次约 40 ms 差距的归因边界保持不变。
+
+### 10.3. 正确性与未加包装的实际路径
+
+[算子预检](../../../../logs/h100/phase6/ma8-v2-cache-1x-50steps-20261027-002245-655981/operator/preflight.json)通过原 row 投影的逐位前向、input／weight／bias／residual 梯度及三步更新检查。[完整训练预检](../../../../logs/h100/phase6/ma8-v2-cache-1x-50steps-20261027-002245-655981/fullstep/preflight.json)覆盖每 rank **389 个可训练参数张量**的三步梯度／参数更新指纹；正式窗口同块同 rank 的 loss、grad norm 轨迹与最终参数指纹一致。
+
+两组 mean loss 均为 `3.793363792030723`，final loss 为 `0.00030573460389859974`，final grad norm 为 `0.01800245891878419`。这证明固定输入下本轮短程数值一致，不作长期收敛结论。
+
+全部正式记录均使用 `retain_owned_column_input_uninstrumented`：F4 的 setup 为 `installed=false`，保留原 autograd 类；候选为 `installed=true`、`_MA8CachedRawLinear`，均登记完整 32 个 QKV 与 32 个 FC1。正式记录没有 v1 的 `ma8_activation_cache_state`；模块执行次数来自独立 profile，不是在计时循环里补回计数。
+
+[训练 profile](../../../../logs/h100/phase6/ma8-v2-cache-1x-50steps-20261027-002245-655981/fullstep/profile-summary.json)由两组各 8 份 trace 重算。下表为每组八 rank 总数，对应每 rank 一个完整 step：
+
+| 目标 column 路径 | F4 | F4-cache |
+| --- | ---: | ---: |
+| QKV／FC1 前后向配对 | 2048 | 2048 |
+| 前向输入 AllGather | 2048 | 2048 |
+| **反向重复输入 AllGather** | **2048** | **0** |
+| 原 dgrad ReduceScatter | 2048 | 2048 |
+| dgrad／wgrad GEMM，各自 | 2048 | 2048 |
+| 未修改的原 LM head 调用 | 32 | 32 |
+
+两组均没有 MA8 外层 Function 或自定义 column 标记；候选没有回退到原反向收集。四次 LM head／rank 继续执行原前后向 AllGather 与 ReduceScatter，并被排除在 256 次目标调用之外。row projection 的原 producer→发布屏障→fused decoder→LayerNorm 及 bias→AllGather→dgrad→wgrad 也完整保留。原库内清零按父算子与 launch correlation 分类通过，没有未知复制／清零混入。
+
+### 10.4. 关键依赖确实被移除，但局部时长不作整步分账
+
+以下取每 rank 的角色中位数，再取八 rank 中位数，单位 μs：
+
+| column 反向指标 | F4：QKV／FC1 | F4-cache：QKV／FC1 |
+| --- | --- | --- |
+| 输入 AllGather kernel | 794.700／404.750 | 已删除／已删除 |
+| dgrad 结束→ReduceScatter 开始 | 739.333／332.015 | 5.184／5.288 |
+| dgrad GEMM | 53.416／70.976 | 41.896／49.456 |
+| wgrad GEMM | 59.824／71.192 | 59.368／70.880 |
+| backward CPU 区间 | 613.391／546.126 | 436.943／369.987 |
+
+目标通信在 trace 中消失，dgrad 后的 ReduceScatter 启动间隔也明显缩短，支持本机制移除了原输入收集的完成依赖。dgrad 时长和其他通信等待也随执行上下文改变，不能把 28.377 ms 简单归为单个 NCCL kernel 时长的删除。
+
+rank 差异仍然存在：候选 rank0 的 QKV／FC1 上述启动间隔中位数为 **81.680／59.296 μs**，其余七 rank 分别为 **4.704–5.776／4.960–5.952 μs**。因此不能从跨 rank 中位数推断所有等待都已消失，也不能跨 rank 相减未对齐的时间戳。本批独立 profile 的 GPU span 八 rank 中位数为 **830.313／778.445 ms**，明显高于正式步时；其 CPU／GPU 时间包含插桩与到达差异，只用于解释路径。正式收益仍以第 10.2 节无 profiler 的完整训练为准。
+
+独立 row 投影算子未触发缓存机制，其结果如下，均未确认两组存在差异：
+
+| 角色 | F4 平均 μs | F4-cache 平均 μs | 收益 %［95% CI］ |
+| --- | ---: | ---: | --- |
+| Attention | 93.109 | 93.112 | −0.003 [−0.384, +0.325] |
+| MLP | 139.909 | 140.230 | −0.228 [−0.614, +0.082] |
+
+这与两组原生 row 投影代码相同的设置一致；它既不否定完整训练加速，也不能用来估算 column 激活复用的收益。见[算子报告](../../../../logs/h100/phase6/ma8-v2-cache-1x-50steps-20261027-002245-655981/operator/report.json)。
+
+### 10.5. 显存代价
+
+每窗先取八 rank 最大峰值，再跨本组 8 个窗口汇总，单位 GiB：
+
+| 指标 | F4 | F4-cache | 候选增量 |
+| --- | ---: | ---: | ---: |
+| allocated 峰值的窗口均值 | 16.428879 | 17.423455 | +0.994575 |
+| allocated 峰值的窗口最大值 | 16.429282 | 17.423455 | +0.994173 |
+| reserved 峰值的窗口均值 | 16.638672 | 17.638672 | +1.000000 |
+| reserved 峰值的窗口最大值 | 16.638672 | 17.638672 | +1.000000 |
+
+allocated 均值约增加 **1018.45 MiB**，reserved 增加 **1024 MiB**，与第 4 节新增约 1 GiB 逻辑激活的量级一致。它们是实际 allocator 峰值，不要求与逻辑容量逐字节相等。
+
+### 10.6. 复核范围与后续
+
+使用回传的冻结控制器，以 `offline=True`、`save=False` 重算**算子报告、算子 profile、完整训练报告和训练 profile**，四份均与回传 JSON 逐字段一致；另外从全部 128 份正式 rank 记录独立重算窗口步时、8 个配对块、前半／后半／整轮 bootstrap 和显存汇总，均一致。
+
+**38 份冻结脚本／配置、1383 份 Megatron 快照文件**通过计划哈希校验，启动时登记的 **61 个控制器依赖**与当前仓库一致。两组登记的 **354 份原生源码身份相同**，但该事实单独不代表完整执行路径一致；本批另有 v2 setup 和无包装 trace 验证。回传没有服务器 `build/` 与动态库本体，因此未重新加载或验证二进制本体。12 份关键计划、预检、报告及状态文件在复核前后哈希不变。
+
+复核入口与结果见 [audit.py](../../../../outputs/h100/phase6/ma8-v2-results-audit-20261027/audit.py)、[audit.json](../../../../outputs/h100/phase6/ma8-v2-results-audit-20261027/audit.json)。本次只更新实验文档和新增离线复核记录，未修改运行实现、历史报告或日志，也未重跑 GPU。
+
+**结论：MA8-v2 在本轮已达到 2% 目标，保留为有明确收益证据的候选。** 下一步以相同代码、配置和数值门槛再运行独立 trial，确认约 5.65% 的增量能否复现；暂不把本次单轮结果提升为稳定默认基线，也不把它与 MA6 的小幅布局收益相加。
