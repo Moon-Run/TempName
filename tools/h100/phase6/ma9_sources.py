@@ -1,10 +1,10 @@
 """CR3/F4 control plus a candidate-only optimizer zero-count helper.
 
 All existing projection code remains byte identical. The candidate adds one
-include to its runtime and one header; it does not alter the decoder or GEMM.
+runtime include, its helper header and explicit dynamic exports only.
 """
 from pathlib import Path
-from common import HERE, require
+from common import HERE, replace_once, require
 import ma4_f_sources as f4
 
 RUNTIME, HEADER, WRAPPER, DECODER = f4.RUNTIME, f4.HEADER, f4.WRAPPER, f4.DECODER
@@ -15,13 +15,21 @@ ROLE_K = dict(attn=512, mlp=2048)
 DEFAULT_TUNING = {role: dict(BASELINE_TUNING) for role in ROLES}
 ZERO_COUNT_HEADER = 'src/gemm_rs/ma9_zero_count.cuh'
 ZERO_COUNT_INCLUDE = '\n#include "gemm_rs/ma9_zero_count.cuh"\n'
+VERSION_SCRIPT = 'src/cuda/version.ld'
+NATIVE_EXPORTS = ('ma9_zero_count_protocol', 'ma9_zero_count_chunk_size', 'ma9_zero_count_cuda')
 
 
 def sources(reference):
-    source = (Path(reference) / RUNTIME).read_text()
+    reference = Path(reference)
+    source = (reference / RUNTIME).read_text()
     require('ma9_zero_count' not in source, 'MA9 helper is already installed')
+    exports = (reference / VERSION_SCRIPT).read_text()
+    require('ma9_zero_count' not in exports, 'MA9 exports are already installed')
+    exports = replace_once(exports, 'global:\n',
+                           'global:\n' + ''.join('    ' + name + ';\n' for name in NATIVE_EXPORTS))
     return {RUNTIME: source + ZERO_COUNT_INCLUDE,
-            ZERO_COUNT_HEADER: (HERE / 'ma9_zero_count.cuh').read_text()}
+            ZERO_COUNT_HEADER: (HERE / 'ma9_zero_count.cuh').read_text(),
+            VERSION_SCRIPT: exports}
 
 
 def tuning_config(tuning=None):

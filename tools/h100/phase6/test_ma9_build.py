@@ -1,4 +1,5 @@
 """MA9 preserves exact F4 control and registers only the optimizer helper."""
+import ctypes
 from pathlib import Path
 import tempfile
 import unittest
@@ -6,6 +7,8 @@ import unittest
 import ma9_build as builder
 import ma9_sources as source
 from common import read, sha, write
+from native_exports import verify_native_exports
+from test_native_exports import compile_cpu_runtime
 
 
 class BuildIdentityTests(unittest.TestCase):
@@ -26,7 +29,7 @@ class BuildIdentityTests(unittest.TestCase):
         candidate = record['variants']['F4-zcount']
         self.assertEqual(set(candidate) - set(frozen), {source.ZERO_COUNT_HEADER})
         self.assertEqual({name for name in frozen if candidate[name] != frozen[name]},
-                         {source.RUNTIME})
+                         {source.RUNTIME, source.VERSION_SCRIPT})
         self.assertEqual((self.root / 'F4-zcount' / source.RUNTIME).read_bytes(),
                          (self.root / 'F4' / source.RUNTIME).read_bytes() + source.ZERO_COUNT_INCLUDE.encode())
         self.assertEqual(read(self.root / 'tuning.json'), source.DEFAULT_TUNING)
@@ -35,6 +38,41 @@ class BuildIdentityTests(unittest.TestCase):
         self.assertTrue(record['projection_sources_unchanged'])
         self.assertEqual(record['candidate_native_addition'], 'optimizer_zero_count')
         self.assertIn(str(builder.HERE / 'ma9_zero_count.cuh'), record['inputs'])
+
+    def test_actual_linker_map_exports_helpers_only_for_candidate(self):
+        symbols = dict(taco_ma4f_protocol_version=1, taco_ma4f_decode_reduce=0)
+        symbols.update({name: 0 for name in source.NATIVE_EXPORTS})
+        with tempfile.TemporaryDirectory(prefix='ma-export-map-test-') as tmp:
+            for arm in builder.VARIANTS:
+                with self.subTest(arm=arm):
+                    library = Path(tmp) / (arm + '.so')
+                    script = (self.root / arm / source.VERSION_SCRIPT).read_text()
+                    compile_cpu_runtime(library, script, symbols)
+                    loaded = ctypes.CDLL(str(library))
+                    self.assertEqual(loaded.taco_ma4f_protocol_version(), 1)
+                    for name in source.NATIVE_EXPORTS:
+                        self.assertEqual(hasattr(loaded, name), arm != 'F4', name)
+                    verify_native_exports(library,
+                        required=source.NATIVE_EXPORTS if arm != 'F4' else (),
+                        forbidden=source.NATIVE_EXPORTS if arm == 'F4' else ())
+
+    def test_rehashing_export_map_cannot_broaden_candidate_api(self):
+        path = self.root / 'F4-zcount' / source.VERSION_SCRIPT
+        manifest_path, record_path = self.root / 'manifest.json', self.root / builder.MANIFEST
+        originals = {item: item.read_bytes() for item in (path, manifest_path, record_path)}
+        try:
+            path.write_text(path.read_text().replace('global:', 'global: unregistered_helper;'))
+            manifest, record = read(manifest_path), read(record_path)
+            manifest['variants']['F4-zcount']['source_sha256'][source.VERSION_SCRIPT] = sha(path)
+            record['variants']['F4-zcount'][source.VERSION_SCRIPT] = sha(path)
+            write(manifest_path, manifest)
+            record['build_manifest_sha256'] = sha(manifest_path)
+            write(record_path, record)
+            with self.assertRaisesRegex(ValueError, 'registered MA9 transform'):
+                builder.verify(self.root)
+        finally:
+            for item, data in originals.items():
+                item.write_bytes(data)
 
     def test_prepared_sources_cannot_be_measured(self):
         with self.assertRaisesRegex(ValueError, 'Missing MA9 runtime|Unbuilt'):

@@ -1,0 +1,76 @@
+{
+  "date": "2026-10-27",
+  "completed": true,
+  "gpu_used": false,
+  "gpu_validated": false,
+  "performance_validated": false,
+  "cause": "Candidate C entry points were hidden by the inherited Flux linker version script.",
+  "fix": "Explicit candidate-only version-script exports and post-link/online defined-function checks with nm.",
+  "control_native_sources_unchanged": true,
+  "kernel_arithmetic_unchanged": true,
+  "total_unique_tests_passed": 71,
+  "skipped": 0,
+  "test_runs": [
+    {
+      "command": [
+        "python3",
+        "-m",
+        "unittest",
+        "test_native_exports",
+        "test_ma9_build",
+        "test_ma10_build",
+        "test_ma9_online_worker",
+        "test_ma10_online_worker",
+        "-v"
+      ],
+      "tests": 29,
+      "returncode": 0,
+      "log": "export-tests.log"
+    },
+    {
+      "command": [
+        "python3",
+        "-m",
+        "unittest",
+        "test_ma9_harness",
+        "test_ma9_launcher",
+        "test_ma9_review",
+        "test_ma10_harness",
+        "test_ma10_launcher",
+        "test_ma10_review",
+        "-v"
+      ],
+      "tests": 42,
+      "returncode": 0,
+      "log": "integration-tests.log"
+    }
+  ],
+  "test_environment": {
+    "cwd": "/data/run01/scyb672/hjr/TempName",
+    "PYTHONPATH": "tools/h100/phase6"
+  },
+  "native_link_validation": "native-validation.json",
+  "source_sha256": {
+    "tools/h100/phase6/native_exports.py": "88f626a6195aba9efdedff5295de3b25ad5cb91299525e027aca0fa18b440000",
+    "tools/h100/phase6/test_native_exports.py": "8f1dd73a3202596a1d295aceaf401d38e4daf24dd32701cbb257106e5f472075",
+    "tools/h100/phase6/ma9_sources.py": "2a630f66af68509a120c6f5b50d05e3e404deb389e261f7e077a9db1e6200733",
+    "tools/h100/phase6/ma9_build.py": "9c2daffe96445be5aa2676e1d10c6c2a7d44404a31885569534df37433ee2acd",
+    "tools/h100/phase6/test_ma9_build.py": "6c33f34eccd795e91485b020a8f63012be7c6fbc3df12318877fdb1fc21b287a",
+    "tools/h100/phase6/test_ma9_online_worker.py": "39979900b47295fbcbe75d0b8132071b4430778f181480bda39859ce10376ce3",
+    "tools/h100/phase6/ma10_sources.py": "67421deb6d7891fa457b9e15b825c727f1fae8efc7510d128cf571a178bc2cfe",
+    "tools/h100/phase6/ma10_build.py": "75dd10e4c500ed18e66e5e6dd54af72bd71be59add3dcd8f3ab5eff1c3ab2dc7",
+    "tools/h100/phase6/test_ma10_build.py": "19bbc939d5c0f895e83965bb33856aecaf54b391b16f3216db6c228b35188756",
+    "tools/h100/phase6/test_ma10_online_worker.py": "627b3d4cb067d367872c60b9d408235e2563396cdffbab21c6ceb427276f5682"
+  },
+  "evidence_sha256": {
+    "export-tests.log": "2639308079adb159676875bc307e74e3df50ff5b5c8212edcc2a046a9a273ca5",
+    "integration-tests.log": "54cae3eab3589f286fb28847f8b44001601667c11b6365992cdb56f0dbd8674d",
+    "native-link.log": "a168cbd9e9e3d418de35d8dd92921c47411a28d952391aabf0be762a28a4f959",
+    "native-validation.json": "b50b0f31f4e0bc2134ae36513f03127fb1bd515b816053b0e658f676df30bf40"
+  },
+  "limitations": [
+    "CPU worker fixtures use real host-only ELF runtimes and labeled placeholders for other artifacts; they are not GPU runtimes.",
+    "Real CUDA helpers were linked/loaded and host queries called; no GPU kernel, full Flux runtime or H100 performance test was executed.",
+    "Historical failed batch and prior validation records are unchanged; fresh builds are required."
+  ]
+}

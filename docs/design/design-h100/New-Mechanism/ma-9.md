@@ -1,6 +1,6 @@
 # MA9：保持原 CR3，对优化器零梯度统计做精确多张量归约
 
-**状态：机制、CUDA 实现及对比启动器已完成；本地验证通过，尚未进行 H100 八卡数值／性能实测。2% 是验收目标，不是已取得的收益。** 本轮对照为原始 CR3（脚本名称仍为 `F4`），候选为 `F4-zcount`。只替换候选优化器的零梯度统计，不改变模型前后向、梯度范数、裁剪、Adam 更新及统计结果。
+**更新：2026-10-27，首次上机在候选算子预检因动态库接口未导出而失败；现已修复，需新建 build 重跑。** 尚无 MA9 完整训练数值／性能结果，2% 仍是验收目标。失败与修复见[第 8 节](#8-动态库接口导出修复2026-10-27)。 本轮对照为原始 CR3（脚本名称仍为 `F4`），候选为 `F4-zcount`。只替换候选优化器的零梯度统计，不改变模型前后向、梯度范数、裁剪、Adam 更新及统计结果。
 
 在 H100 容器的 `TempName` 仓库根目录执行：
 
@@ -19,7 +19,7 @@ bash tools/h100/phase6/run_ma9.sh --trials 2 --execute
 
 MA9 将对照身份落实为代码检查，而不只写在说明里：
 
-- `F4` native 来源逐文件等于注册的 MA4-F；候选只在 runtime 尾部增加新统计 kernel 的 include 和对应 header，原有 GEMM、codec、barrier、decoder 内容保持不变。
+- `F4` native 来源逐文件等于注册的 MA4-F；候选在 runtime 尾部增加新统计 kernel 的 include、对应 header 和三个接口的显式导出项，原有 GEMM、codec、barrier、decoder 内容保持不变。
 - **两组生成的 `adapter.py`、`taco_support.py` 均逐字节等于原 MA4-F 批次。** 固定 SHA256 分别为 `a66c0124…`、`d994d174…`，完整值在 [ma9_fullstep.py](../../../../tools/h100/phase6/ma9_fullstep.py)。
 - 原 worker 的全部八个函数，包括 `forward_backward_step`、`update`、`step`、`clear_gradients`，以及 profile／正式计时循环，与原批次的 AST 指纹一致；更改任一调用或语句即拒绝。
 - 新安装语句只在初始化的 `F4-zcount` 条件分支执行。`F4` 不导入 MA9 优化器适配器，不安装新 autograd Function，不增加逐层计数或标记。实验名称、构建核对及结果记录位于训练循环之外。
@@ -178,7 +178,7 @@ bash tools/h100/phase6/run_ma9.sh --foreground --execute
 
 ## 7. 当前已完成的验证及边界
 
-截至本页交付：**59 项本地测试通过、零跳过**；见 [validation.json](../../../../outputs/h100/phase6/ma9-validation-20261026/validation.json)。
+首次上机前：**59 项本地测试通过、零跳过**；见 [validation.json](../../../../outputs/h100/phase6/ma9-validation-20261026/validation.json)。
 
 - 10 项 PyTorch `2.6.0+cu124` CPU adapter 测试：真实 `inspect.getsource`、实例安装边界、原参数过滤、顺序 FP32 舍入反例、数值边界、地址／stream 变化拒绝、统计返回值比较。CUDA ABI 和 collective 在这些 CPU 测试中为模拟，明确不算 GPU 数值验证。
 - 49 项控制器测试：原 F4 来源、候选唯一 native 增量、篡改拒绝、真实冻结 worker 的在线检查、平衡配对、负结果保留、完整参数门槛、profile、离线重算和启动器。
@@ -186,3 +186,28 @@ bash tools/h100/phase6/run_ma9.sh --foreground --execute
 - 八份原始 CR3 trace 通过新的零统计校验器；生成代码、shell 语法和两 trial 预览通过。
 
 当前环境没有可用 H100，故没有编造 MA9 步时、没有声称已达到 2%。下一步是上述启动命令在实验机完成同场比较。若未达目标，报告会保留失败或不足 2% 的结果；原 CR3 对照及数值门槛不会随结果调整。
+
+
+## 8. 动态库接口导出修复（2026-10-27）
+
+首次批次 [`ma9-v1-zcount-1x-50steps-20261027-005917-206111`](../../../../logs/h100/phase6/ma9-v1-zcount-1x-50steps-20261027-005917-206111/batch-state.json) 已完成编译与原 F4 算子预检，但 `preflight-F4-zcount` 的八个 rank 均在读取 `ma9_zero_count_protocol` 时失败，见 [process.log](../../../../logs/h100/phase6/ma9-v1-zcount-1x-50steps-20261027-005917-206111/operator/results/preflight-F4-zcount/process.log)。错误为 `libflux_cuda.so: undefined symbol: ma9_zero_count_protocol`，没有开始正式训练；这不是 Bash 参数或 GPU 抢占错误。串行启动器收到非零退出码后停止，因此当时没有启动 MA10。
+
+根因是继承的 `src/cuda/version.ld` 仅允许原有的 `taco_*` 等接口导出，其 `local: *;` 隐藏了新 `ma9_zero_count_*` 函数。此前的独立 CUDA 对象编译没有经过完整导出表链接，因此不能发现该问题。
+
+本次修复：
+
+- [ma9_sources.py](../../../../tools/h100/phase6/ma9_sources.py) 仅给候选导出表添加 `ma9_zero_count_protocol`、`ma9_zero_count_chunk_size`、`ma9_zero_count_cuda` 三个明确名称。原 F4 导出表、既有投影和新统计 kernel 算术均不变。
+- [ma9_build.py](../../../../tools/h100/phase6/ma9_build.py) 在 `built=True` 验证中调用 [native_exports.py](../../../../tools/h100/phase6/native_exports.py)，使用 `nm -D --defined-only` 检查真实动态函数导出。候选必须含全部接口，F4 不得暴露候选接口；文件哈希正确也不能替代这个检查。该检查同时覆盖构建结束、build 复用和在线 worker 的 GPU 初始化前验证。
+- 新的导出变换和验证器都纳入构建身份；不能修改旧 manifest 哈希或失败快照绕过验证。
+
+MA9／MA10 联合修复共 **71 项 CPU 回归检查通过，零跳过**，见 [validation.json](../../../../outputs/h100/phase6/ma9-ma10-export-fix-20261027/validation.json)。测试包含实际 ELF 链接／加载、控制组接口隔离、导出表篡改拒绝，以及旧导出表生成的库即使重新记录哈希仍在 GPU 初始化前被拒绝。
+
+另用实际 CUDA helper 编译并链接动态库：旧表复现缺失符号；修复表的普通及 fast-math 版本均可由 `ctypes` 解析全部接口，host 查询返回 protocol=9、chunk=32768。见 [native-validation.json](../../../../outputs/h100/phase6/ma9-ma10-export-fix-20261027/native-validation.json)。**这是 CUDA helper 动态库验证，尚非完整 Flux 链接、GPU kernel 执行或性能结果。**
+
+同步修复后使用新批次：
+
+```bash
+bash tools/h100/phase6/run_ma9.sh --execute
+```
+
+启动命令及串行运行顺序保持原样。旧 `--ma9-build` 的源码／构建身份已过期，不可直接复用；失败批次及旧测试记录保留不改。

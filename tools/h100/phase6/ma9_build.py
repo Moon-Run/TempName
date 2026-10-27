@@ -9,6 +9,7 @@ import build
 import ma4_f_build as baseline
 from ma2_ablation_build import copy_registered
 import ma9_sources
+from native_exports import verify_native_exports
 from common import HERE, read, require, sha, verify_files, write
 from scope_plan import model_config
 
@@ -18,7 +19,7 @@ VARIANTS = ma9_sources.VARIANTS
 RUNTIME = baseline.RUNTIME
 C_POLICY = baseline.C_POLICY
 INPUTS = tuple(dict.fromkeys(('ma9_build.py', 'ma9_sources.py', 'ma9_adapter.py',
-                             'ma9_zero_count.cuh', *baseline.INPUTS)))
+                             'ma9_zero_count.cuh', 'native_exports.py', *baseline.INPUTS)))
 canonical = baseline.canonical
 
 
@@ -113,6 +114,11 @@ def verify(root, built=False):
             require(len(artifacts) >= 4 and all(path.is_file() and
                     str(path.relative_to(root)) in info['files'] for path in artifacts),
                     'MA9 runtime lacks recorded binary identity: ' + arm)
+            helpers = ma9_sources.NATIVE_EXPORTS
+            verify_native_exports(root / arm / 'python/flux/lib/libflux_cuda.so',
+                required=('taco_ma4f_protocol_version', 'taco_ma4f_decode_reduce') +
+                         (helpers if arm == 'F4-zcount' else ()),
+                forbidden=helpers if arm == 'F4' else ())
     if built:
         require(info['status'] == 'built', 'Unbuilt MA9 experiment')
     return record
