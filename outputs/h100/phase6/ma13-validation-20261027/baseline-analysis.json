@@ -1,0 +1,1093 @@
+{
+  "protocol": "ma13-ma11-softmax-baseline-analysis-v1",
+  "source_batch": "ma11-v1-causal-softmax-1x-50steps-20261027-121342-060643",
+  "source_strategy": "F4-cache-zcount-csoftmax",
+  "script_sha256": "87444c84fa64d4669a878e057471aaabe2607e4a0f86131aff50f09a7075cae0",
+  "method": "One profiled optimizer step per rank; 128 calls per direction. Correlate each kernel with one runtime launch, original autograd function, and same-thread profile marker. Sum GPU durations per rank, then take the eight-rank median; never sum across ranks.",
+  "limits": [
+    "These are profiler work durations, not exposed critical-path savings or unprofiled step time.",
+    "CPU function/marker/runtime intervals are nested alternative scopes; do not add them together or add them to GPU work.",
+    "No GPU was run by this script; all evidence is reconstructed from the historical MA11 candidate traces.",
+    "Reported launch resource metadata is not measured achieved occupancy or proof of a performance bottleneck."
+  ],
+  "baseline_source": {
+    "path": "tools/h100/phase6/ma11_softmax.cuh",
+    "sha256": "9c1327a5da9c579e93713719db58f70f491c404a53df1be7f6bc6833db35eb97"
+  },
+  "ranks": [
+    {
+      "rank": 0,
+      "trace": "logs/h100/phase6/ma11-v1-causal-softmax-1x-50steps-20261027-121342-060643/fullstep/results/profile-F4-cache-zcount-csoftmax/rank0-profile.json.gz",
+      "sha256": "b4ea158e666db866cb90a4161f153d44b8035616f19ed7663f89977cfd0e369a",
+      "forward": {
+        "gpu_work": {
+          "count": 128,
+          "sum_ms": 14.409775,
+          "min_us": 111.585,
+          "median_us": 112.52799999999999,
+          "p90_us_linear": 113.0873,
+          "max_us": 113.824
+        },
+        "cpu_autograd_function": {
+          "count": 128,
+          "sum_ms": 16.218703,
+          "min_us": 113.598,
+          "median_us": 122.9745,
+          "p90_us_linear": 130.4029,
+          "max_us": 216.602
+        },
+        "cpu_profile_marker": {
+          "count": 128,
+          "sum_ms": 11.827234,
+          "min_us": 82.467,
+          "median_us": 89.92500000000001,
+          "p90_us_linear": 94.2694,
+          "max_us": 183.171
+        },
+        "cpu_runtime_launch": {
+          "count": 128,
+          "sum_ms": 1.2139270000000004,
+          "min_us": 6.887,
+          "median_us": 9.3955,
+          "p90_us_linear": 10.2226,
+          "max_us": 12.788
+        },
+        "geometry": [
+          {
+            "block": [
+              1024,
+              1,
+              1
+            ],
+            "grid": [
+              8192,
+              1,
+              1
+            ],
+            "registers_per_thread": 30,
+            "shared_memory_bytes": 4224,
+            "count": 128
+          }
+        ],
+        "compute_streams": [
+          7
+        ],
+        "unique_function_launch_marker_associations": 128
+      },
+      "backward": {
+        "gpu_work": {
+          "count": 128,
+          "sum_ms": 5.230203000000001,
+          "min_us": 40.063,
+          "median_us": 40.704,
+          "p90_us_linear": 41.523199999999996,
+          "max_us": 41.985
+        },
+        "cpu_autograd_function": {
+          "count": 128,
+          "sum_ms": 16.163646999999997,
+          "min_us": 98.706,
+          "median_us": 127.53399999999999,
+          "p90_us_linear": 134.69660000000002,
+          "max_us": 154.302
+        },
+        "cpu_profile_marker": {
+          "count": 128,
+          "sum_ms": 11.978781,
+          "min_us": 74.176,
+          "median_us": 94.33500000000001,
+          "p90_us_linear": 100.0183,
+          "max_us": 119.535
+        },
+        "cpu_runtime_launch": {
+          "count": 128,
+          "sum_ms": 1.2347230000000007,
+          "min_us": 4.93,
+          "median_us": 9.779,
+          "p90_us_linear": 10.7517,
+          "max_us": 16.052
+        },
+        "geometry": [
+          {
+            "block": [
+              128,
+              1,
+              1
+            ],
+            "grid": [
+              8192,
+              1,
+              1
+            ],
+            "registers_per_thread": 52,
+            "shared_memory_bytes": 512,
+            "count": 128
+          }
+        ],
+        "compute_streams": [
+          7
+        ],
+        "unique_function_launch_marker_associations": 128
+      },
+      "combined_softmax_gpu_work_ms": 19.639978
+    },
+    {
+      "rank": 1,
+      "trace": "logs/h100/phase6/ma11-v1-causal-softmax-1x-50steps-20261027-121342-060643/fullstep/results/profile-F4-cache-zcount-csoftmax/rank1-profile.json.gz",
+      "sha256": "71611d9a8cd2f69dd55ac392680fc94879372e7284bd562919c544d3b12b2127",
+      "forward": {
+        "gpu_work": {
+          "count": 128,
+          "sum_ms": 14.382170999999984,
+          "min_us": 112.0,
+          "median_us": 112.352,
+          "p90_us_linear": 112.608,
+          "max_us": 112.928
+        },
+        "cpu_autograd_function": {
+          "count": 128,
+          "sum_ms": 16.819012999999998,
+          "min_us": 114.546,
+          "median_us": 121.7355,
+          "p90_us_linear": 129.846,
+          "max_us": 780.142
+        },
+        "cpu_profile_marker": {
+          "count": 128,
+          "sum_ms": 12.573144000000003,
+          "min_us": 84.779,
+          "median_us": 89.9295,
+          "p90_us_linear": 94.5803,
+          "max_us": 743.038
+        },
+        "cpu_runtime_launch": {
+          "count": 128,
+          "sum_ms": 1.836762,
+          "min_us": 6.533,
+          "median_us": 9.1545,
+          "p90_us_linear": 10.289299999999999,
+          "max_us": 655.771
+        },
+        "geometry": [
+          {
+            "block": [
+              1024,
+              1,
+              1
+            ],
+            "grid": [
+              8192,
+              1,
+              1
+            ],
+            "registers_per_thread": 30,
+            "shared_memory_bytes": 4224,
+            "count": 128
+          }
+        ],
+        "compute_streams": [
+          7
+        ],
+        "unique_function_launch_marker_associations": 128
+      },
+      "backward": {
+        "gpu_work": {
+          "count": 128,
+          "sum_ms": 5.175426000000002,
+          "min_us": 39.52,
+          "median_us": 40.288,
+          "p90_us_linear": 41.056,
+          "max_us": 41.472
+        },
+        "cpu_autograd_function": {
+          "count": 128,
+          "sum_ms": 16.870403000000007,
+          "min_us": 110.264,
+          "median_us": 130.836,
+          "p90_us_linear": 136.43689999999998,
+          "max_us": 157.071
+        },
+        "cpu_profile_marker": {
+          "count": 128,
+          "sum_ms": 12.341597999999996,
+          "min_us": 81.094,
+          "median_us": 95.938,
+          "p90_us_linear": 99.295,
+          "max_us": 121.856
+        },
+        "cpu_runtime_launch": {
+          "count": 128,
+          "sum_ms": 1.2355390000000004,
+          "min_us": 5.548,
+          "median_us": 9.501000000000001,
+          "p90_us_linear": 10.604,
+          "max_us": 16.603
+        },
+        "geometry": [
+          {
+            "block": [
+              128,
+              1,
+              1
+            ],
+            "grid": [
+              8192,
+              1,
+              1
+            ],
+            "registers_per_thread": 52,
+            "shared_memory_bytes": 512,
+            "count": 128
+          }
+        ],
+        "compute_streams": [
+          7
+        ],
+        "unique_function_launch_marker_associations": 128
+      },
+      "combined_softmax_gpu_work_ms": 19.557596999999987
+    },
+    {
+      "rank": 2,
+      "trace": "logs/h100/phase6/ma11-v1-causal-softmax-1x-50steps-20261027-121342-060643/fullstep/results/profile-F4-cache-zcount-csoftmax/rank2-profile.json.gz",
+      "sha256": "af4d911888a91794ae5c76cf27acdbb9eeb932faecf269c2fecda045cd281a7e",
+      "forward": {
+        "gpu_work": {
+          "count": 128,
+          "sum_ms": 14.376763999999994,
+          "min_us": 111.136,
+          "median_us": 112.352,
+          "p90_us_linear": 112.544,
+          "max_us": 112.799
+        },
+        "cpu_autograd_function": {
+          "count": 128,
+          "sum_ms": 15.978783,
+          "min_us": 99.871,
+          "median_us": 121.7465,
+          "p90_us_linear": 129.1794,
+          "max_us": 222.694
+        },
+        "cpu_profile_marker": {
+          "count": 128,
+          "sum_ms": 11.811906000000002,
+          "min_us": 73.163,
+          "median_us": 89.836,
+          "p90_us_linear": 93.95490000000001,
+          "max_us": 190.176
+        },
+        "cpu_runtime_launch": {
+          "count": 128,
+          "sum_ms": 1.2178109999999995,
+          "min_us": 5.638,
+          "median_us": 9.551,
+          "p90_us_linear": 10.4818,
+          "max_us": 12.357
+        },
+        "geometry": [
+          {
+            "block": [
+              1024,
+              1,
+              1
+            ],
+            "grid": [
+              8192,
+              1,
+              1
+            ],
+            "registers_per_thread": 30,
+            "shared_memory_bytes": 4224,
+            "count": 128
+          }
+        ],
+        "compute_streams": [
+          7
+        ],
+        "unique_function_launch_marker_associations": 128
+      },
+      "backward": {
+        "gpu_work": {
+          "count": 128,
+          "sum_ms": 5.1805480000000035,
+          "min_us": 39.712,
+          "median_us": 40.384,
+          "p90_us_linear": 41.0243,
+          "max_us": 41.6
+        },
+        "cpu_autograd_function": {
+          "count": 128,
+          "sum_ms": 17.042354999999993,
+          "min_us": 125.597,
+          "median_us": 131.6565,
+          "p90_us_linear": 139.3661,
+          "max_us": 161.718
+        },
+        "cpu_profile_marker": {
+          "count": 128,
+          "sum_ms": 12.487121000000004,
+          "min_us": 92.168,
+          "median_us": 96.71950000000001,
+          "p90_us_linear": 102.4918,
+          "max_us": 119.935
+        },
+        "cpu_runtime_launch": {
+          "count": 128,
+          "sum_ms": 1.317429,
+          "min_us": 7.94,
+          "median_us": 10.043,
+          "p90_us_linear": 11.112499999999999,
+          "max_us": 31.246
+        },
+        "geometry": [
+          {
+            "block": [
+              128,
+              1,
+              1
+            ],
+            "grid": [
+              8192,
+              1,
+              1
+            ],
+            "registers_per_thread": 52,
+            "shared_memory_bytes": 512,
+            "count": 128
+          }
+        ],
+        "compute_streams": [
+          7
+        ],
+        "unique_function_launch_marker_associations": 128
+      },
+      "combined_softmax_gpu_work_ms": 19.557311999999996
+    },
+    {
+      "rank": 3,
+      "trace": "logs/h100/phase6/ma11-v1-causal-softmax-1x-50steps-20261027-121342-060643/fullstep/results/profile-F4-cache-zcount-csoftmax/rank3-profile.json.gz",
+      "sha256": "7e6ea1ae1a373b4cf2e36b6ba7566e0308a9a8527e3fe2ef93e2405d43e2a499",
+      "forward": {
+        "gpu_work": {
+          "count": 128,
+          "sum_ms": 14.380947999999995,
+          "min_us": 111.872,
+          "median_us": 112.32,
+          "p90_us_linear": 112.735,
+          "max_us": 113.087
+        },
+        "cpu_autograd_function": {
+          "count": 128,
+          "sum_ms": 15.975676,
+          "min_us": 107.705,
+          "median_us": 121.1055,
+          "p90_us_linear": 130.988,
+          "max_us": 230.274
+        },
+        "cpu_profile_marker": {
+          "count": 128,
+          "sum_ms": 11.817452,
+          "min_us": 79.733,
+          "median_us": 89.259,
+          "p90_us_linear": 96.1172,
+          "max_us": 184.129
+        },
+        "cpu_runtime_launch": {
+          "count": 128,
+          "sum_ms": 1.2136650000000004,
+          "min_us": 7.418,
+          "median_us": 9.253,
+          "p90_us_linear": 10.2224,
+          "max_us": 15.855
+        },
+        "geometry": [
+          {
+            "block": [
+              1024,
+              1,
+              1
+            ],
+            "grid": [
+              8192,
+              1,
+              1
+            ],
+            "registers_per_thread": 30,
+            "shared_memory_bytes": 4224,
+            "count": 128
+          }
+        ],
+        "compute_streams": [
+          7
+        ],
+        "unique_function_launch_marker_associations": 128
+      },
+      "backward": {
+        "gpu_work": {
+          "count": 128,
+          "sum_ms": 5.186324999999999,
+          "min_us": 39.648,
+          "median_us": 40.384,
+          "p90_us_linear": 41.12,
+          "max_us": 41.664
+        },
+        "cpu_autograd_function": {
+          "count": 128,
+          "sum_ms": 16.947838000000008,
+          "min_us": 119.476,
+          "median_us": 126.7945,
+          "p90_us_linear": 131.8113,
+          "max_us": 732.92
+        },
+        "cpu_profile_marker": {
+          "count": 128,
+          "sum_ms": 12.762623999999999,
+          "min_us": 89.357,
+          "median_us": 94.2055,
+          "p90_us_linear": 99.5479,
+          "max_us": 696.757
+        },
+        "cpu_runtime_launch": {
+          "count": 128,
+          "sum_ms": 1.2230759999999998,
+          "min_us": 6.705,
+          "median_us": 9.4795,
+          "p90_us_linear": 10.3017,
+          "max_us": 15.017
+        },
+        "geometry": [
+          {
+            "block": [
+              128,
+              1,
+              1
+            ],
+            "grid": [
+              8192,
+              1,
+              1
+            ],
+            "registers_per_thread": 52,
+            "shared_memory_bytes": 512,
+            "count": 128
+          }
+        ],
+        "compute_streams": [
+          7
+        ],
+        "unique_function_launch_marker_associations": 128
+      },
+      "combined_softmax_gpu_work_ms": 19.567272999999993
+    },
+    {
+      "rank": 4,
+      "trace": "logs/h100/phase6/ma11-v1-causal-softmax-1x-50steps-20261027-121342-060643/fullstep/results/profile-F4-cache-zcount-csoftmax/rank4-profile.json.gz",
+      "sha256": "372be7aade820723a311bf5863ca2c6c46dc2fa7188e4b86dceb7ea7506fc9d2",
+      "forward": {
+        "gpu_work": {
+          "count": 128,
+          "sum_ms": 14.384340999999988,
+          "min_us": 111.808,
+          "median_us": 112.3355,
+          "p90_us_linear": 112.736,
+          "max_us": 113.248
+        },
+        "cpu_autograd_function": {
+          "count": 128,
+          "sum_ms": 16.148236000000008,
+          "min_us": 78.43,
+          "median_us": 125.38,
+          "p90_us_linear": 136.7329,
+          "max_us": 206.191
+        },
+        "cpu_profile_marker": {
+          "count": 128,
+          "sum_ms": 11.996841000000002,
+          "min_us": 60.222,
+          "median_us": 92.62,
+          "p90_us_linear": 101.9225,
+          "max_us": 168.721
+        },
+        "cpu_runtime_launch": {
+          "count": 128,
+          "sum_ms": 1.178138,
+          "min_us": 4.646,
+          "median_us": 9.590499999999999,
+          "p90_us_linear": 10.2638,
+          "max_us": 16.125
+        },
+        "geometry": [
+          {
+            "block": [
+              1024,
+              1,
+              1
+            ],
+            "grid": [
+              8192,
+              1,
+              1
+            ],
+            "registers_per_thread": 30,
+            "shared_memory_bytes": 4224,
+            "count": 128
+          }
+        ],
+        "compute_streams": [
+          7
+        ],
+        "unique_function_launch_marker_associations": 128
+      },
+      "backward": {
+        "gpu_work": {
+          "count": 128,
+          "sum_ms": 5.184892000000001,
+          "min_us": 39.616,
+          "median_us": 40.367999999999995,
+          "p90_us_linear": 41.139199999999995,
+          "max_us": 41.696
+        },
+        "cpu_autograd_function": {
+          "count": 128,
+          "sum_ms": 16.759424000000003,
+          "min_us": 108.162,
+          "median_us": 130.26749999999998,
+          "p90_us_linear": 139.3462,
+          "max_us": 157.509
+        },
+        "cpu_profile_marker": {
+          "count": 128,
+          "sum_ms": 12.435024000000002,
+          "min_us": 81.411,
+          "median_us": 96.18350000000001,
+          "p90_us_linear": 102.365,
+          "max_us": 122.521
+        },
+        "cpu_runtime_launch": {
+          "count": 128,
+          "sum_ms": 1.270072999999999,
+          "min_us": 5.939,
+          "median_us": 9.8375,
+          "p90_us_linear": 11.0167,
+          "max_us": 13.311
+        },
+        "geometry": [
+          {
+            "block": [
+              128,
+              1,
+              1
+            ],
+            "grid": [
+              8192,
+              1,
+              1
+            ],
+            "registers_per_thread": 52,
+            "shared_memory_bytes": 512,
+            "count": 128
+          }
+        ],
+        "compute_streams": [
+          7
+        ],
+        "unique_function_launch_marker_associations": 128
+      },
+      "combined_softmax_gpu_work_ms": 19.56923299999999
+    },
+    {
+      "rank": 5,
+      "trace": "logs/h100/phase6/ma11-v1-causal-softmax-1x-50steps-20261027-121342-060643/fullstep/results/profile-F4-cache-zcount-csoftmax/rank5-profile.json.gz",
+      "sha256": "00cdd6ce1fd4fdb9695401fca389c77842cfbb35d4ef4b441c7e2cfe743e96da",
+      "forward": {
+        "gpu_work": {
+          "count": 128,
+          "sum_ms": 14.380422999999992,
+          "min_us": 111.872,
+          "median_us": 112.352,
+          "p90_us_linear": 112.64,
+          "max_us": 112.896
+        },
+        "cpu_autograd_function": {
+          "count": 128,
+          "sum_ms": 18.969218,
+          "min_us": 111.805,
+          "median_us": 124.0695,
+          "p90_us_linear": 133.55280000000002,
+          "max_us": 2699.436
+        },
+        "cpu_profile_marker": {
+          "count": 128,
+          "sum_ms": 14.696529000000004,
+          "min_us": 81.395,
+          "median_us": 91.535,
+          "p90_us_linear": 98.4896,
+          "max_us": 2659.097
+        },
+        "cpu_runtime_launch": {
+          "count": 128,
+          "sum_ms": 3.760301,
+          "min_us": 6.562,
+          "median_us": 9.3735,
+          "p90_us_linear": 10.3304,
+          "max_us": 2559.57
+        },
+        "geometry": [
+          {
+            "block": [
+              1024,
+              1,
+              1
+            ],
+            "grid": [
+              8192,
+              1,
+              1
+            ],
+            "registers_per_thread": 30,
+            "shared_memory_bytes": 4224,
+            "count": 128
+          }
+        ],
+        "compute_streams": [
+          7
+        ],
+        "unique_function_launch_marker_associations": 128
+      },
+      "backward": {
+        "gpu_work": {
+          "count": 128,
+          "sum_ms": 5.2106220000000025,
+          "min_us": 39.616,
+          "median_us": 40.576,
+          "p90_us_linear": 41.3856,
+          "max_us": 43.968
+        },
+        "cpu_autograd_function": {
+          "count": 128,
+          "sum_ms": 18.637850999999994,
+          "min_us": 120.116,
+          "median_us": 133.889,
+          "p90_us_linear": 143.3181,
+          "max_us": 853.734
+        },
+        "cpu_profile_marker": {
+          "count": 128,
+          "sum_ms": 14.001396000000003,
+          "min_us": 88.701,
+          "median_us": 97.6325,
+          "p90_us_linear": 103.6556,
+          "max_us": 814.626
+        },
+        "cpu_runtime_launch": {
+          "count": 128,
+          "sum_ms": 1.32645,
+          "min_us": 6.864,
+          "median_us": 9.9735,
+          "p90_us_linear": 11.4166,
+          "max_us": 31.231
+        },
+        "geometry": [
+          {
+            "block": [
+              128,
+              1,
+              1
+            ],
+            "grid": [
+              8192,
+              1,
+              1
+            ],
+            "registers_per_thread": 52,
+            "shared_memory_bytes": 512,
+            "count": 128
+          }
+        ],
+        "compute_streams": [
+          7
+        ],
+        "unique_function_launch_marker_associations": 128
+      },
+      "combined_softmax_gpu_work_ms": 19.591044999999994
+    },
+    {
+      "rank": 6,
+      "trace": "logs/h100/phase6/ma11-v1-causal-softmax-1x-50steps-20261027-121342-060643/fullstep/results/profile-F4-cache-zcount-csoftmax/rank6-profile.json.gz",
+      "sha256": "d26eae07b437df9d6c177a11227f2890302cf05e0256c577f0d162761d2d8856",
+      "forward": {
+        "gpu_work": {
+          "count": 128,
+          "sum_ms": 14.286729999999993,
+          "min_us": 110.591,
+          "median_us": 111.5675,
+          "p90_us_linear": 112.5433,
+          "max_us": 113.087
+        },
+        "cpu_autograd_function": {
+          "count": 128,
+          "sum_ms": 16.459049999999998,
+          "min_us": 108.799,
+          "median_us": 123.8555,
+          "p90_us_linear": 138.90189999999998,
+          "max_us": 219.724
+        },
+        "cpu_profile_marker": {
+          "count": 128,
+          "sum_ms": 12.222612000000002,
+          "min_us": 80.225,
+          "median_us": 91.363,
+          "p90_us_linear": 102.1571,
+          "max_us": 187.399
+        },
+        "cpu_runtime_launch": {
+          "count": 128,
+          "sum_ms": 1.2396489999999996,
+          "min_us": 6.66,
+          "median_us": 9.605,
+          "p90_us_linear": 10.7133,
+          "max_us": 16.442
+        },
+        "geometry": [
+          {
+            "block": [
+              1024,
+              1,
+              1
+            ],
+            "grid": [
+              8192,
+              1,
+              1
+            ],
+            "registers_per_thread": 30,
+            "shared_memory_bytes": 4224,
+            "count": 128
+          }
+        ],
+        "compute_streams": [
+          7
+        ],
+        "unique_function_launch_marker_associations": 128
+      },
+      "backward": {
+        "gpu_work": {
+          "count": 128,
+          "sum_ms": 5.186939000000002,
+          "min_us": 39.616,
+          "median_us": 40.416,
+          "p90_us_linear": 41.088,
+          "max_us": 43.68
+        },
+        "cpu_autograd_function": {
+          "count": 128,
+          "sum_ms": 16.834624999999996,
+          "min_us": 105.61,
+          "median_us": 130.805,
+          "p90_us_linear": 138.56719999999999,
+          "max_us": 164.377
+        },
+        "cpu_profile_marker": {
+          "count": 128,
+          "sum_ms": 12.374283000000002,
+          "min_us": 78.568,
+          "median_us": 95.78399999999999,
+          "p90_us_linear": 101.9575,
+          "max_us": 120.08
+        },
+        "cpu_runtime_launch": {
+          "count": 128,
+          "sum_ms": 1.2593319999999997,
+          "min_us": 5.532,
+          "median_us": 9.752500000000001,
+          "p90_us_linear": 10.8794,
+          "max_us": 14.834
+        },
+        "geometry": [
+          {
+            "block": [
+              128,
+              1,
+              1
+            ],
+            "grid": [
+              8192,
+              1,
+              1
+            ],
+            "registers_per_thread": 52,
+            "shared_memory_bytes": 512,
+            "count": 128
+          }
+        ],
+        "compute_streams": [
+          7
+        ],
+        "unique_function_launch_marker_associations": 128
+      },
+      "combined_softmax_gpu_work_ms": 19.473668999999994
+    },
+    {
+      "rank": 7,
+      "trace": "logs/h100/phase6/ma11-v1-causal-softmax-1x-50steps-20261027-121342-060643/fullstep/results/profile-F4-cache-zcount-csoftmax/rank7-profile.json.gz",
+      "sha256": "08ef3b4b8415cc03c87adf4cf476b16b168020599d07ba8a56d801b01f39a58f",
+      "forward": {
+        "gpu_work": {
+          "count": 128,
+          "sum_ms": 14.382102999999992,
+          "min_us": 111.519,
+          "median_us": 112.384,
+          "p90_us_linear": 112.6173,
+          "max_us": 112.8
+        },
+        "cpu_autograd_function": {
+          "count": 128,
+          "sum_ms": 16.54212,
+          "min_us": 106.422,
+          "median_us": 120.9385,
+          "p90_us_linear": 130.31,
+          "max_us": 721.339
+        },
+        "cpu_profile_marker": {
+          "count": 128,
+          "sum_ms": 12.380911,
+          "min_us": 79.307,
+          "median_us": 89.152,
+          "p90_us_linear": 95.7868,
+          "max_us": 675.333
+        },
+        "cpu_runtime_launch": {
+          "count": 128,
+          "sum_ms": 1.167524,
+          "min_us": 6.345,
+          "median_us": 8.996500000000001,
+          "p90_us_linear": 10.2037,
+          "max_us": 15.425
+        },
+        "geometry": [
+          {
+            "block": [
+              1024,
+              1,
+              1
+            ],
+            "grid": [
+              8192,
+              1,
+              1
+            ],
+            "registers_per_thread": 30,
+            "shared_memory_bytes": 4224,
+            "count": 128
+          }
+        ],
+        "compute_streams": [
+          7
+        ],
+        "unique_function_launch_marker_associations": 128
+      },
+      "backward": {
+        "gpu_work": {
+          "count": 128,
+          "sum_ms": 5.230419000000003,
+          "min_us": 40.0,
+          "median_us": 40.736,
+          "p90_us_linear": 41.577299999999994,
+          "max_us": 42.017
+        },
+        "cpu_autograd_function": {
+          "count": 128,
+          "sum_ms": 16.451726000000004,
+          "min_us": 122.96,
+          "median_us": 127.32900000000001,
+          "p90_us_linear": 133.63060000000002,
+          "max_us": 147.655
+        },
+        "cpu_profile_marker": {
+          "count": 128,
+          "sum_ms": 12.203103000000008,
+          "min_us": 90.611,
+          "median_us": 94.414,
+          "p90_us_linear": 99.8235,
+          "max_us": 115.427
+        },
+        "cpu_runtime_launch": {
+          "count": 128,
+          "sum_ms": 1.2144359999999996,
+          "min_us": 6.577,
+          "median_us": 9.277999999999999,
+          "p90_us_linear": 10.269,
+          "max_us": 15.154
+        },
+        "geometry": [
+          {
+            "block": [
+              128,
+              1,
+              1
+            ],
+            "grid": [
+              8192,
+              1,
+              1
+            ],
+            "registers_per_thread": 52,
+            "shared_memory_bytes": 512,
+            "count": 128
+          }
+        ],
+        "compute_streams": [
+          7
+        ],
+        "unique_function_launch_marker_associations": 128
+      },
+      "combined_softmax_gpu_work_ms": 19.612521999999995
+    }
+  ],
+  "summary": {
+    "forward": {
+      "gpu_work": {
+        "median_across_rank_sums_ms": 14.381525499999993,
+        "median_across_rank_per_call_medians_us": 112.352,
+        "min_rank_sum_ms": 14.286729999999993,
+        "max_rank_sum_ms": 14.409775
+      },
+      "cpu_autograd_function": {
+        "median_across_rank_sums_ms": 16.338876499999998,
+        "median_across_rank_per_call_medians_us": 122.3605,
+        "min_rank_sum_ms": 15.975676,
+        "max_rank_sum_ms": 18.969218
+      },
+      "cpu_profile_marker": {
+        "median_across_rank_sums_ms": 12.1097265,
+        "median_across_rank_per_call_medians_us": 89.92725000000002,
+        "min_rank_sum_ms": 11.811906000000002,
+        "max_rank_sum_ms": 14.696529000000004
+      },
+      "cpu_runtime_launch": {
+        "median_across_rank_sums_ms": 1.215869,
+        "median_across_rank_per_call_medians_us": 9.3845,
+        "min_rank_sum_ms": 1.167524,
+        "max_rank_sum_ms": 3.760301
+      }
+    },
+    "backward": {
+      "gpu_work": {
+        "median_across_rank_sums_ms": 5.186632000000001,
+        "median_across_rank_per_call_medians_us": 40.4,
+        "min_rank_sum_ms": 5.175426000000002,
+        "max_rank_sum_ms": 5.230419000000003
+      },
+      "cpu_autograd_function": {
+        "median_across_rank_sums_ms": 16.852514,
+        "median_across_rank_per_call_medians_us": 130.53625,
+        "min_rank_sum_ms": 16.163646999999997,
+        "max_rank_sum_ms": 18.637850999999994
+      },
+      "cpu_profile_marker": {
+        "median_across_rank_sums_ms": 12.404653500000002,
+        "median_across_rank_per_call_medians_us": 95.86099999999999,
+        "min_rank_sum_ms": 11.978781,
+        "max_rank_sum_ms": 14.001396000000003
+      },
+      "cpu_runtime_launch": {
+        "median_across_rank_sums_ms": 1.2474355,
+        "median_across_rank_per_call_medians_us": 9.76575,
+        "min_rank_sum_ms": 1.2144359999999996,
+        "max_rank_sum_ms": 1.32645
+      }
+    },
+    "median_combined_gpu_work_ms": 19.56825299999999
+  },
+  "history_review": {
+    "scope": "All prior Markdown files in New-Mechanism; ma-13.md excluded",
+    "patterns": {
+      "exponent_residency": "指数驻留|驻留.{0,20}指数|exp\\w*.{0,20}寄存器|寄存器.{0,20}exp|resident.{0,20}(softmax|exponent)|softmax.{0,20}resident",
+      "virtual_empty_warps": "虚拟.{0,15}warp|virtual.{0,15}warp|空(?:闲)?.{0,8}warp|empty.{0,15}warp"
+    },
+    "documents": [
+      {
+        "path": "docs/design/design-h100/New-Mechanism/a-baseline.md",
+        "sha256": "1e7cb647168e84c712568e5a23ec57b32c99f33ce85660d7ededb017ca194318",
+        "hits": []
+      },
+      {
+        "path": "docs/design/design-h100/New-Mechanism/baseline.md",
+        "sha256": "b1f65a8c7d81eb4c6689b0aa75857ef75fd47ba1497b962e775f7700adb29f9a",
+        "hits": []
+      },
+      {
+        "path": "docs/design/design-h100/New-Mechanism/ma-1.md",
+        "sha256": "a8496e63b22c89f6592cc83f20be97fafb93f7a406f82adab4ac1f4b99240567",
+        "hits": []
+      },
+      {
+        "path": "docs/design/design-h100/New-Mechanism/ma-10.md",
+        "sha256": "db074df7b4b6b928b4ca69756b2cf55097ae1c191479acd948cded152fca54db",
+        "hits": []
+      },
+      {
+        "path": "docs/design/design-h100/New-Mechanism/ma-11.md",
+        "sha256": "8965076803ce6a5e34dd84d18dbe2244687a2271d8e201760a6f2d4123fa07b6",
+        "hits": []
+      },
+      {
+        "path": "docs/design/design-h100/New-Mechanism/ma-12.md",
+        "sha256": "f36f97322d98c976059f6026ae1a81d90498d2c790b2999a6ca1c1b59d074376",
+        "hits": []
+      },
+      {
+        "path": "docs/design/design-h100/New-Mechanism/ma-2-ablation.md",
+        "sha256": "c0337b288a9492c1e3425c0486d3c72657b0a90c2051043c9a9850efab414fbf",
+        "hits": []
+      },
+      {
+        "path": "docs/design/design-h100/New-Mechanism/ma-2.md",
+        "sha256": "7a1af5742a4e064052c72e1f324ab100db30cd453830ec1d448dbc4975975ef5",
+        "hits": []
+      },
+      {
+        "path": "docs/design/design-h100/New-Mechanism/ma-3.md",
+        "sha256": "04221e348b28596b335799dc72ef935a45edf5f89f5f29746f82f113670a7806",
+        "hits": []
+      },
+      {
+        "path": "docs/design/design-h100/New-Mechanism/ma-4.md",
+        "sha256": "b0b489bd162d435558a7bf3b00a324fdc72309c7267b9598adda14a758966b67",
+        "hits": []
+      },
+      {
+        "path": "docs/design/design-h100/New-Mechanism/ma-5-tile&block.md",
+        "sha256": "7c5ffd087b4012662fa77d225d3cbe26dabb10aa1335f064bb7d93f258df9807",
+        "hits": []
+      },
+      {
+        "path": "docs/design/design-h100/New-Mechanism/ma-6.md",
+        "sha256": "de11bf8bd1b153d15625fe31d74abe8ad99f9b2675a5866bf6ff680dfb632058",
+        "hits": []
+      },
+      {
+        "path": "docs/design/design-h100/New-Mechanism/ma-7.md",
+        "sha256": "0db2b5bf9afdb48d630f7f9d08d65ab4dca714d36135b54edacc1431c6b80f0c",
+        "hits": []
+      },
+      {
+        "path": "docs/design/design-h100/New-Mechanism/ma-8&9.md",
+        "sha256": "144e8c4a7628b646dc47a176b15d783d1f365ac6f7c2f5685097d220e76d52a9",
+        "hits": []
+      },
+      {
+        "path": "docs/design/design-h100/New-Mechanism/ma-8.md",
+        "sha256": "71d8bffd540c7e7f5e5052a7ece56e163a633f693a9092cfb7b0cac952387490",
+        "hits": []
+      },
+      {
+        "path": "docs/design/design-h100/New-Mechanism/ma-9.md",
+        "sha256": "97d3984a5bbf9ec74c6644af04522b8f86567d8e443c7f2f2b1b7748a6f09e9b",
+        "hits": []
+      }
+    ],
+    "total_matching_lines": 0,
+    "interpretation": "Keyword search plus manual review found no prior proposal of exponent residency with virtual empty-warp reduction. This is a repository-history distinction, not a claim of research novelty. MA11 preserves the original forward reduction schedule; MA6 changed decoder tiling/layout, a different operation."
+  }
+}

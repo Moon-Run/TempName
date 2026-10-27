@@ -1,0 +1,104 @@
+{
+  "date": "2026-10-27",
+  "compiler": "/data/apps/cuda/12.8/bin/nvcc",
+  "arch": "sm_90",
+  "source_sha256": "89cfb6229bc5dbdbc231cb30528fc4eedaa3d1dedd8b5acaea9d0c482f824f22",
+  "commands": [
+    [
+      "/data/apps/cuda/12.8/bin/nvcc",
+      "-x",
+      "cu",
+      "-std=c++17",
+      "-arch=sm_90",
+      "-ptx",
+      "/data/run01/scyb672/hjr/TempName/tools/h100/phase6/ma13_softmax.cuh",
+      "-o",
+      "/data/run01/scyb672/hjr/TempName/outputs/h100/phase6/ma13-validation-20261027/softmax-plain.ptx"
+    ],
+    [
+      "/data/apps/cuda/12.8/bin/nvcc",
+      "-x",
+      "cu",
+      "-std=c++17",
+      "-arch=sm_90",
+      "--use_fast_math",
+      "--ftz=false",
+      "--prec-div=true",
+      "--prec-sqrt=true",
+      "-ptx",
+      "/data/run01/scyb672/hjr/TempName/tools/h100/phase6/ma13_softmax.cuh",
+      "-o",
+      "/data/run01/scyb672/hjr/TempName/outputs/h100/phase6/ma13-validation-20261027/softmax-fast-restored.ptx"
+    ],
+    [
+      "/data/apps/cuda/12.8/bin/nvcc",
+      "-x",
+      "cu",
+      "-std=c++17",
+      "-arch=sm_90",
+      "--use_fast_math",
+      "--ftz=false",
+      "--prec-div=true",
+      "--prec-sqrt=true",
+      "-Xptxas=-v",
+      "-c",
+      "/data/run01/scyb672/hjr/TempName/tools/h100/phase6/ma13_softmax.cuh",
+      "-o",
+      "/tmp/ma13-softmax-resource.o"
+    ],
+    [
+      "/data/apps/cuda/12.8/bin/nvcc",
+      "-x",
+      "cu",
+      "-std=c++17",
+      "-arch=sm_90",
+      "--use_fast_math",
+      "--ftz=false",
+      "--prec-div=true",
+      "--prec-sqrt=true",
+      "-c",
+      "/data/run01/scyb672/hjr/TempName/tools/h100/phase6/ma11_softmax.cuh",
+      "-o",
+      "/tmp/ma13-reference-softmax.o"
+    ],
+    [
+      "/data/apps/cuda/12.8/bin/cuobjdump",
+      "--dump-sass",
+      "/tmp/ma13-reference-softmax.o"
+    ],
+    [
+      "/data/apps/cuda/12.8/bin/cuobjdump",
+      "--dump-sass",
+      "/tmp/ma13-softmax-resource.o"
+    ]
+  ],
+  "standalone_compile_passed": true,
+  "ptx_plain_equals_restored_fastmath": true,
+  "reference_forward_exp_cores": 16,
+  "candidate_forward_exp_cores": 8,
+  "gpu_kernel_executed": false,
+  "gpu_numerical_validated": false,
+  "full_flux_linked": false,
+  "h100_eight_rank_validated": false,
+  "resources": {
+    "forward": {
+      "registers": 32,
+      "shared_memory_bytes": 32,
+      "spill_store_bytes": 0,
+      "spill_load_bytes": 0
+    }
+  },
+  "actual_shared_library_loaded": true,
+  "native_exports": [
+    "ma13_softmax_protocol",
+    "ma13_softmax_forward_cuda"
+  ],
+  "protocol": 13,
+  "host_tests": 6,
+  "host_tests_passed": true,
+  "host_tests_skipped": 0,
+  "sass_forward_exp_cores": {
+    "reference": 16,
+    "candidate": 8
+  }
+}

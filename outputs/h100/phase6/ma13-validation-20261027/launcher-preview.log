@@ -1,0 +1,11 @@
+Batch: /tmp/ma13-preview-20261027-1547
+PLAN ONLY: no directories, GPU queries, builds or workers.
+/usr/bin/python3 /data/run01/scyb672/hjr/TempName/tools/h100/phase6/ma13_build.py prepare --out /tmp/ma13-preview-20261027-1547/build
+/usr/bin/python3 /data/run01/scyb672/hjr/TempName/tools/h100/phase6/ma13_build.py build --build /tmp/ma13-preview-20261027-1547/build --cuda-home /usr/local/cuda-12.8 --jobs 2
+/usr/bin/python3 /data/run01/scyb672/hjr/TempName/tools/h100/phase6/ma13_bench.py prepare /tmp/ma13-preview-20261027-1547/operator --build /tmp/ma13-preview-20261027-1547/build --blocks 8
+/usr/bin/python3 /data/run01/scyb672/hjr/TempName/tools/h100/phase6/ma13_bench.py run /tmp/ma13-preview-20261027-1547/operator --python /usr/bin/python3 --cuda-home /usr/local/cuda-12.4 --worker-timeout 1800 --execute
+/usr/bin/python3 /data/run01/scyb672/hjr/TempName/tools/h100/phase6/ma13_bench.py run /tmp/ma13-preview-20261027-1547/operator --python /usr/bin/python3 --cuda-home /usr/local/cuda-12.4 --worker-timeout 1800 --profile --execute
+/usr/bin/python3 /data/run01/scyb672/hjr/TempName/tools/h100/phase6/ma13_fullstep.py prepare /tmp/ma13-preview-20261027-1547/fullstep --build /tmp/ma13-preview-20261027-1547/build --megatron /data/run01/scyb672/hjr/Megatron-LM --trials 2 --blocks 8
+/usr/bin/python3 /data/run01/scyb672/hjr/TempName/tools/h100/phase6/ma13_fullstep.py run /tmp/ma13-preview-20261027-1547/fullstep --stage all --python /usr/bin/python3 --cuda-home /usr/local/cuda-12.4 --worker-timeout 1800 --execute
+/usr/bin/python3 /data/run01/scyb672/hjr/TempName/tools/h100/phase6/ma13_fullstep.py run /tmp/ma13-preview-20261027-1547/fullstep --stage profile --python /usr/bin/python3 --cuda-home /usr/local/cuda-12.4 --worker-timeout 1800 --execute
+F4-cache-zcount-csoftmax / F4-cache-zcount-csoftmax-resident only; MA11 in both arms; original MA11 softmax in control; resident forward only in candidate; 2 trial(s), 32 windows, 1600 formal optimizer steps. Each window: 10 warmup + 50 measured steps. Negative and slow windows are retained. The 2% target is incremental over MA11 and requires CI95 lower >=2% in each trial plus successful profile checks.

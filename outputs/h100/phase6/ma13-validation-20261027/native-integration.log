@@ -1,0 +1,47 @@
+$ /data/home/scyb672/run/software/cmake-3.30.0-linux-x86_64/bin/cmake -S /tmp/ma13-native-integration-gj0t4snf/project -B /tmp/ma13-native-integration-gj0t4snf/build -DCMAKE_CUDA_COMPILER=/data/apps/cuda/12.8/bin/nvcc -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
+-- The CUDA compiler identification is NVIDIA 12.8.61
+-- Detecting CUDA compiler ABI info
+-- Detecting CUDA compiler ABI info - done
+-- Check for working CUDA compiler: /data/apps/cuda/12.8/bin/nvcc - skipped
+-- Detecting CUDA compile features
+-- Detecting CUDA compile features - done
+-- Configuring done (6.2s)
+-- Generating done (0.1s)
+-- Build files have been written to: /tmp/ma13-native-integration-gj0t4snf/build
+
+$ /data/home/scyb672/run/software/cmake-3.30.0-linux-x86_64/bin/cmake --build /tmp/ma13-native-integration-gj0t4snf/build --verbose -j 2
+Change Dir: '/tmp/ma13-native-integration-gj0t4snf/build'
+
+Run Build Command(s): /data/run01/scyb672/software/cmake-3.30.0-linux-x86_64/bin/cmake -E env VERBOSE=1 /usr/bin/gmake -f Makefile -j2
+/data/run01/scyb672/software/cmake-3.30.0-linux-x86_64/bin/cmake -S/tmp/ma13-native-integration-gj0t4snf/project -B/tmp/ma13-native-integration-gj0t4snf/build --check-build-system CMakeFiles/Makefile.cmake 0
+/data/run01/scyb672/software/cmake-3.30.0-linux-x86_64/bin/cmake -E cmake_progress_start /tmp/ma13-native-integration-gj0t4snf/build/CMakeFiles /tmp/ma13-native-integration-gj0t4snf/build//CMakeFiles/progress.marks
+/usr/bin/gmake  -f CMakeFiles/Makefile2 all
+gmake[1]: Entering directory '/tmp/ma13-native-integration-gj0t4snf/build'
+/usr/bin/gmake  -f CMakeFiles/ma13_native.dir/build.make CMakeFiles/ma13_native.dir/depend
+gmake[2]: Entering directory '/tmp/ma13-native-integration-gj0t4snf/build'
+cd /tmp/ma13-native-integration-gj0t4snf/build && /data/run01/scyb672/software/cmake-3.30.0-linux-x86_64/bin/cmake -E cmake_depends "Unix Makefiles" /tmp/ma13-native-integration-gj0t4snf/project /tmp/ma13-native-integration-gj0t4snf/project /tmp/ma13-native-integration-gj0t4snf/build /tmp/ma13-native-integration-gj0t4snf/build /tmp/ma13-native-integration-gj0t4snf/build/CMakeFiles/ma13_native.dir/DependInfo.cmake "--color="
+gmake[2]: Leaving directory '/tmp/ma13-native-integration-gj0t4snf/build'
+/usr/bin/gmake  -f CMakeFiles/ma13_native.dir/build.make CMakeFiles/ma13_native.dir/build
+gmake[2]: Entering directory '/tmp/ma13-native-integration-gj0t4snf/build'
+[ 66%] Building CUDA object CMakeFiles/ma13_native.dir/ma13_softmax.cu.o
+/data/apps/cuda/12.8/bin/nvcc -forward-unknown-to-host-compiler -Dma13_native_EXPORTS --options-file CMakeFiles/ma13_native.dir/includes_CUDA.rsp --use_fast_math "--generate-code=arch=compute_90,code=[compute_90,sm_90]" -Xcompiler=-fPIC --ftz=false --prec-div=true --prec-sqrt=true -MD -MT CMakeFiles/ma13_native.dir/ma13_softmax.cu.o -MF CMakeFiles/ma13_native.dir/ma13_softmax.cu.o.d -x cu -c /tmp/ma13-native-integration-gj0t4snf/project/ma13_softmax.cu -o CMakeFiles/ma13_native.dir/ma13_softmax.cu.o
+[ 66%] Building CUDA object CMakeFiles/ma13_native.dir/ma11_softmax.cu.o
+/data/apps/cuda/12.8/bin/nvcc -forward-unknown-to-host-compiler -Dma13_native_EXPORTS --options-file CMakeFiles/ma13_native.dir/includes_CUDA.rsp --use_fast_math "--generate-code=arch=compute_90,code=[compute_90,sm_90]" -Xcompiler=-fPIC --ftz=false --prec-div=true --prec-sqrt=true -MD -MT CMakeFiles/ma13_native.dir/ma11_softmax.cu.o -MF CMakeFiles/ma13_native.dir/ma11_softmax.cu.o.d -x cu -c /tmp/ma13-native-integration-gj0t4snf/project/ma11_softmax.cu -o CMakeFiles/ma13_native.dir/ma11_softmax.cu.o
+[100%] Linking CUDA shared library libma13_native.so
+/data/run01/scyb672/software/cmake-3.30.0-linux-x86_64/bin/cmake -E cmake_link_script CMakeFiles/ma13_native.dir/link.txt --verbose=1
+/usr/bin/g++ -fPIC -Wl,--version-script=/tmp/ma13-native-integration-gj0t4snf/project/version.ld -L/data/home/scyb672/WRF_deps/lib -shared -Wl,-soname,libma13_native.so -o libma13_native.so @CMakeFiles/ma13_native.dir/objects1.rsp @CMakeFiles/ma13_native.dir/linkLibs.rsp -L"/data/apps/cuda/12.8/targets/x86_64-linux/lib/stubs" -L"/data/apps/cuda/12.8/targets/x86_64-linux/lib"
+gmake[2]: Leaving directory '/tmp/ma13-native-integration-gj0t4snf/build'
+[100%] Built target ma13_native
+gmake[1]: Leaving directory '/tmp/ma13-native-integration-gj0t4snf/build'
+/data/run01/scyb672/software/cmake-3.30.0-linux-x86_64/bin/cmake -E cmake_progress_start /tmp/ma13-native-integration-gj0t4snf/build/CMakeFiles 0
+
+
+$ nm -D --defined-only /tmp/ma13-native-integration-gj0t4snf/build/libma13_native.so
+0000000000008c3e T ma11_softmax_backward_cuda
+0000000000008b45 T ma11_softmax_forward_cuda
+0000000000008b36 T ma11_softmax_protocol
+0000000000009370 T ma13_softmax_forward_cuda
+0000000000009361 T ma13_softmax_protocol
+
+protocols={"ma11_softmax_protocol": 11, "ma13_softmax_protocol": 13}
+All five actual exported functions loaded. No GPU kernel executed.

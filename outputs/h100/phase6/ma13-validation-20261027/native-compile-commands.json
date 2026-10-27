@@ -1,0 +1,56 @@
+[
+  {
+    "command": [
+      "/data/apps/cuda/12.8/bin/nvcc",
+      "-x",
+      "cu",
+      "-std=c++17",
+      "-arch=sm_90",
+      "-ptx",
+      "/data/run01/scyb672/hjr/TempName/tools/h100/phase6/ma13_softmax.cuh",
+      "-o",
+      "/data/run01/scyb672/hjr/TempName/outputs/h100/phase6/ma13-validation-20261027/softmax-plain.ptx"
+    ],
+    "returncode": 0,
+    "output": ""
+  },
+  {
+    "command": [
+      "/data/apps/cuda/12.8/bin/nvcc",
+      "-x",
+      "cu",
+      "-std=c++17",
+      "-arch=sm_90",
+      "--use_fast_math",
+      "--ftz=false",
+      "--prec-div=true",
+      "--prec-sqrt=true",
+      "-ptx",
+      "/data/run01/scyb672/hjr/TempName/tools/h100/phase6/ma13_softmax.cuh",
+      "-o",
+      "/data/run01/scyb672/hjr/TempName/outputs/h100/phase6/ma13-validation-20261027/softmax-fast-restored.ptx"
+    ],
+    "returncode": 0,
+    "output": ""
+  },
+  {
+    "command": [
+      "/data/apps/cuda/12.8/bin/nvcc",
+      "-x",
+      "cu",
+      "-std=c++17",
+      "-arch=sm_90",
+      "--use_fast_math",
+      "--ftz=false",
+      "--prec-div=true",
+      "--prec-sqrt=true",
+      "-Xptxas=-v",
+      "-c",
+      "/data/run01/scyb672/hjr/TempName/tools/h100/phase6/ma13_softmax.cuh",
+      "-o",
+      "/tmp/ma13-softmax-resource.o"
+    ],
+    "returncode": 0,
+    "output": "ptxas info    : 0 bytes gmem\nptxas info    : Compiling entry function '_ZN12ma13_softmax27ma13_softmax_forward_kernelEPK13__nv_bfloat16PKbPS0_' for 'sm_90'\nptxas info    : Function properties for _ZN12ma13_softmax27ma13_softmax_forward_kernelEPK13__nv_bfloat16PKbPS0_\n    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads\nptxas info    : Used 32 registers, used 1 barriers, 32 bytes smem\nptxas info    : Compile time = 29.307 ms\n"
+  }
+]

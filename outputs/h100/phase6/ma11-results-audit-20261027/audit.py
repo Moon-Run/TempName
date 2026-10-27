@@ -1,0 +1,212 @@
+"""Read-only MA11 result replay, using only the returned frozen controllers.
+
+No Torch import, GPU execution, runtime loading, or historical evidence writes.
+--out must name a fresh JSON file outside the returned batch.
+"""
+import argparse
+import hashlib
+import importlib.util
+import json
+import math
+from pathlib import Path
+import random
+import statistics
+import sys
+
+sys.dont_write_bytecode = True
+REPO = Path(__file__).resolve().parents[4]
+BATCH = REPO / 'logs/h100/phase6/ma11-v1-causal-softmax-1x-50steps-20261027-121342-060643'
+ARMS = ('F4-cache-zcount', 'F4-cache-zcount-csoftmax')
+CONTRAST = '/'.join(ARMS[::-1])
+
+
+def read(path):
+    return json.loads(path.read_text())
+
+
+def sha(path):
+    return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def require(value, message):
+    if not value:
+        raise ValueError(message)
+
+
+def paired(candidate, baseline, seed):
+    logs = [math.log(a / b) for a, b in zip(candidate, baseline)]
+    rng = random.Random(seed)
+    values = sorted(100 * (1 - math.exp(statistics.mean(rng.choices(logs, k=len(logs)))))
+                    for _ in range(10000))
+    return dict(percent=100 * (1 - math.exp(statistics.mean(logs))),
+                ci95=[values[249], values[9749]], paired_blocks=len(logs))
+
+
+parser = argparse.ArgumentParser(description=__doc__)
+parser.add_argument('--out', type=Path, required=True)
+args = parser.parse_args()
+require(not args.out.exists() and not args.out.resolve().is_relative_to(BATCH), 'Use a fresh audit output outside the batch')
+protected = [BATCH / 'batch-state.json', BATCH / 'handoff/launch.json',
+             BATCH / 'handoff/controllers.json', BATCH / 'fullstep/report.md']
+protected += [BATCH / part / name for part in ('operator', 'fullstep')
+              for name in ('plan.json', 'preflight.json', 'report.json', 'profile-summary.json')]
+before = {str(p.relative_to(REPO)): sha(p) for p in protected}
+plans = {part: read(BATCH / part / 'plan.json') for part in ('operator', 'fullstep')}
+frozen = {}
+for part, plan in plans.items():
+    require(tuple(plan['arms']) == ARMS, 'Wrong two-arm comparison')
+    for relative, digest in plan['source_files'].items():
+        path = BATCH / part / relative
+        require(path.resolve().is_relative_to(BATCH / part / 'scripts'), 'Unexpected frozen path')
+        require(sha(path) == digest, 'Frozen source changed: ' + str(path))
+        frozen[part + '/' + relative] = digest
+dependencies = read(BATCH / 'handoff/controllers.json')
+current_matches = {}
+for name, digest in dependencies.items():
+    relative = name.removeprefix('/workspace/TempName/')
+    require(not Path(relative).is_absolute(), 'Unknown controller root')
+    local = REPO / relative
+    current_matches[relative] = local.is_file() and sha(local) == digest
+for source, original in (('operator/scripts/bench.py', 'ma11_bench.py'),
+                         ('fullstep/scripts/operator-controller.py', 'ma11_bench.py'),
+                         ('fullstep/scripts/fullstep-controller.py', 'ma11_fullstep.py')):
+    require(sha(BATCH / source) == dependencies['/workspace/TempName/tools/h100/phase6/' + original],
+            'Launch/frozen controller identity differs')
+snapshot = plans['fullstep']['megatron_snapshot']
+for relative, digest in snapshot['files'].items():
+    require(sha(BATCH / 'fullstep/megatron' / relative) == digest, 'Changed returned Megatron source')
+native = plans['fullstep']['build_identity']['source_files']
+native_arms = {arm: {key.split('/build/' + arm + '/', 1)[1]: digest for key, digest in native.items()
+                     if '/build/' + arm + '/' in key} for arm in ARMS}
+require(all(native_arms.values()), 'Native provenance missing')
+native_added = sorted(set(native_arms[ARMS[1]]) - set(native_arms[ARMS[0]]))
+native_changed = sorted(k for k in native_arms[ARMS[0]] if native_arms[ARMS[0]][k] != native_arms[ARMS[1]][k])
+require(native_added == ['src/cuda/ma11_softmax.cu', 'src/gemm_rs/ma11_pytorch_LICENSE.txt', 'src/gemm_rs/ma11_softmax.cuh'] and
+        native_changed == ['src/cuda/CMakeLists.txt', 'src/cuda/version.ld'], 'Unregistered native change')
+
+scripts = BATCH / 'fullstep/scripts'
+sys.path[:] = [str(scripts), *[p for p in sys.path if p and not Path(p).resolve().is_relative_to(REPO)]]
+spec = importlib.util.spec_from_file_location('_ma11_frozen_audit', scripts / 'fullstep-controller.py')
+full = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(full)
+bench = full.bench
+require(full._FROZEN and bench.SOURCE_PROTOCOL == 'h100-ma11-causal-softmax-v1' and
+        Path(bench.__file__).parent == scripts, 'Wrong frozen replay controller')
+print('Verified frozen source files:', len(frozen), 'Megatron files:', len(snapshot['files']), flush=True)
+gpu_spans = {arm: [] for arm in ARMS}
+original = full.trace_projection_records
+
+
+def capture_span(events, arm, tuning=None):
+    result = original(events, arm, tuning=tuning)
+    device = [e for e in events if e.get('cat') in ('kernel', 'gpu_memcpy', 'gpu_memset')]
+    gpu_spans[arm].append((max(e['ts'] + e.get('dur', 0) for e in device) - min(e['ts'] for e in device)) / 1000)
+    return result
+
+
+recomputed = {}
+full.trace_projection_records = capture_span
+try:
+    for name, callback in (
+        ('operator/report.json', lambda: bench.report(BATCH / 'operator', save=False, offline=True)),
+        ('fullstep/report.json', lambda: full.report(BATCH / 'fullstep', save=False, offline=True)),
+        ('operator/profile-summary.json', lambda: bench.profile_summary(BATCH / 'operator', offline=True)),
+        ('fullstep/profile-summary.json', lambda: full.profile_summary(BATCH / 'fullstep', offline=True)),
+    ):
+        result = callback()
+        require(result == read(BATCH / name), 'Replay mismatch: ' + name)
+        recomputed[name] = result
+        print('Recomputed identically:', name, flush=True)
+finally:
+    full.trace_projection_records = original
+
+train = recomputed['fullstep/report.json']
+state = read(BATCH / 'batch-state.json')
+require(state['status'] == 'completed' and state['stage'] == 'done' and train['trials'] == state['trials'] == 1,
+        'Incomplete batch')
+require(train['formal_optimizer_steps'] == 800 and train['timing_rank_records'] == 128 and
+        len(train['all_samples']) == 16 and train['target_reference'] == ARMS[0], 'Wrong measured scope')
+for key, value in full.aggregate_acceptance(train['comparisons']).items():
+    require(value == train[key] == state[key], 'Final acceptance differs: ' + key)
+values, memory = {a: {} for a in ARMS}, {a: [] for a in ARMS}
+for sample in train['all_samples']:
+    rows = [read(BATCH / 'fullstep/results' / sample['directory'] / f'rank{r}.json') for r in range(8)]
+    ms = max(row['elapsed_seconds'] for row in rows) * 1000 / 50
+    require(ms == sample['ms_per_step'], 'Raw window time differs')
+    values[sample['arm']][sample['block']] = ms
+    memory[sample['arm']].append({k: max(row[k] for row in rows) for k in ('peak_allocated_gib', 'peak_reserved_gib')})
+    for row in rows:
+        require(len(row['ma11_trainable_parameters']) == 389 and len(row['ma11_activation_setup']['module_roles']) == 64,
+                'Parameter/module universe changed')
+        require(row['ma11_activation_setup']['installed'] and row['ma11_activation_setup']['arm'] == 'F4-cache',
+                'Missing common activation cache')
+rounds = {}
+for label, blocks in (('round1', range(4)), ('round2', range(4, 8)), ('combined', range(8))):
+    selected = {arm: [values[arm][i] for i in blocks] for arm in ARMS}
+    result = dict(mean_ms={a: statistics.mean(v) for a, v in selected.items()},
+                  median_ms={a: statistics.median(v) for a, v in selected.items()},
+                  comparisons={CONTRAST: paired(selected[ARMS[1]], selected[ARMS[0]], train['bootstrap']['seed'])})
+    require(result == train['comparisons']['compare1']['rounds'][label], 'Independent paired bootstrap differs')
+    rounds[label] = result
+mem = {a: {k: dict(mean_window_rank_max=statistics.mean(x[k] for x in rows), max_window_rank_max=max(x[k] for x in rows))
+           for k in ('peak_allocated_gib', 'peak_reserved_gib')} for a, rows in memory.items()}
+require(mem == train['peak_cuda_memory_gib'], 'Independent memory summary differs')
+blocks = [dict(block=i, control_ms=values[ARMS[0]][i], combined_ms=values[ARMS[1]][i],
+               saved_ms=values[ARMS[0]][i] - values[ARMS[1]][i]) for i in range(8)]
+profiles = recomputed['fullstep/profile-summary.json']['profiles']
+zero, cache, softmax = {}, {}, {}
+for arm in ARMS:
+    rows = [profiles[f'{arm}/rank{i}'] for i in range(8)]
+    zero[arm] = dict(ranks=[r['zero_count'] for r in rows],
+                    median_ms={key: statistics.median(r['zero_count'][key] for r in rows) for key in
+                               ('cpu_statistic_span_ms', 'gpu_compute_work_ms', 'gpu_allreduce_ms', 'gpu_statistic_span_ms')})
+    attention = [r['attention_softmax'] for r in rows]
+    require(all(r['candidate'] == (arm == ARMS[1]) for r in attention), 'Wrong softmax path identity')
+    work_keys = set().union(*(r['gpu_work_ms'] for r in attention))
+    replay_keys = ('kernel_calls', 'kernel_ms', 'gpu_memcpy_calls', 'gpu_memcpy_ms', 'gpu_memcpy_bytes')
+    softmax[arm] = dict(ranks=attention,
+        median_gpu_work_ms={key: statistics.median(r['gpu_work_ms'].get(key, 0) for r in attention) for key in sorted(work_keys)},
+        median_total_gpu_work_ms=statistics.median(sum(r['gpu_work_ms'].values()) for r in attention),
+        median_view_replay_device={scope:{key:statistics.median(r['view_replay_device'][scope].get(key,0) for r in attention)
+            for key in replay_keys} for scope in ('as_strided','copy_slices')},
+        median_view_replay_cpu_ms={key:statistics.median(r['view_replay_cpu_ms'].get(key,0) for r in attention)
+            for key in ('as_strided','copy_slices')})
+    cache[arm] = {key: sum(r['activation_cache'][key] for r in rows) for key in
+                  ('column_calls', 'retained_forward_allgathers', 'backward_allgathers', 'retained_reduce_scatters')}
+smoke = {}
+for arm in ARMS:
+    rows = [read(BATCH/'fullstep/results'/('smoke-'+arm)/f'rank{rank}.json') for rank in range(8)]
+    for row in rows:
+        full.validate_softmax_state(row['ma11_softmax_state'],arm,5,'smoke')
+        require(len(row['ma11_trainable_parameters']) == 389, 'Smoke parameter coverage changed')
+    smoke[arm] = dict(ranks=8,parameters_per_rank=389,softmax_states=[row['ma11_softmax_state'] for row in rows])
+operator = recomputed['operator/report.json']
+operator_ranges = {}
+for role in ('attn','mlp'):
+    operator_ranges[role] = {}
+    for arm in ARMS:
+        samples = [dict(block=row['block'], index=row['index'], directory=row['directory'],
+                        rankmax_wall_us=row['rankmax_wall_us'][role])
+                   for row in operator['all_samples'] if row['arm'] == arm]
+        operator_ranges[role][arm] = samples
+require(before == {str(p.relative_to(REPO)): sha(p) for p in protected}, 'Protected evidence modified')
+require('torch' not in sys.modules, 'Audit unexpectedly imported Torch')
+means = rounds['combined']['mean_ms']
+result = dict(protocol='h100-ma11-results-audit-v1', batch=str(BATCH.relative_to(REPO)), gpu_rerun=False,
+    original_evidence_unchanged=True, protected_sha256=before, reports_recomputed_identically=list(recomputed),
+    frozen_source_files_verified=len(frozen), frozen_source_sha256=frozen, megatron_files_verified=len(snapshot['files']),
+    controller_dependencies_match_current=current_matches,
+    registered_native_files={a:len(v) for a,v in native_arms.items()}, native_added=native_added, native_changed=native_changed,
+    returned_build_present=(BATCH/'build').exists(), binary_reload_performed=False,
+    rounds=rounds, blocks=blocks, faster_blocks=sum(b['saved_ms'] > 0 for b in blocks),
+    mean_saved_ms=means[ARMS[0]]-means[ARMS[1]], window_ranges_ms={a:[min(v.values()),max(v.values())] for a,v in values.items()},
+    tokens_per_second={a:8192000/v for a,v in means.items()}, peak_cuda_memory_gib=mem,
+    acceptance={key:train[key] for key in ('increment_over_MA89_validated','target_point_observed','target_validated','target_evaluated')},
+    numeric_summary=train['numeric_summary'], softmax_profiles=softmax, smoke=smoke,
+    operator_roles=operator['roles'], operator_samples=operator_ranges, zero_count_profiles=zero, cache_calls_across_eight_ranks=cache,
+    profile_gpu_spans_ms=gpu_spans, profile_gpu_span_median_ms={a:statistics.median(v) for a,v in gpu_spans.items()},
+    limitation='One independent trial; profiler timings are not a decomposition of formal step savings; incremental target is against contemporaneous MA89.',
+    audit_source_sha256=sha(Path(__file__)))
+args.out.write_text(json.dumps(result, ensure_ascii=False, indent=2)+'\n')
+print('Raw timing, all paired bootstrap rounds and memory summaries match. Faster blocks:', result['faster_blocks'], flush=True)
+print('Protected evidence unchanged. Audit saved:', args.out, flush=True)
