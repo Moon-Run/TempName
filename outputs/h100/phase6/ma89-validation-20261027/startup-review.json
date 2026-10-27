@@ -1,0 +1,116 @@
+{
+  "protocol": "h100-ma89-startup-review-v1",
+  "date": "2026-10-27",
+  "timezone": "Asia/Shanghai",
+  "requested_command": "bash tools/h100/phase6/run_ma89.sh --execute",
+  "review_result": "No startup defect found in the checked paths; production code unchanged.",
+  "unique_tests_passed": 61,
+  "tests_skipped": 0,
+  "suites": [
+    {
+      "name": "controller_build_online",
+      "modules": [
+        "test_ma89_build",
+        "test_ma89_harness",
+        "test_ma89_launcher",
+        "test_ma89_online_worker",
+        "test_ma89_profile",
+        "test_ma89_review"
+      ],
+      "tests": 51,
+      "skipped": 0,
+      "exit_code": 0
+    },
+    {
+      "name": "composition_and_installation",
+      "modules": [
+        "test_ma89_composition",
+        "test_ma8_adapter.InstallationTests"
+      ],
+      "tests": 6,
+      "skipped": 0,
+      "exit_code": 0
+    },
+    {
+      "name": "historical_source_guard",
+      "modules": [
+        "test_ma8_adapter.SourceTests"
+      ],
+      "tests": 4,
+      "skipped": 0,
+      "exit_code": 0
+    }
+  ],
+  "source_sha256": {
+    "docs/design/design-h100/New-Mechanism/ma-8&9.md": "cfb5d7a400e27345003f75a745ae3d987eefe5b2238730d05a4c613024a9f84a",
+    "tools/h100/phase6/detach_ma89.py": "8dc7e47ca9c48735164fae5d262d70166525de6f9bc62443715b6bad1184cf7d",
+    "tools/h100/phase6/ma89_bench.py": "b5a4390691991f46ae58312efc0f6734e0deff5220afb409e1685c291b062025",
+    "tools/h100/phase6/ma89_build.py": "cbfbd60e2465ee8dfaad6ca9cf8a71181dfd2dcf2020a11469b31a3cbbe462c4",
+    "tools/h100/phase6/ma89_fullstep.py": "cc24f0a65fc5d4312b9c204ee2dce1066a80608490f76a97e5cdec6da929e5d6",
+    "tools/h100/phase6/ma89_profile.py": "0d35152b37935fbedf61c5c33ff6041e7a8dbbd50f7920b8bb1c341fe52eefe8",
+    "tools/h100/phase6/ma89_sources.py": "0e7b58e915faa8ed8c9b231e62a01b9d9b2cecade9e8e5a729189164e154bf0c",
+    "tools/h100/phase6/ma8_adapter.py": "de4486ec321176383a1fa84cb59aad6401402e8a824e2a89e28e9138d78ca40e",
+    "tools/h100/phase6/ma9_adapter.py": "ab89d89761dde299a024d8da5956345723fab8fdcbcac725b1ec0419a293bb14",
+    "tools/h100/phase6/ma9_sources.py": "2a630f66af68509a120c6f5b50d05e3e404deb389e261f7e077a9db1e6200733",
+    "tools/h100/phase6/ma9_zero_count.cuh": "a907fb334a1a7c6f232943cb2c4fb3b3faf142bbe223b8b61699edfa0e0df84d",
+    "tools/h100/phase6/native_exports.py": "88f626a6195aba9efdedff5295de3b25ad5cb91299525e027aca0fa18b440000",
+    "tools/h100/phase6/run_ma89.sh": "6822adffc69475024a6fd75df7586676f14a0b545e4a7f6b7e7c389e0910191f",
+    "tools/h100/phase6/test_ma89_build.py": "d42fb1310cb2ed5620186d971e249d1d2eea0574e760dfb6b8a1a4405df4d880",
+    "tools/h100/phase6/test_ma89_composition.py": "8e71061d64ed0a2415b8badf6587ec81185735745c0bc582ae5b8eabe5a23db8",
+    "tools/h100/phase6/test_ma89_harness.py": "8966aca906a2e35b115ab08aec3b3f7899fb6323742d23558a2dba61cc29ddbb",
+    "tools/h100/phase6/test_ma89_launcher.py": "0e048e5434ec2098262bc4028426ad3f371479d90e67c6ba4c3fa36c9aa1f23c",
+    "tools/h100/phase6/test_ma89_online_worker.py": "4cef62cddef6022b3ddb92b6a2f4e59d22e179561bbd9dd27880c1add45bf9a2",
+    "tools/h100/phase6/test_ma89_profile.py": "5ff15e37102cc5716478dc835cd6792f8d971e460955474d83476cfde06ab80c",
+    "tools/h100/phase6/test_ma89_review.py": "b933a927402d1f30914ab3b5c20b6db267b3355b19ac7b84f77211003be8fc66",
+    "tools/h100/phase6/test_ma8_adapter.py": "769ea10ed82f449e710917389b1c1d319367f2c464d3e66a0cbe8692c4dd955d"
+  },
+  "prior_validation_sha256": "b814a32a0a1c08cda0671685f138c0394c445db09779270d5710ee029f777921",
+  "prior_validation_all_source_and_evidence_hashes_matched": true,
+  "historical_failure_checks": {
+    "ma8_inspect_source_guard": "Real inspect.getsource fixture accepts corrected fingerprint and rejects historical incorrect fingerprint.",
+    "ma9_dynamic_exports": "Candidate linker map exports all three required ma9_zero_count functions; control does not. Rehashed libraries with old export map are rejected before Torch import.",
+    "frozen_worker": "Both MA89 arms pass actual frozen online checks up to the Torch boundary using a host-only ELF fixture."
+  },
+  "shell_syntax_passed": true,
+  "shell_preview": {
+    "exit_code": 0,
+    "python_override": "/usr/bin/python3",
+    "trials": 2,
+    "windows": 32,
+    "formal_optimizer_steps": 1600,
+    "output_directory_created": false
+  },
+  "execute_entrypoint": {
+    "records": [
+      {
+        "mode": "detached",
+        "entry_checks_passed": true,
+        "controllers_frozen": 68,
+        "real_fork": false,
+        "workers_launched": false
+      },
+      {
+        "mode": "foreground",
+        "entry_checks_passed": true,
+        "controllers_frozen": 68,
+        "real_fork": false,
+        "workers_launched": false
+      }
+    ],
+    "preview_no_output_created": true,
+    "gpu_used": false,
+    "limitation": "Temporary environment paths; supervisor and detach mocked. No actual fork, CUDA load, build or GPU run."
+  },
+  "gpu_used": false,
+  "gpu_validated": false,
+  "full_flux_runtime_linked": false,
+  "limitations": [
+    "No full H100 build or eight-GPU MA89 run was performed locally.",
+    "Native export regressions link host-only ELF fixtures, not full CUDA Flux libraries.",
+    "Composition tests use CPU collective/native ABI/update substitutes.",
+    "Execute entrypoint checks substitute supervisor/detach and use temporary environment paths; they do not fork or launch workers."
+  ],
+  "evidence_sha256": {
+    "startup-review.log": "d891805900692319be0380b24f9cc27cb824262bdc009d4ee716dabe67f4ff0f"
+  }
+}
