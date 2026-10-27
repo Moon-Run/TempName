@@ -1,0 +1,2355 @@
+{
+  "protocol": "h100-ma11-design-profile-analysis-v1",
+  "baseline_batch": "ma89-v1-cache-zcount-1x-50steps-20261027-104719-859382",
+  "baseline_arm": "F4-cache-zcount",
+  "source_traces": 8,
+  "integration": "ma11_fullstep.trace_projection_records",
+  "controller_sha256": {
+    "ma11_profile.py": "e04ce4219ead2757b2b2911c919f1c5e98a9581111cd7801a7b3057b2f5b61ca",
+    "ma11_fullstep.py": "83d829d35263724df6f77ca5e5a52bfcafba4084560dab1102e1846071e75864"
+  },
+  "records": [
+    {
+      "rank": 0,
+      "path": "logs/h100/phase6/ma89-v1-cache-zcount-1x-50steps-20261027-104719-859382/fullstep/results/profile-F4-cache-zcount/rank0-profile.json.gz",
+      "sha256": "6f29ca5992670202a343f4e8bb63e3a94ed9f27588974856db06b0021c50b196",
+      "integration": "ma11_fullstep.trace_projection_records",
+      "evidence": {
+        "attn": {
+          "projection_calls": 128,
+          "publication_barriers": 128,
+          "consumer_add_kernels": 0,
+          "layernorm_successors": 128,
+          "fused_consumer": true,
+          "launch": {
+            "gemm_grid": [
+              512,
+              1,
+              1
+            ],
+            "gemm_block": [
+              128,
+              1,
+              1
+            ],
+            "decoder_grid": [
+              2048,
+              1,
+              1
+            ],
+            "decoder_block": [
+              128,
+              1,
+              1
+            ],
+            "decoder_rows": 1,
+            "receiver_variant": 0,
+            "decoder_kernel": "taco_ma4f_decode_consumer_kernel"
+          },
+          "cpu_us": 107.84700000000001,
+          "decoder_us": 11.264,
+          "decoder_start_to_layernorm_end_us": 30.431884765625,
+          "gemm_end_to_layernorm_end_us": 534.84716796875,
+          "backward": {
+            "backward_calls": 128,
+            "bias_kernels": 128,
+            "allgather_kernels": 128,
+            "dgrad_kernels": 128,
+            "wgrad_kernels": 128,
+            "gather_schedule": "baseline",
+            "allowed_cublas_4byte_memsets": 0,
+            "no_gpu_copies": true,
+            "original_order_and_streams": true,
+            "median_us": {
+              "backward_cpu_us": 344.1325,
+              "bias_us": 8.928,
+              "allgather_us": 495.423,
+              "dgrad_us": 17.1525,
+              "wgrad_us": 16.799
+            }
+          }
+        },
+        "mlp": {
+          "projection_calls": 128,
+          "publication_barriers": 128,
+          "consumer_add_kernels": 0,
+          "layernorm_successors": 128,
+          "fused_consumer": true,
+          "launch": {
+            "gemm_grid": [
+              512,
+              1,
+              1
+            ],
+            "gemm_block": [
+              128,
+              1,
+              1
+            ],
+            "decoder_grid": [
+              2048,
+              1,
+              1
+            ],
+            "decoder_block": [
+              128,
+              1,
+              1
+            ],
+            "decoder_rows": 1,
+            "receiver_variant": 0,
+            "decoder_kernel": "taco_ma4f_decode_consumer_kernel"
+          },
+          "cpu_us": 106.636,
+          "decoder_us": 11.68,
+          "decoder_start_to_layernorm_end_us": 30.671875,
+          "gemm_end_to_layernorm_end_us": 279.59912109375,
+          "backward": {
+            "backward_calls": 128,
+            "bias_kernels": 128,
+            "allgather_kernels": 128,
+            "dgrad_kernels": 128,
+            "wgrad_kernels": 128,
+            "gather_schedule": "baseline",
+            "allowed_cublas_4byte_memsets": 128,
+            "no_gpu_copies": true,
+            "original_order_and_streams": true,
+            "median_us": {
+              "backward_cpu_us": 350.44100000000003,
+              "bias_us": 8.9275,
+              "allgather_us": 568.0465,
+              "dgrad_us": 46.656,
+              "wgrad_us": 50.4
+            }
+          }
+        },
+        "activation_cache": {
+          "roles": {
+            "qkv": {
+              "calls": 128,
+              "forward_allgather_kernels": 128,
+              "backward_allgather_kernels": 0,
+              "dgrad_reduce_scatter_kernels": 128,
+              "dgrad_kernels": 128,
+              "wgrad_kernels": 128,
+              "bias_gradient_kernels": 128,
+              "allowed_workspace_memsets": {
+                "cublas_4byte": 256,
+                "qkv_bias_48byte": 128
+              },
+              "median_us": {
+                "forward_cpu_us": 299.6065,
+                "backward_cpu_us": 431.0265,
+                "forward_allgather_us": 285.24699999999996,
+                "dgrad_us": 41.952,
+                "wgrad_us": 60.175,
+                "backward_allgather_us": 0.0,
+                "allgather_tail_after_dgrad_us": 0.0,
+                "allgather_dgrad_overlap_us": 0.0,
+                "dgrad_end_to_reduce_scatter_us": 4.384033203125,
+                "allgather_end_to_reduce_scatter_us": 0.0,
+                "gpu_chain_us": 884.701171875
+              },
+              "sum_ms": {
+                "forward_cpu_us": 38.65621499999999,
+                "backward_cpu_us": 55.470545000000016,
+                "forward_allgather_us": 37.825759000000005,
+                "dgrad_us": 5.377419999999999,
+                "wgrad_us": 7.7057620000000036,
+                "backward_allgather_us": 0.0,
+                "allgather_tail_after_dgrad_us": 0.0,
+                "allgather_dgrad_overlap_us": 0.0,
+                "dgrad_end_to_reduce_scatter_us": 0.56160498046875,
+                "allgather_end_to_reduce_scatter_us": 0.0,
+                "gpu_chain_us": 114.13941015625
+              }
+            },
+            "fc1": {
+              "calls": 128,
+              "forward_allgather_kernels": 128,
+              "backward_allgather_kernels": 0,
+              "dgrad_reduce_scatter_kernels": 128,
+              "dgrad_kernels": 128,
+              "wgrad_kernels": 128,
+              "bias_gradient_kernels": 0,
+              "allowed_workspace_memsets": {
+                "cublas_4byte": 256
+              },
+              "median_us": {
+                "forward_cpu_us": 269.377,
+                "backward_cpu_us": 368.5265,
+                "forward_allgather_us": 328.703,
+                "dgrad_us": 48.64,
+                "wgrad_us": 72.27199999999999,
+                "backward_allgather_us": 0.0,
+                "allgather_tail_after_dgrad_us": 0.0,
+                "allgather_dgrad_overlap_us": 0.0,
+                "dgrad_end_to_reduce_scatter_us": 4.87939453125,
+                "allgather_end_to_reduce_scatter_us": 0.0,
+                "gpu_chain_us": 473.40673828125
+              },
+              "sum_ms": {
+                "forward_cpu_us": 42.591767000000004,
+                "backward_cpu_us": 47.97816200000005,
+                "forward_allgather_us": 44.116138000000014,
+                "dgrad_us": 6.322992999999998,
+                "wgrad_us": 9.248238999999996,
+                "backward_allgather_us": 0.0,
+                "allgather_tail_after_dgrad_us": 0.0,
+                "allgather_dgrad_overlap_us": 0.0,
+                "dgrad_end_to_reduce_scatter_us": 0.5863955078125,
+                "allgather_end_to_reduce_scatter_us": 0.0,
+                "gpu_chain_us": 61.78153076171875
+              }
+            }
+          },
+          "column_calls": 256,
+          "retained_forward_allgathers": 256,
+          "backward_allgathers": 0,
+          "retained_reduce_scatters": 256,
+          "no_gpu_copies": true,
+          "original_gemm_order_and_streams": true,
+          "attribution": "raw_autograd_sequence_and_fixed_topology_v2",
+          "original_vocabulary_heads": {
+            "calls": 4,
+            "original_autograd_class": "LinearWithGradAccumulationAndAsyncCommunication",
+            "forward_allgather_kernels": 4,
+            "backward_allgather_kernels": 4,
+            "reduce_scatter_kernels": 4,
+            "excluded_from_target_column_counts": true
+          },
+          "per_call_wrappers_and_annotations": false
+        },
+        "zero_count": {
+          "arm": "F4-cache-zcount",
+          "candidate": true,
+          "rank": 0,
+          "eligible_parameter_count": 389,
+          "original_count_nonzero_calls": 0,
+          "kernel_families": {
+            "fused_chunks": 1,
+            "fused_ordered_total": 1,
+            "allreduce": 1
+          },
+          "compute_kernel_calls": 2,
+          "original_allreduce_calls": 1,
+          "scalar_readbacks": 1,
+          "allowed_original_reduction_memsets": 0,
+          "cpu_statistic_span_ms": 5.804041,
+          "gpu_compute_work_ms": 1.1130529999999998,
+          "gpu_allreduce_ms": 0.009727,
+          "gpu_statistic_span_ms": 1.1296279296875,
+          "optimizer_after_statistic": true,
+          "limitation": "Profile proves execution and dependencies; timings are not unprofiled step savings.",
+          "optimizer_source_arm": "F4-zcount"
+        },
+        "attention_softmax": {
+          "arm": "F4-cache-zcount",
+          "candidate": false,
+          "forward_calls": 128,
+          "backward_calls": 128,
+          "original_qk_calls": 128,
+          "original_bmm_calls": 640,
+          "microbatches": 4,
+          "softmax_compute_kernel_calls": 640,
+          "compute_stream": 7,
+          "original_softmax_calls": 128,
+          "original_softmax_backward_calls": 128,
+          "attention_view_replays": 128,
+          "copy_slices_calls": 132,
+          "global_masked_fill_calls": 276,
+          "global_mul_calls": 660,
+          "gpu_work_ms": {
+            "forward_mask": 6.170476999999998,
+            "forward_softmax": 14.393792999999995,
+            "as_strided_device": 4.561807999999997,
+            "copy_slices_device": 11.847812,
+            "backward_product": 4.571790999999999,
+            "backward_softmax": 4.824215000000003,
+            "backward_mask": 6.641298999999998
+          },
+          "view_replay_cpu_ms": {
+            "as_strided": 8.163241999999997,
+            "copy_slices": 14.112119000000005
+          },
+          "view_replay_device": {
+            "as_strided": {
+              "kernel_calls": 128,
+              "kernel_ms": 1.4063650000000014,
+              "gpu_memcpy_calls": 128,
+              "gpu_memcpy_ms": 3.155443,
+              "gpu_memcpy_bytes": 4294967296
+            },
+            "copy_slices": {
+              "gpu_memcpy_calls": 512,
+              "gpu_memcpy_ms": 11.847811999999998,
+              "gpu_memcpy_bytes": 17179869184
+            }
+          },
+          "gpu_work_accounting": "Named GPU families have disjoint launch ownership; view replay includes kernel/memcpy/memset and excludes its separately counted backward mask kernel. Their work sum is not a wall-clock critical-path interval.",
+          "limitation": "Profile GPU work and CPU intervals overlap and are perturbed; they are not additive critical-path time or unprofiled step savings."
+        }
+      },
+      "global_cpu_counts": {
+        "aten::masked_fill_": 276,
+        "aten::mul": 660,
+        "MaskedFillBackward0": 128,
+        "AsStridedBackward0": 128,
+        "torch::autograd::CopySlices": 132
+      }
+    },
+    {
+      "rank": 1,
+      "path": "logs/h100/phase6/ma89-v1-cache-zcount-1x-50steps-20261027-104719-859382/fullstep/results/profile-F4-cache-zcount/rank1-profile.json.gz",
+      "sha256": "07d1702eb83e6753a3bcf8ea5f1f10e65c2d4faaf0909795703431e2b0e2593a",
+      "integration": "ma11_fullstep.trace_projection_records",
+      "evidence": {
+        "attn": {
+          "projection_calls": 128,
+          "publication_barriers": 128,
+          "consumer_add_kernels": 0,
+          "layernorm_successors": 128,
+          "fused_consumer": true,
+          "launch": {
+            "gemm_grid": [
+              512,
+              1,
+              1
+            ],
+            "gemm_block": [
+              128,
+              1,
+              1
+            ],
+            "decoder_grid": [
+              2048,
+              1,
+              1
+            ],
+            "decoder_block": [
+              128,
+              1,
+              1
+            ],
+            "decoder_rows": 1,
+            "receiver_variant": 0,
+            "decoder_kernel": "taco_ma4f_decode_consumer_kernel"
+          },
+          "cpu_us": 109.9265,
+          "decoder_us": 11.392,
+          "decoder_start_to_layernorm_end_us": 30.672119140625,
+          "gemm_end_to_layernorm_end_us": 539.8076171875,
+          "backward": {
+            "backward_calls": 128,
+            "bias_kernels": 128,
+            "allgather_kernels": 128,
+            "dgrad_kernels": 128,
+            "wgrad_kernels": 128,
+            "gather_schedule": "baseline",
+            "allowed_cublas_4byte_memsets": 0,
+            "no_gpu_copies": true,
+            "original_order_and_streams": true,
+            "median_us": {
+              "backward_cpu_us": 347.7085,
+              "bias_us": 8.928,
+              "allgather_us": 494.736,
+              "dgrad_us": 17.0565,
+              "wgrad_us": 16.704
+            }
+          }
+        },
+        "mlp": {
+          "projection_calls": 128,
+          "publication_barriers": 128,
+          "consumer_add_kernels": 0,
+          "layernorm_successors": 128,
+          "fused_consumer": true,
+          "launch": {
+            "gemm_grid": [
+              512,
+              1,
+              1
+            ],
+            "gemm_block": [
+              128,
+              1,
+              1
+            ],
+            "decoder_grid": [
+              2048,
+              1,
+              1
+            ],
+            "decoder_block": [
+              128,
+              1,
+              1
+            ],
+            "decoder_rows": 1,
+            "receiver_variant": 0,
+            "decoder_kernel": "taco_ma4f_decode_consumer_kernel"
+          },
+          "cpu_us": 110.2645,
+          "decoder_us": 11.680499999999999,
+          "decoder_start_to_layernorm_end_us": 30.703857421875,
+          "gemm_end_to_layernorm_end_us": 288.51220703125,
+          "backward": {
+            "backward_calls": 128,
+            "bias_kernels": 128,
+            "allgather_kernels": 128,
+            "dgrad_kernels": 128,
+            "wgrad_kernels": 128,
+            "gather_schedule": "baseline",
+            "allowed_cublas_4byte_memsets": 128,
+            "no_gpu_copies": true,
+            "original_order_and_streams": true,
+            "median_us": {
+              "backward_cpu_us": 360.17449999999997,
+              "bias_us": 8.96,
+              "allgather_us": 567.6155,
+              "dgrad_us": 46.208,
+              "wgrad_us": 49.792
+            }
+          }
+        },
+        "activation_cache": {
+          "roles": {
+            "qkv": {
+              "calls": 128,
+              "forward_allgather_kernels": 128,
+              "backward_allgather_kernels": 0,
+              "dgrad_reduce_scatter_kernels": 128,
+              "dgrad_kernels": 128,
+              "wgrad_kernels": 128,
+              "bias_gradient_kernels": 128,
+              "allowed_workspace_memsets": {
+                "cublas_4byte": 256,
+                "qkv_bias_48byte": 128
+              },
+              "median_us": {
+                "forward_cpu_us": 306.962,
+                "backward_cpu_us": 432.969,
+                "forward_allgather_us": 277.1355,
+                "dgrad_us": 41.984,
+                "wgrad_us": 59.664,
+                "backward_allgather_us": 0.0,
+                "allgather_tail_after_dgrad_us": 0.0,
+                "allgather_dgrad_overlap_us": 0.0,
+                "dgrad_end_to_reduce_scatter_us": 5.3115234375,
+                "allgather_end_to_reduce_scatter_us": 0.0,
+                "gpu_chain_us": 879.9990234375
+              },
+              "sum_ms": {
+                "forward_cpu_us": 44.987497,
+                "backward_cpu_us": 56.85541599999998,
+                "forward_allgather_us": 36.83349100000001,
+                "dgrad_us": 5.3650199999999995,
+                "wgrad_us": 7.6369240000000005,
+                "backward_allgather_us": 0.0,
+                "allgather_tail_after_dgrad_us": 0.0,
+                "allgather_dgrad_overlap_us": 0.0,
+                "dgrad_end_to_reduce_scatter_us": 0.67842724609375,
+                "allgather_end_to_reduce_scatter_us": 0.0,
+                "gpu_chain_us": 113.72256201171875
+              }
+            },
+            "fc1": {
+              "calls": 128,
+              "forward_allgather_kernels": 128,
+              "backward_allgather_kernels": 0,
+              "dgrad_reduce_scatter_kernels": 128,
+              "dgrad_kernels": 128,
+              "wgrad_kernels": 128,
+              "bias_gradient_kernels": 0,
+              "allowed_workspace_memsets": {
+                "cublas_4byte": 256
+              },
+              "median_us": {
+                "forward_cpu_us": 276.122,
+                "backward_cpu_us": 375.3355,
+                "forward_allgather_us": 319.53549999999996,
+                "dgrad_us": 50.688,
+                "wgrad_us": 71.264,
+                "backward_allgather_us": 0.0,
+                "allgather_tail_after_dgrad_us": 0.0,
+                "allgather_dgrad_overlap_us": 0.0,
+                "dgrad_end_to_reduce_scatter_us": 5.6962890625,
+                "allgather_end_to_reduce_scatter_us": 0.0,
+                "gpu_chain_us": 473.3759765625
+              },
+              "sum_ms": {
+                "forward_cpu_us": 37.729456,
+                "backward_cpu_us": 48.346132999999966,
+                "forward_allgather_us": 43.08654699999998,
+                "dgrad_us": 6.462018,
+                "wgrad_us": 9.120728000000003,
+                "backward_allgather_us": 0.0,
+                "allgather_tail_after_dgrad_us": 0.0,
+                "allgather_dgrad_overlap_us": 0.0,
+                "dgrad_end_to_reduce_scatter_us": 0.7326025390625,
+                "allgather_end_to_reduce_scatter_us": 0.0,
+                "gpu_chain_us": 61.77795947265625
+              }
+            }
+          },
+          "column_calls": 256,
+          "retained_forward_allgathers": 256,
+          "backward_allgathers": 0,
+          "retained_reduce_scatters": 256,
+          "no_gpu_copies": true,
+          "original_gemm_order_and_streams": true,
+          "attribution": "raw_autograd_sequence_and_fixed_topology_v2",
+          "original_vocabulary_heads": {
+            "calls": 4,
+            "original_autograd_class": "LinearWithGradAccumulationAndAsyncCommunication",
+            "forward_allgather_kernels": 4,
+            "backward_allgather_kernels": 4,
+            "reduce_scatter_kernels": 4,
+            "excluded_from_target_column_counts": true
+          },
+          "per_call_wrappers_and_annotations": false
+        },
+        "zero_count": {
+          "arm": "F4-cache-zcount",
+          "candidate": true,
+          "rank": 1,
+          "eligible_parameter_count": 194,
+          "original_count_nonzero_calls": 0,
+          "kernel_families": {
+            "fused_chunks": 1,
+            "fused_ordered_total": 1,
+            "allreduce": 1
+          },
+          "compute_kernel_calls": 2,
+          "original_allreduce_calls": 1,
+          "scalar_readbacks": 1,
+          "allowed_original_reduction_memsets": 0,
+          "cpu_statistic_span_ms": 5.754563,
+          "gpu_compute_work_ms": 1.0944299999999998,
+          "gpu_allreduce_ms": 1.735743,
+          "gpu_statistic_span_ms": 2.84130908203125,
+          "optimizer_after_statistic": true,
+          "limitation": "Profile proves execution and dependencies; timings are not unprofiled step savings.",
+          "optimizer_source_arm": "F4-zcount"
+        },
+        "attention_softmax": {
+          "arm": "F4-cache-zcount",
+          "candidate": false,
+          "forward_calls": 128,
+          "backward_calls": 128,
+          "original_qk_calls": 128,
+          "original_bmm_calls": 640,
+          "microbatches": 4,
+          "softmax_compute_kernel_calls": 640,
+          "compute_stream": 7,
+          "original_softmax_calls": 128,
+          "original_softmax_backward_calls": 128,
+          "attention_view_replays": 128,
+          "copy_slices_calls": 132,
+          "global_masked_fill_calls": 276,
+          "global_mul_calls": 660,
+          "gpu_work_ms": {
+            "forward_mask": 6.201465999999998,
+            "forward_softmax": 14.389289999999999,
+            "as_strided_device": 4.568444,
+            "copy_slices_device": 11.907334000000004,
+            "backward_product": 4.572672000000002,
+            "backward_softmax": 4.815738999999999,
+            "backward_mask": 6.650226
+          },
+          "view_replay_cpu_ms": {
+            "as_strided": 8.747709999999996,
+            "copy_slices": 14.139192999999997
+          },
+          "view_replay_device": {
+            "as_strided": {
+              "kernel_calls": 128,
+              "kernel_ms": 1.4073630000000006,
+              "gpu_memcpy_calls": 128,
+              "gpu_memcpy_ms": 3.1610810000000007,
+              "gpu_memcpy_bytes": 4294967296
+            },
+            "copy_slices": {
+              "gpu_memcpy_calls": 512,
+              "gpu_memcpy_ms": 11.907334000000015,
+              "gpu_memcpy_bytes": 17179869184
+            }
+          },
+          "gpu_work_accounting": "Named GPU families have disjoint launch ownership; view replay includes kernel/memcpy/memset and excludes its separately counted backward mask kernel. Their work sum is not a wall-clock critical-path interval.",
+          "limitation": "Profile GPU work and CPU intervals overlap and are perturbed; they are not additive critical-path time or unprofiled step savings."
+        }
+      },
+      "global_cpu_counts": {
+        "aten::masked_fill_": 276,
+        "aten::mul": 660,
+        "MaskedFillBackward0": 128,
+        "AsStridedBackward0": 128,
+        "torch::autograd::CopySlices": 132
+      }
+    },
+    {
+      "rank": 2,
+      "path": "logs/h100/phase6/ma89-v1-cache-zcount-1x-50steps-20261027-104719-859382/fullstep/results/profile-F4-cache-zcount/rank2-profile.json.gz",
+      "sha256": "fa4864ce1a6ae1534284ca2e0ba16739cecf96b03ccfe54fc5ed1d750eec50c3",
+      "integration": "ma11_fullstep.trace_projection_records",
+      "evidence": {
+        "attn": {
+          "projection_calls": 128,
+          "publication_barriers": 128,
+          "consumer_add_kernels": 0,
+          "layernorm_successors": 128,
+          "fused_consumer": true,
+          "launch": {
+            "gemm_grid": [
+              512,
+              1,
+              1
+            ],
+            "gemm_block": [
+              128,
+              1,
+              1
+            ],
+            "decoder_grid": [
+              2048,
+              1,
+              1
+            ],
+            "decoder_block": [
+              128,
+              1,
+              1
+            ],
+            "decoder_rows": 1,
+            "receiver_variant": 0,
+            "decoder_kernel": "taco_ma4f_decode_consumer_kernel"
+          },
+          "cpu_us": 108.97399999999999,
+          "decoder_us": 12.8955,
+          "decoder_start_to_layernorm_end_us": 164.92724609375,
+          "gemm_end_to_layernorm_end_us": 195.375732421875,
+          "backward": {
+            "backward_calls": 128,
+            "bias_kernels": 128,
+            "allgather_kernels": 128,
+            "dgrad_kernels": 128,
+            "wgrad_kernels": 128,
+            "gather_schedule": "baseline",
+            "allowed_cublas_4byte_memsets": 0,
+            "no_gpu_copies": true,
+            "original_order_and_streams": true,
+            "median_us": {
+              "backward_cpu_us": 358.5335,
+              "bias_us": 8.8965,
+              "allgather_us": 73.744,
+              "dgrad_us": 17.392000000000003,
+              "wgrad_us": 16.96
+            }
+          }
+        },
+        "mlp": {
+          "projection_calls": 128,
+          "publication_barriers": 128,
+          "consumer_add_kernels": 0,
+          "layernorm_successors": 128,
+          "fused_consumer": true,
+          "launch": {
+            "gemm_grid": [
+              512,
+              1,
+              1
+            ],
+            "gemm_block": [
+              128,
+              1,
+              1
+            ],
+            "decoder_grid": [
+              2048,
+              1,
+              1
+            ],
+            "decoder_block": [
+              128,
+              1,
+              1
+            ],
+            "decoder_rows": 1,
+            "receiver_variant": 0,
+            "decoder_kernel": "taco_ma4f_decode_consumer_kernel"
+          },
+          "cpu_us": 108.1815,
+          "decoder_us": 13.216,
+          "decoder_start_to_layernorm_end_us": 117.023681640625,
+          "gemm_end_to_layernorm_end_us": 148.592041015625,
+          "backward": {
+            "backward_calls": 128,
+            "bias_kernels": 128,
+            "allgather_kernels": 128,
+            "dgrad_kernels": 128,
+            "wgrad_kernels": 128,
+            "gather_schedule": "baseline",
+            "allowed_cublas_4byte_memsets": 128,
+            "no_gpu_copies": true,
+            "original_order_and_streams": true,
+            "median_us": {
+              "backward_cpu_us": 357.131,
+              "bias_us": 8.928,
+              "allgather_us": 74.048,
+              "dgrad_us": 46.496,
+              "wgrad_us": 49.312
+            }
+          }
+        },
+        "activation_cache": {
+          "roles": {
+            "qkv": {
+              "calls": 128,
+              "forward_allgather_kernels": 128,
+              "backward_allgather_kernels": 0,
+              "dgrad_reduce_scatter_kernels": 128,
+              "dgrad_kernels": 128,
+              "wgrad_kernels": 128,
+              "bias_gradient_kernels": 128,
+              "allowed_workspace_memsets": {
+                "cublas_4byte": 256,
+                "qkv_bias_48byte": 128
+              },
+              "median_us": {
+                "forward_cpu_us": 306.506,
+                "backward_cpu_us": 435.4605,
+                "forward_allgather_us": 72.624,
+                "dgrad_us": 42.304,
+                "wgrad_us": 44.048,
+                "backward_allgather_us": 0.0,
+                "allgather_tail_after_dgrad_us": 0.0,
+                "allgather_dgrad_overlap_us": 0.0,
+                "dgrad_end_to_reduce_scatter_us": 91.4072265625,
+                "allgather_end_to_reduce_scatter_us": 0.0,
+                "gpu_chain_us": 292.800048828125
+              },
+              "sum_ms": {
+                "forward_cpu_us": 41.53058200000001,
+                "backward_cpu_us": 55.84261300000002,
+                "forward_allgather_us": 20.463914000000003,
+                "dgrad_us": 5.411830999999999,
+                "wgrad_us": 6.196418000000002,
+                "backward_allgather_us": 0.0,
+                "allgather_tail_after_dgrad_us": 0.0,
+                "allgather_dgrad_overlap_us": 0.0,
+                "dgrad_end_to_reduce_scatter_us": 9.188943359375,
+                "allgather_end_to_reduce_scatter_us": 0.0,
+                "gpu_chain_us": 57.97083154296875
+              }
+            },
+            "fc1": {
+              "calls": 128,
+              "forward_allgather_kernels": 128,
+              "backward_allgather_kernels": 0,
+              "dgrad_reduce_scatter_kernels": 128,
+              "dgrad_kernels": 128,
+              "wgrad_kernels": 128,
+              "bias_gradient_kernels": 0,
+              "allowed_workspace_memsets": {
+                "cublas_4byte": 256
+              },
+              "median_us": {
+                "forward_cpu_us": 276.0325,
+                "backward_cpu_us": 370.0625,
+                "forward_allgather_us": 72.44749999999999,
+                "dgrad_us": 50.528000000000006,
+                "wgrad_us": 52.528,
+                "backward_allgather_us": 0.0,
+                "allgather_tail_after_dgrad_us": 0.0,
+                "allgather_dgrad_overlap_us": 0.0,
+                "dgrad_end_to_reduce_scatter_us": 69.840087890625,
+                "allgather_end_to_reduce_scatter_us": 0.0,
+                "gpu_chain_us": 291.471923828125
+              },
+              "sum_ms": {
+                "forward_cpu_us": 38.425869999999996,
+                "backward_cpu_us": 48.05525900000002,
+                "forward_allgather_us": 24.687780999999998,
+                "dgrad_us": 6.463190000000001,
+                "wgrad_us": 7.3279330000000025,
+                "backward_allgather_us": 0.0,
+                "allgather_tail_after_dgrad_us": 0.0,
+                "allgather_dgrad_overlap_us": 0.0,
+                "dgrad_end_to_reduce_scatter_us": 7.62287158203125,
+                "allgather_end_to_reduce_scatter_us": 0.0,
+                "gpu_chain_us": 44.11469384765625
+              }
+            }
+          },
+          "column_calls": 256,
+          "retained_forward_allgathers": 256,
+          "backward_allgathers": 0,
+          "retained_reduce_scatters": 256,
+          "no_gpu_copies": true,
+          "original_gemm_order_and_streams": true,
+          "attribution": "raw_autograd_sequence_and_fixed_topology_v2",
+          "original_vocabulary_heads": {
+            "calls": 4,
+            "original_autograd_class": "LinearWithGradAccumulationAndAsyncCommunication",
+            "forward_allgather_kernels": 4,
+            "backward_allgather_kernels": 4,
+            "reduce_scatter_kernels": 4,
+            "excluded_from_target_column_counts": true
+          },
+          "per_call_wrappers_and_annotations": false
+        },
+        "zero_count": {
+          "arm": "F4-cache-zcount",
+          "candidate": true,
+          "rank": 2,
+          "eligible_parameter_count": 194,
+          "original_count_nonzero_calls": 0,
+          "kernel_families": {
+            "fused_chunks": 1,
+            "fused_ordered_total": 1,
+            "allreduce": 1
+          },
+          "compute_kernel_calls": 2,
+          "original_allreduce_calls": 1,
+          "scalar_readbacks": 1,
+          "allowed_original_reduction_memsets": 0,
+          "cpu_statistic_span_ms": 5.868364,
+          "gpu_compute_work_ms": 1.0958700000000001,
+          "gpu_allreduce_ms": 1.87075,
+          "gpu_statistic_span_ms": 2.97906787109375,
+          "optimizer_after_statistic": true,
+          "limitation": "Profile proves execution and dependencies; timings are not unprofiled step savings.",
+          "optimizer_source_arm": "F4-zcount"
+        },
+        "attention_softmax": {
+          "arm": "F4-cache-zcount",
+          "candidate": false,
+          "forward_calls": 128,
+          "backward_calls": 128,
+          "original_qk_calls": 128,
+          "original_bmm_calls": 640,
+          "microbatches": 4,
+          "softmax_compute_kernel_calls": 640,
+          "compute_stream": 7,
+          "original_softmax_calls": 128,
+          "original_softmax_backward_calls": 128,
+          "attention_view_replays": 128,
+          "copy_slices_calls": 132,
+          "global_masked_fill_calls": 276,
+          "global_mul_calls": 660,
+          "gpu_work_ms": {
+            "forward_mask": 6.204678999999998,
+            "forward_softmax": 14.392087000000007,
+            "as_strided_device": 4.575717000000001,
+            "copy_slices_device": 11.901680999999995,
+            "backward_product": 4.866641000000002,
+            "backward_softmax": 4.834140999999999,
+            "backward_mask": 6.658391000000002
+          },
+          "view_replay_cpu_ms": {
+            "as_strided": 8.280954000000001,
+            "copy_slices": 13.844056000000005
+          },
+          "view_replay_device": {
+            "as_strided": {
+              "kernel_calls": 128,
+              "kernel_ms": 1.4057980000000003,
+              "gpu_memcpy_calls": 128,
+              "gpu_memcpy_ms": 3.169919000000001,
+              "gpu_memcpy_bytes": 4294967296
+            },
+            "copy_slices": {
+              "gpu_memcpy_calls": 512,
+              "gpu_memcpy_ms": 11.901681000000004,
+              "gpu_memcpy_bytes": 17179869184
+            }
+          },
+          "gpu_work_accounting": "Named GPU families have disjoint launch ownership; view replay includes kernel/memcpy/memset and excludes its separately counted backward mask kernel. Their work sum is not a wall-clock critical-path interval.",
+          "limitation": "Profile GPU work and CPU intervals overlap and are perturbed; they are not additive critical-path time or unprofiled step savings."
+        }
+      },
+      "global_cpu_counts": {
+        "aten::masked_fill_": 276,
+        "aten::mul": 660,
+        "MaskedFillBackward0": 128,
+        "AsStridedBackward0": 128,
+        "torch::autograd::CopySlices": 132
+      }
+    },
+    {
+      "rank": 3,
+      "path": "logs/h100/phase6/ma89-v1-cache-zcount-1x-50steps-20261027-104719-859382/fullstep/results/profile-F4-cache-zcount/rank3-profile.json.gz",
+      "sha256": "8024e698d5344ef660fe856d3c86085e381fbbe0309b6c52c1092464a43167b1",
+      "integration": "ma11_fullstep.trace_projection_records",
+      "evidence": {
+        "attn": {
+          "projection_calls": 128,
+          "publication_barriers": 128,
+          "consumer_add_kernels": 0,
+          "layernorm_successors": 128,
+          "fused_consumer": true,
+          "launch": {
+            "gemm_grid": [
+              512,
+              1,
+              1
+            ],
+            "gemm_block": [
+              128,
+              1,
+              1
+            ],
+            "decoder_grid": [
+              2048,
+              1,
+              1
+            ],
+            "decoder_block": [
+              128,
+              1,
+              1
+            ],
+            "decoder_rows": 1,
+            "receiver_variant": 0,
+            "decoder_kernel": "taco_ma4f_decode_consumer_kernel"
+          },
+          "cpu_us": 107.2615,
+          "decoder_us": 11.584,
+          "decoder_start_to_layernorm_end_us": 30.8798828125,
+          "gemm_end_to_layernorm_end_us": 504.430419921875,
+          "backward": {
+            "backward_calls": 128,
+            "bias_kernels": 128,
+            "allgather_kernels": 128,
+            "dgrad_kernels": 128,
+            "wgrad_kernels": 128,
+            "gather_schedule": "baseline",
+            "allowed_cublas_4byte_memsets": 0,
+            "no_gpu_copies": true,
+            "original_order_and_streams": true,
+            "median_us": {
+              "backward_cpu_us": 344.646,
+              "bias_us": 8.928,
+              "allgather_us": 488.878,
+              "dgrad_us": 17.024,
+              "wgrad_us": 16.7685
+            }
+          }
+        },
+        "mlp": {
+          "projection_calls": 128,
+          "publication_barriers": 128,
+          "consumer_add_kernels": 0,
+          "layernorm_successors": 128,
+          "fused_consumer": true,
+          "launch": {
+            "gemm_grid": [
+              512,
+              1,
+              1
+            ],
+            "gemm_block": [
+              128,
+              1,
+              1
+            ],
+            "decoder_grid": [
+              2048,
+              1,
+              1
+            ],
+            "decoder_block": [
+              128,
+              1,
+              1
+            ],
+            "decoder_rows": 1,
+            "receiver_variant": 0,
+            "decoder_kernel": "taco_ma4f_decode_consumer_kernel"
+          },
+          "cpu_us": 106.71000000000001,
+          "decoder_us": 12.16,
+          "decoder_start_to_layernorm_end_us": 31.18408203125,
+          "gemm_end_to_layernorm_end_us": 254.8466796875,
+          "backward": {
+            "backward_calls": 128,
+            "bias_kernels": 128,
+            "allgather_kernels": 128,
+            "dgrad_kernels": 128,
+            "wgrad_kernels": 128,
+            "gather_schedule": "baseline",
+            "allowed_cublas_4byte_memsets": 128,
+            "no_gpu_copies": true,
+            "original_order_and_streams": true,
+            "median_us": {
+              "backward_cpu_us": 355.03099999999995,
+              "bias_us": 8.896,
+              "allgather_us": 563.951,
+              "dgrad_us": 46.176,
+              "wgrad_us": 49.9195
+            }
+          }
+        },
+        "activation_cache": {
+          "roles": {
+            "qkv": {
+              "calls": 128,
+              "forward_allgather_kernels": 128,
+              "backward_allgather_kernels": 0,
+              "dgrad_reduce_scatter_kernels": 128,
+              "dgrad_kernels": 128,
+              "wgrad_kernels": 128,
+              "bias_gradient_kernels": 128,
+              "allowed_workspace_memsets": {
+                "cublas_4byte": 256,
+                "qkv_bias_48byte": 128
+              },
+              "median_us": {
+                "forward_cpu_us": 296.219,
+                "backward_cpu_us": 428.2035,
+                "forward_allgather_us": 290.7355,
+                "dgrad_us": 41.696,
+                "wgrad_us": 59.8395,
+                "backward_allgather_us": 0.0,
+                "allgather_tail_after_dgrad_us": 0.0,
+                "allgather_dgrad_overlap_us": 0.0,
+                "dgrad_end_to_reduce_scatter_us": 4.89599609375,
+                "allgather_end_to_reduce_scatter_us": 0.0,
+                "gpu_chain_us": 862.717529296875
+              },
+              "sum_ms": {
+                "forward_cpu_us": 37.833791999999995,
+                "backward_cpu_us": 62.63570799999999,
+                "forward_allgather_us": 31.681289000000007,
+                "dgrad_us": 5.337006000000002,
+                "wgrad_us": 7.122477999999997,
+                "backward_allgather_us": 0.0,
+                "allgather_tail_after_dgrad_us": 0.0,
+                "allgather_dgrad_overlap_us": 0.0,
+                "dgrad_end_to_reduce_scatter_us": 4.48655810546875,
+                "allgather_end_to_reduce_scatter_us": 0.0,
+                "gpu_chain_us": 94.74624169921876
+              }
+            },
+            "fc1": {
+              "calls": 128,
+              "forward_allgather_kernels": 128,
+              "backward_allgather_kernels": 0,
+              "dgrad_reduce_scatter_kernels": 128,
+              "dgrad_kernels": 128,
+              "wgrad_kernels": 128,
+              "bias_gradient_kernels": 0,
+              "allowed_workspace_memsets": {
+                "cublas_4byte": 256
+              },
+              "median_us": {
+                "forward_cpu_us": 269.884,
+                "backward_cpu_us": 369.969,
+                "forward_allgather_us": 339.3435,
+                "dgrad_us": 48.031499999999994,
+                "wgrad_us": 70.9435,
+                "backward_allgather_us": 0.0,
+                "allgather_tail_after_dgrad_us": 0.0,
+                "allgather_dgrad_overlap_us": 0.0,
+                "dgrad_end_to_reduce_scatter_us": 5.248046875,
+                "allgather_end_to_reduce_scatter_us": 0.0,
+                "gpu_chain_us": 461.950927734375
+              },
+              "sum_ms": {
+                "forward_cpu_us": 34.770545000000006,
+                "backward_cpu_us": 48.30741100000002,
+                "forward_allgather_us": 34.55263399999998,
+                "dgrad_us": 6.299981000000002,
+                "wgrad_us": 8.491846,
+                "backward_allgather_us": 0.0,
+                "allgather_tail_after_dgrad_us": 0.0,
+                "allgather_dgrad_overlap_us": 0.0,
+                "dgrad_end_to_reduce_scatter_us": 3.51006982421875,
+                "allgather_end_to_reduce_scatter_us": 0.0,
+                "gpu_chain_us": 54.74568115234375
+              }
+            }
+          },
+          "column_calls": 256,
+          "retained_forward_allgathers": 256,
+          "backward_allgathers": 0,
+          "retained_reduce_scatters": 256,
+          "no_gpu_copies": true,
+          "original_gemm_order_and_streams": true,
+          "attribution": "raw_autograd_sequence_and_fixed_topology_v2",
+          "original_vocabulary_heads": {
+            "calls": 4,
+            "original_autograd_class": "LinearWithGradAccumulationAndAsyncCommunication",
+            "forward_allgather_kernels": 4,
+            "backward_allgather_kernels": 4,
+            "reduce_scatter_kernels": 4,
+            "excluded_from_target_column_counts": true
+          },
+          "per_call_wrappers_and_annotations": false
+        },
+        "zero_count": {
+          "arm": "F4-cache-zcount",
+          "candidate": true,
+          "rank": 3,
+          "eligible_parameter_count": 194,
+          "original_count_nonzero_calls": 0,
+          "kernel_families": {
+            "fused_chunks": 1,
+            "fused_ordered_total": 1,
+            "allreduce": 1
+          },
+          "compute_kernel_calls": 2,
+          "original_allreduce_calls": 1,
+          "scalar_readbacks": 1,
+          "allowed_original_reduction_memsets": 0,
+          "cpu_statistic_span_ms": 5.74943,
+          "gpu_compute_work_ms": 1.095071,
+          "gpu_allreduce_ms": 1.799483,
+          "gpu_statistic_span_ms": 2.90460009765625,
+          "optimizer_after_statistic": true,
+          "limitation": "Profile proves execution and dependencies; timings are not unprofiled step savings.",
+          "optimizer_source_arm": "F4-zcount"
+        },
+        "attention_softmax": {
+          "arm": "F4-cache-zcount",
+          "candidate": false,
+          "forward_calls": 128,
+          "backward_calls": 128,
+          "original_qk_calls": 128,
+          "original_bmm_calls": 640,
+          "microbatches": 4,
+          "softmax_compute_kernel_calls": 640,
+          "compute_stream": 7,
+          "original_softmax_calls": 128,
+          "original_softmax_backward_calls": 128,
+          "attention_view_replays": 128,
+          "copy_slices_calls": 132,
+          "global_masked_fill_calls": 276,
+          "global_mul_calls": 660,
+          "gpu_work_ms": {
+            "forward_mask": 6.213864000000001,
+            "forward_softmax": 14.388987,
+            "as_strided_device": 4.569394,
+            "copy_slices_device": 11.928119999999998,
+            "backward_product": 4.6815869999999995,
+            "backward_softmax": 4.856575000000002,
+            "backward_mask": 6.652780000000001
+          },
+          "view_replay_cpu_ms": {
+            "as_strided": 7.930531999999996,
+            "copy_slices": 13.837975999999989
+          },
+          "view_replay_device": {
+            "as_strided": {
+              "kernel_calls": 128,
+              "kernel_ms": 1.401854000000001,
+              "gpu_memcpy_calls": 128,
+              "gpu_memcpy_ms": 3.1675400000000002,
+              "gpu_memcpy_bytes": 4294967296
+            },
+            "copy_slices": {
+              "gpu_memcpy_calls": 512,
+              "gpu_memcpy_ms": 11.92812,
+              "gpu_memcpy_bytes": 17179869184
+            }
+          },
+          "gpu_work_accounting": "Named GPU families have disjoint launch ownership; view replay includes kernel/memcpy/memset and excludes its separately counted backward mask kernel. Their work sum is not a wall-clock critical-path interval.",
+          "limitation": "Profile GPU work and CPU intervals overlap and are perturbed; they are not additive critical-path time or unprofiled step savings."
+        }
+      },
+      "global_cpu_counts": {
+        "aten::masked_fill_": 276,
+        "aten::mul": 660,
+        "MaskedFillBackward0": 128,
+        "AsStridedBackward0": 128,
+        "torch::autograd::CopySlices": 132
+      }
+    },
+    {
+      "rank": 4,
+      "path": "logs/h100/phase6/ma89-v1-cache-zcount-1x-50steps-20261027-104719-859382/fullstep/results/profile-F4-cache-zcount/rank4-profile.json.gz",
+      "sha256": "54f45c96c55038d529973b264c272337951f598facaa3d5cf93dd6ab3c1d7215",
+      "integration": "ma11_fullstep.trace_projection_records",
+      "evidence": {
+        "attn": {
+          "projection_calls": 128,
+          "publication_barriers": 128,
+          "consumer_add_kernels": 0,
+          "layernorm_successors": 128,
+          "fused_consumer": true,
+          "launch": {
+            "gemm_grid": [
+              512,
+              1,
+              1
+            ],
+            "gemm_block": [
+              128,
+              1,
+              1
+            ],
+            "decoder_grid": [
+              2048,
+              1,
+              1
+            ],
+            "decoder_block": [
+              128,
+              1,
+              1
+            ],
+            "decoder_rows": 1,
+            "receiver_variant": 0,
+            "decoder_kernel": "taco_ma4f_decode_consumer_kernel"
+          },
+          "cpu_us": 107.798,
+          "decoder_us": 10.9605,
+          "decoder_start_to_layernorm_end_us": 30.27197265625,
+          "gemm_end_to_layernorm_end_us": 519.55078125,
+          "backward": {
+            "backward_calls": 128,
+            "bias_kernels": 128,
+            "allgather_kernels": 128,
+            "dgrad_kernels": 128,
+            "wgrad_kernels": 128,
+            "gather_schedule": "baseline",
+            "allowed_cublas_4byte_memsets": 0,
+            "no_gpu_copies": true,
+            "original_order_and_streams": true,
+            "median_us": {
+              "backward_cpu_us": 347.3745,
+              "bias_us": 8.928,
+              "allgather_us": 493.631,
+              "dgrad_us": 17.0885,
+              "wgrad_us": 16.832
+            }
+          }
+        },
+        "mlp": {
+          "projection_calls": 128,
+          "publication_barriers": 128,
+          "consumer_add_kernels": 0,
+          "layernorm_successors": 128,
+          "fused_consumer": true,
+          "launch": {
+            "gemm_grid": [
+              512,
+              1,
+              1
+            ],
+            "gemm_block": [
+              128,
+              1,
+              1
+            ],
+            "decoder_grid": [
+              2048,
+              1,
+              1
+            ],
+            "decoder_block": [
+              128,
+              1,
+              1
+            ],
+            "decoder_rows": 1,
+            "receiver_variant": 0,
+            "decoder_kernel": "taco_ma4f_decode_consumer_kernel"
+          },
+          "cpu_us": 107.41550000000001,
+          "decoder_us": 11.681,
+          "decoder_start_to_layernorm_end_us": 30.81591796875,
+          "gemm_end_to_layernorm_end_us": 260.95947265625,
+          "backward": {
+            "backward_calls": 128,
+            "bias_kernels": 128,
+            "allgather_kernels": 128,
+            "dgrad_kernels": 128,
+            "wgrad_kernels": 128,
+            "gather_schedule": "baseline",
+            "allowed_cublas_4byte_memsets": 128,
+            "no_gpu_copies": true,
+            "original_order_and_streams": true,
+            "median_us": {
+              "backward_cpu_us": 349.73749999999995,
+              "bias_us": 8.928,
+              "allgather_us": 568.1434999999999,
+              "dgrad_us": 46.496,
+              "wgrad_us": 50.432
+            }
+          }
+        },
+        "activation_cache": {
+          "roles": {
+            "qkv": {
+              "calls": 128,
+              "forward_allgather_kernels": 128,
+              "backward_allgather_kernels": 0,
+              "dgrad_reduce_scatter_kernels": 128,
+              "dgrad_kernels": 128,
+              "wgrad_kernels": 128,
+              "bias_gradient_kernels": 128,
+              "allowed_workspace_memsets": {
+                "cublas_4byte": 256,
+                "qkv_bias_48byte": 128
+              },
+              "median_us": {
+                "forward_cpu_us": 303.647,
+                "backward_cpu_us": 430.7975,
+                "forward_allgather_us": 300.783,
+                "dgrad_us": 41.888,
+                "wgrad_us": 60.512,
+                "backward_allgather_us": 0.0,
+                "allgather_tail_after_dgrad_us": 0.0,
+                "allgather_dgrad_overlap_us": 0.0,
+                "dgrad_end_to_reduce_scatter_us": 4.95947265625,
+                "allgather_end_to_reduce_scatter_us": 0.0,
+                "gpu_chain_us": 876.430908203125
+              },
+              "sum_ms": {
+                "forward_cpu_us": 39.018192999999975,
+                "backward_cpu_us": 56.443952,
+                "forward_allgather_us": 39.692810000000016,
+                "dgrad_us": 5.363613000000002,
+                "wgrad_us": 7.742709999999997,
+                "backward_allgather_us": 0.0,
+                "allgather_tail_after_dgrad_us": 0.0,
+                "allgather_dgrad_overlap_us": 0.0,
+                "dgrad_end_to_reduce_scatter_us": 0.6408232421875,
+                "allgather_end_to_reduce_scatter_us": 0.0,
+                "gpu_chain_us": 113.3861201171875
+              }
+            },
+            "fc1": {
+              "calls": 128,
+              "forward_allgather_kernels": 128,
+              "backward_allgather_kernels": 0,
+              "dgrad_reduce_scatter_kernels": 128,
+              "dgrad_kernels": 128,
+              "wgrad_kernels": 128,
+              "bias_gradient_kernels": 0,
+              "allowed_workspace_memsets": {
+                "cublas_4byte": 256
+              },
+              "median_us": {
+                "forward_cpu_us": 268.7585,
+                "backward_cpu_us": 364.31600000000003,
+                "forward_allgather_us": 345.67949999999996,
+                "dgrad_us": 48.367999999999995,
+                "wgrad_us": 72.192,
+                "backward_allgather_us": 0.0,
+                "allgather_tail_after_dgrad_us": 0.0,
+                "allgather_dgrad_overlap_us": 0.0,
+                "dgrad_end_to_reduce_scatter_us": 5.535888671875,
+                "allgather_end_to_reduce_scatter_us": 0.0,
+                "gpu_chain_us": 470.766845703125
+              },
+              "sum_ms": {
+                "forward_cpu_us": 42.37003699999999,
+                "backward_cpu_us": 46.91926200000004,
+                "forward_allgather_us": 46.00519300000001,
+                "dgrad_us": 6.333337999999996,
+                "wgrad_us": 9.247470999999999,
+                "backward_allgather_us": 0.0,
+                "allgather_tail_after_dgrad_us": 0.0,
+                "allgather_dgrad_overlap_us": 0.0,
+                "dgrad_end_to_reduce_scatter_us": 0.66690576171875,
+                "allgather_end_to_reduce_scatter_us": 0.0,
+                "gpu_chain_us": 61.3543095703125
+              }
+            }
+          },
+          "column_calls": 256,
+          "retained_forward_allgathers": 256,
+          "backward_allgathers": 0,
+          "retained_reduce_scatters": 256,
+          "no_gpu_copies": true,
+          "original_gemm_order_and_streams": true,
+          "attribution": "raw_autograd_sequence_and_fixed_topology_v2",
+          "original_vocabulary_heads": {
+            "calls": 4,
+            "original_autograd_class": "LinearWithGradAccumulationAndAsyncCommunication",
+            "forward_allgather_kernels": 4,
+            "backward_allgather_kernels": 4,
+            "reduce_scatter_kernels": 4,
+            "excluded_from_target_column_counts": true
+          },
+          "per_call_wrappers_and_annotations": false
+        },
+        "zero_count": {
+          "arm": "F4-cache-zcount",
+          "candidate": true,
+          "rank": 4,
+          "eligible_parameter_count": 194,
+          "original_count_nonzero_calls": 0,
+          "kernel_families": {
+            "fused_chunks": 1,
+            "fused_ordered_total": 1,
+            "allreduce": 1
+          },
+          "compute_kernel_calls": 2,
+          "original_allreduce_calls": 1,
+          "scalar_readbacks": 1,
+          "allowed_original_reduction_memsets": 0,
+          "cpu_statistic_span_ms": 5.818708,
+          "gpu_compute_work_ms": 1.094271,
+          "gpu_allreduce_ms": 1.7481579999999999,
+          "gpu_statistic_span_ms": 2.8520283203125,
+          "optimizer_after_statistic": true,
+          "limitation": "Profile proves execution and dependencies; timings are not unprofiled step savings.",
+          "optimizer_source_arm": "F4-zcount"
+        },
+        "attention_softmax": {
+          "arm": "F4-cache-zcount",
+          "candidate": false,
+          "forward_calls": 128,
+          "backward_calls": 128,
+          "original_qk_calls": 128,
+          "original_bmm_calls": 640,
+          "microbatches": 4,
+          "softmax_compute_kernel_calls": 640,
+          "compute_stream": 7,
+          "original_softmax_calls": 128,
+          "original_softmax_backward_calls": 128,
+          "attention_view_replays": 128,
+          "copy_slices_calls": 132,
+          "global_masked_fill_calls": 276,
+          "global_mul_calls": 660,
+          "gpu_work_ms": {
+            "forward_mask": 6.206298999999999,
+            "forward_softmax": 14.406188,
+            "as_strided_device": 4.568433999999999,
+            "copy_slices_device": 11.909079000000007,
+            "backward_product": 4.576922999999998,
+            "backward_softmax": 4.8134630000000005,
+            "backward_mask": 6.669182000000002
+          },
+          "view_replay_cpu_ms": {
+            "as_strided": 8.192386000000003,
+            "copy_slices": 14.155505999999999
+          },
+          "view_replay_device": {
+            "as_strided": {
+              "kernel_calls": 128,
+              "kernel_ms": 1.4052700000000007,
+              "gpu_memcpy_calls": 128,
+              "gpu_memcpy_ms": 3.1631639999999996,
+              "gpu_memcpy_bytes": 4294967296
+            },
+            "copy_slices": {
+              "gpu_memcpy_calls": 512,
+              "gpu_memcpy_ms": 11.90907900000001,
+              "gpu_memcpy_bytes": 17179869184
+            }
+          },
+          "gpu_work_accounting": "Named GPU families have disjoint launch ownership; view replay includes kernel/memcpy/memset and excludes its separately counted backward mask kernel. Their work sum is not a wall-clock critical-path interval.",
+          "limitation": "Profile GPU work and CPU intervals overlap and are perturbed; they are not additive critical-path time or unprofiled step savings."
+        }
+      },
+      "global_cpu_counts": {
+        "aten::masked_fill_": 276,
+        "aten::mul": 660,
+        "MaskedFillBackward0": 128,
+        "AsStridedBackward0": 128,
+        "torch::autograd::CopySlices": 132
+      }
+    },
+    {
+      "rank": 5,
+      "path": "logs/h100/phase6/ma89-v1-cache-zcount-1x-50steps-20261027-104719-859382/fullstep/results/profile-F4-cache-zcount/rank5-profile.json.gz",
+      "sha256": "fec355927870f69eb5d70a20f9c5f04242d4926927e5677005f496c7f5a8d466",
+      "integration": "ma11_fullstep.trace_projection_records",
+      "evidence": {
+        "attn": {
+          "projection_calls": 128,
+          "publication_barriers": 128,
+          "consumer_add_kernels": 0,
+          "layernorm_successors": 128,
+          "fused_consumer": true,
+          "launch": {
+            "gemm_grid": [
+              512,
+              1,
+              1
+            ],
+            "gemm_block": [
+              128,
+              1,
+              1
+            ],
+            "decoder_grid": [
+              2048,
+              1,
+              1
+            ],
+            "decoder_block": [
+              128,
+              1,
+              1
+            ],
+            "decoder_rows": 1,
+            "receiver_variant": 0,
+            "decoder_kernel": "taco_ma4f_decode_consumer_kernel"
+          },
+          "cpu_us": 109.2755,
+          "decoder_us": 11.296,
+          "decoder_start_to_layernorm_end_us": 30.656005859375,
+          "gemm_end_to_layernorm_end_us": 515.05615234375,
+          "backward": {
+            "backward_calls": 128,
+            "bias_kernels": 128,
+            "allgather_kernels": 128,
+            "dgrad_kernels": 128,
+            "wgrad_kernels": 128,
+            "gather_schedule": "baseline",
+            "allowed_cublas_4byte_memsets": 0,
+            "no_gpu_copies": true,
+            "original_order_and_streams": true,
+            "median_us": {
+              "backward_cpu_us": 349.173,
+              "bias_us": 8.912,
+              "allgather_us": 493.53549999999996,
+              "dgrad_us": 17.089,
+              "wgrad_us": 16.8
+            }
+          }
+        },
+        "mlp": {
+          "projection_calls": 128,
+          "publication_barriers": 128,
+          "consumer_add_kernels": 0,
+          "layernorm_successors": 128,
+          "fused_consumer": true,
+          "launch": {
+            "gemm_grid": [
+              512,
+              1,
+              1
+            ],
+            "gemm_block": [
+              128,
+              1,
+              1
+            ],
+            "decoder_grid": [
+              2048,
+              1,
+              1
+            ],
+            "decoder_block": [
+              128,
+              1,
+              1
+            ],
+            "decoder_rows": 1,
+            "receiver_variant": 0,
+            "decoder_kernel": "taco_ma4f_decode_consumer_kernel"
+          },
+          "cpu_us": 109.5365,
+          "decoder_us": 11.872,
+          "decoder_start_to_layernorm_end_us": 30.97607421875,
+          "gemm_end_to_layernorm_end_us": 262.75146484375,
+          "backward": {
+            "backward_calls": 128,
+            "bias_kernels": 128,
+            "allgather_kernels": 128,
+            "dgrad_kernels": 128,
+            "wgrad_kernels": 128,
+            "gather_schedule": "baseline",
+            "allowed_cublas_4byte_memsets": 128,
+            "no_gpu_copies": true,
+            "original_order_and_streams": true,
+            "median_us": {
+              "backward_cpu_us": 359.6905,
+              "bias_us": 8.928,
+              "allgather_us": 566.688,
+              "dgrad_us": 46.704,
+              "wgrad_us": 50.176
+            }
+          }
+        },
+        "activation_cache": {
+          "roles": {
+            "qkv": {
+              "calls": 128,
+              "forward_allgather_kernels": 128,
+              "backward_allgather_kernels": 0,
+              "dgrad_reduce_scatter_kernels": 128,
+              "dgrad_kernels": 128,
+              "wgrad_kernels": 128,
+              "bias_gradient_kernels": 128,
+              "allowed_workspace_memsets": {
+                "cublas_4byte": 256,
+                "qkv_bias_48byte": 128
+              },
+              "median_us": {
+                "forward_cpu_us": 305.461,
+                "backward_cpu_us": 431.71349999999995,
+                "forward_allgather_us": 294.047,
+                "dgrad_us": 41.775999999999996,
+                "wgrad_us": 60.096,
+                "backward_allgather_us": 0.0,
+                "allgather_tail_after_dgrad_us": 0.0,
+                "allgather_dgrad_overlap_us": 0.0,
+                "dgrad_end_to_reduce_scatter_us": 5.2802734375,
+                "allgather_end_to_reduce_scatter_us": 0.0,
+                "gpu_chain_us": 875.406982421875
+              },
+              "sum_ms": {
+                "forward_cpu_us": 50.958924,
+                "backward_cpu_us": 55.400420000000004,
+                "forward_allgather_us": 35.28353399999999,
+                "dgrad_us": 5.3517990000000015,
+                "wgrad_us": 7.672567999999995,
+                "backward_allgather_us": 0.0,
+                "allgather_tail_after_dgrad_us": 0.0,
+                "allgather_dgrad_overlap_us": 0.0,
+                "dgrad_end_to_reduce_scatter_us": 1.19760205078125,
+                "allgather_end_to_reduce_scatter_us": 0.0,
+                "gpu_chain_us": 110.68813232421876
+              }
+            },
+            "fc1": {
+              "calls": 128,
+              "forward_allgather_kernels": 128,
+              "backward_allgather_kernels": 0,
+              "dgrad_reduce_scatter_kernels": 128,
+              "dgrad_kernels": 128,
+              "wgrad_kernels": 128,
+              "bias_gradient_kernels": 0,
+              "allowed_workspace_memsets": {
+                "cublas_4byte": 256
+              },
+              "median_us": {
+                "forward_cpu_us": 276.4115,
+                "backward_cpu_us": 374.37350000000004,
+                "forward_allgather_us": 338.2715,
+                "dgrad_us": 48.512,
+                "wgrad_us": 71.68,
+                "backward_allgather_us": 0.0,
+                "allgather_tail_after_dgrad_us": 0.0,
+                "allgather_dgrad_overlap_us": 0.0,
+                "dgrad_end_to_reduce_scatter_us": 5.66455078125,
+                "allgather_end_to_reduce_scatter_us": 0.0,
+                "gpu_chain_us": 470.671875
+              },
+              "sum_ms": {
+                "forward_cpu_us": 38.385699999999986,
+                "backward_cpu_us": 48.661092,
+                "forward_allgather_us": 40.165513999999995,
+                "dgrad_us": 6.322678,
+                "wgrad_us": 9.143375000000002,
+                "backward_allgather_us": 0.0,
+                "allgather_tail_after_dgrad_us": 0.0,
+                "allgather_dgrad_overlap_us": 0.0,
+                "dgrad_end_to_reduce_scatter_us": 1.00988720703125,
+                "allgather_end_to_reduce_scatter_us": 0.0,
+                "gpu_chain_us": 60.95623828125
+              }
+            }
+          },
+          "column_calls": 256,
+          "retained_forward_allgathers": 256,
+          "backward_allgathers": 0,
+          "retained_reduce_scatters": 256,
+          "no_gpu_copies": true,
+          "original_gemm_order_and_streams": true,
+          "attribution": "raw_autograd_sequence_and_fixed_topology_v2",
+          "original_vocabulary_heads": {
+            "calls": 4,
+            "original_autograd_class": "LinearWithGradAccumulationAndAsyncCommunication",
+            "forward_allgather_kernels": 4,
+            "backward_allgather_kernels": 4,
+            "reduce_scatter_kernels": 4,
+            "excluded_from_target_column_counts": true
+          },
+          "per_call_wrappers_and_annotations": false
+        },
+        "zero_count": {
+          "arm": "F4-cache-zcount",
+          "candidate": true,
+          "rank": 5,
+          "eligible_parameter_count": 194,
+          "original_count_nonzero_calls": 0,
+          "kernel_families": {
+            "fused_chunks": 1,
+            "fused_ordered_total": 1,
+            "allreduce": 1
+          },
+          "compute_kernel_calls": 2,
+          "original_allreduce_calls": 1,
+          "scalar_readbacks": 1,
+          "allowed_original_reduction_memsets": 0,
+          "cpu_statistic_span_ms": 5.833901,
+          "gpu_compute_work_ms": 1.0970540000000002,
+          "gpu_allreduce_ms": 1.735422,
+          "gpu_statistic_span_ms": 2.84214013671875,
+          "optimizer_after_statistic": true,
+          "limitation": "Profile proves execution and dependencies; timings are not unprofiled step savings.",
+          "optimizer_source_arm": "F4-zcount"
+        },
+        "attention_softmax": {
+          "arm": "F4-cache-zcount",
+          "candidate": false,
+          "forward_calls": 128,
+          "backward_calls": 128,
+          "original_qk_calls": 128,
+          "original_bmm_calls": 640,
+          "microbatches": 4,
+          "softmax_compute_kernel_calls": 640,
+          "compute_stream": 7,
+          "original_softmax_calls": 128,
+          "original_softmax_backward_calls": 128,
+          "attention_view_replays": 128,
+          "copy_slices_calls": 132,
+          "global_masked_fill_calls": 276,
+          "global_mul_calls": 660,
+          "gpu_work_ms": {
+            "forward_mask": 6.20287,
+            "forward_softmax": 14.389330000000001,
+            "as_strided_device": 4.557534999999999,
+            "copy_slices_device": 11.916558999999996,
+            "backward_product": 4.574388000000001,
+            "backward_softmax": 4.820211,
+            "backward_mask": 6.657266999999999
+          },
+          "view_replay_cpu_ms": {
+            "as_strided": 8.151294000000002,
+            "copy_slices": 13.936883000000007
+          },
+          "view_replay_device": {
+            "as_strided": {
+              "kernel_calls": 128,
+              "kernel_ms": 1.4021760000000005,
+              "gpu_memcpy_calls": 128,
+              "gpu_memcpy_ms": 3.1553589999999994,
+              "gpu_memcpy_bytes": 4294967296
+            },
+            "copy_slices": {
+              "gpu_memcpy_calls": 512,
+              "gpu_memcpy_ms": 11.916558999999987,
+              "gpu_memcpy_bytes": 17179869184
+            }
+          },
+          "gpu_work_accounting": "Named GPU families have disjoint launch ownership; view replay includes kernel/memcpy/memset and excludes its separately counted backward mask kernel. Their work sum is not a wall-clock critical-path interval.",
+          "limitation": "Profile GPU work and CPU intervals overlap and are perturbed; they are not additive critical-path time or unprofiled step savings."
+        }
+      },
+      "global_cpu_counts": {
+        "aten::masked_fill_": 276,
+        "aten::mul": 660,
+        "MaskedFillBackward0": 128,
+        "AsStridedBackward0": 128,
+        "torch::autograd::CopySlices": 132
+      }
+    },
+    {
+      "rank": 6,
+      "path": "logs/h100/phase6/ma89-v1-cache-zcount-1x-50steps-20261027-104719-859382/fullstep/results/profile-F4-cache-zcount/rank6-profile.json.gz",
+      "sha256": "0bd9995b2ce55ab0e87ad4e62a120b51a702876400a1fd911b78aa9cfef5e220",
+      "integration": "ma11_fullstep.trace_projection_records",
+      "evidence": {
+        "attn": {
+          "projection_calls": 128,
+          "publication_barriers": 128,
+          "consumer_add_kernels": 0,
+          "layernorm_successors": 128,
+          "fused_consumer": true,
+          "launch": {
+            "gemm_grid": [
+              512,
+              1,
+              1
+            ],
+            "gemm_block": [
+              128,
+              1,
+              1
+            ],
+            "decoder_grid": [
+              2048,
+              1,
+              1
+            ],
+            "decoder_block": [
+              128,
+              1,
+              1
+            ],
+            "decoder_rows": 1,
+            "receiver_variant": 0,
+            "decoder_kernel": "taco_ma4f_decode_consumer_kernel"
+          },
+          "cpu_us": 108.803,
+          "decoder_us": 11.168,
+          "decoder_start_to_layernorm_end_us": 30.30419921875,
+          "gemm_end_to_layernorm_end_us": 525.21435546875,
+          "backward": {
+            "backward_calls": 128,
+            "bias_kernels": 128,
+            "allgather_kernels": 128,
+            "dgrad_kernels": 128,
+            "wgrad_kernels": 128,
+            "gather_schedule": "baseline",
+            "allowed_cublas_4byte_memsets": 0,
+            "no_gpu_copies": true,
+            "original_order_and_streams": true,
+            "median_us": {
+              "backward_cpu_us": 361.1175,
+              "bias_us": 8.9285,
+              "allgather_us": 496.4465,
+              "dgrad_us": 17.408,
+              "wgrad_us": 16.544
+            }
+          }
+        },
+        "mlp": {
+          "projection_calls": 128,
+          "publication_barriers": 128,
+          "consumer_add_kernels": 0,
+          "layernorm_successors": 128,
+          "fused_consumer": true,
+          "launch": {
+            "gemm_grid": [
+              512,
+              1,
+              1
+            ],
+            "gemm_block": [
+              128,
+              1,
+              1
+            ],
+            "decoder_grid": [
+              2048,
+              1,
+              1
+            ],
+            "decoder_block": [
+              128,
+              1,
+              1
+            ],
+            "decoder_rows": 1,
+            "receiver_variant": 0,
+            "decoder_kernel": "taco_ma4f_decode_consumer_kernel"
+          },
+          "cpu_us": 108.1545,
+          "decoder_us": 11.616,
+          "decoder_start_to_layernorm_end_us": 30.56005859375,
+          "gemm_end_to_layernorm_end_us": 270.70361328125,
+          "backward": {
+            "backward_calls": 128,
+            "bias_kernels": 128,
+            "allgather_kernels": 128,
+            "dgrad_kernels": 128,
+            "wgrad_kernels": 128,
+            "gather_schedule": "baseline",
+            "allowed_cublas_4byte_memsets": 128,
+            "no_gpu_copies": true,
+            "original_order_and_streams": true,
+            "median_us": {
+              "backward_cpu_us": 352.086,
+              "bias_us": 8.96,
+              "allgather_us": 569.0225,
+              "dgrad_us": 46.24,
+              "wgrad_us": 49.567499999999995
+            }
+          }
+        },
+        "activation_cache": {
+          "roles": {
+            "qkv": {
+              "calls": 128,
+              "forward_allgather_kernels": 128,
+              "backward_allgather_kernels": 0,
+              "dgrad_reduce_scatter_kernels": 128,
+              "dgrad_kernels": 128,
+              "wgrad_kernels": 128,
+              "bias_gradient_kernels": 128,
+              "allowed_workspace_memsets": {
+                "cublas_4byte": 256,
+                "qkv_bias_48byte": 128
+              },
+              "median_us": {
+                "forward_cpu_us": 307.95550000000003,
+                "backward_cpu_us": 446.36199999999997,
+                "forward_allgather_us": 296.815,
+                "dgrad_us": 42.288,
+                "wgrad_us": 59.5355,
+                "backward_allgather_us": 0.0,
+                "allgather_tail_after_dgrad_us": 0.0,
+                "allgather_dgrad_overlap_us": 0.0,
+                "dgrad_end_to_reduce_scatter_us": 3.935302734375,
+                "allgather_end_to_reduce_scatter_us": 0.0,
+                "gpu_chain_us": 883.277587890625
+              },
+              "sum_ms": {
+                "forward_cpu_us": 39.53067900000003,
+                "backward_cpu_us": 57.23265499999999,
+                "forward_allgather_us": 39.27933599999999,
+                "dgrad_us": 5.41509,
+                "wgrad_us": 7.625223000000005,
+                "backward_allgather_us": 0.0,
+                "allgather_tail_after_dgrad_us": 0.0,
+                "allgather_dgrad_overlap_us": 0.0,
+                "dgrad_end_to_reduce_scatter_us": 0.50537939453125,
+                "allgather_end_to_reduce_scatter_us": 0.0,
+                "gpu_chain_us": 114.23253662109374
+              }
+            },
+            "fc1": {
+              "calls": 128,
+              "forward_allgather_kernels": 128,
+              "backward_allgather_kernels": 0,
+              "dgrad_reduce_scatter_kernels": 128,
+              "dgrad_kernels": 128,
+              "wgrad_kernels": 128,
+              "bias_gradient_kernels": 0,
+              "allowed_workspace_memsets": {
+                "cublas_4byte": 256
+              },
+              "median_us": {
+                "forward_cpu_us": 278.0585,
+                "backward_cpu_us": 374.347,
+                "forward_allgather_us": 339.743,
+                "dgrad_us": 51.5205,
+                "wgrad_us": 70.8315,
+                "backward_allgather_us": 0.0,
+                "allgather_tail_after_dgrad_us": 0.0,
+                "allgather_dgrad_overlap_us": 0.0,
+                "dgrad_end_to_reduce_scatter_us": 3.296630859375,
+                "allgather_end_to_reduce_scatter_us": 0.0,
+                "gpu_chain_us": 475.64697265625
+              },
+              "sum_ms": {
+                "forward_cpu_us": 37.90196099999999,
+                "backward_cpu_us": 49.08640900000002,
+                "forward_allgather_us": 45.569228999999986,
+                "dgrad_us": 6.539634999999996,
+                "wgrad_us": 9.065070999999998,
+                "backward_allgather_us": 0.0,
+                "allgather_tail_after_dgrad_us": 0.0,
+                "allgather_dgrad_overlap_us": 0.0,
+                "dgrad_end_to_reduce_scatter_us": 0.46971875,
+                "allgather_end_to_reduce_scatter_us": 0.0,
+                "gpu_chain_us": 62.0330380859375
+              }
+            }
+          },
+          "column_calls": 256,
+          "retained_forward_allgathers": 256,
+          "backward_allgathers": 0,
+          "retained_reduce_scatters": 256,
+          "no_gpu_copies": true,
+          "original_gemm_order_and_streams": true,
+          "attribution": "raw_autograd_sequence_and_fixed_topology_v2",
+          "original_vocabulary_heads": {
+            "calls": 4,
+            "original_autograd_class": "LinearWithGradAccumulationAndAsyncCommunication",
+            "forward_allgather_kernels": 4,
+            "backward_allgather_kernels": 4,
+            "reduce_scatter_kernels": 4,
+            "excluded_from_target_column_counts": true
+          },
+          "per_call_wrappers_and_annotations": false
+        },
+        "zero_count": {
+          "arm": "F4-cache-zcount",
+          "candidate": true,
+          "rank": 6,
+          "eligible_parameter_count": 194,
+          "original_count_nonzero_calls": 0,
+          "kernel_families": {
+            "fused_chunks": 1,
+            "fused_ordered_total": 1,
+            "allreduce": 1
+          },
+          "compute_kernel_calls": 2,
+          "original_allreduce_calls": 1,
+          "scalar_readbacks": 1,
+          "allowed_original_reduction_memsets": 0,
+          "cpu_statistic_span_ms": 5.865426,
+          "gpu_compute_work_ms": 1.0965420000000001,
+          "gpu_allreduce_ms": 1.803067,
+          "gpu_statistic_span_ms": 2.9086328125,
+          "optimizer_after_statistic": true,
+          "limitation": "Profile proves execution and dependencies; timings are not unprofiled step savings.",
+          "optimizer_source_arm": "F4-zcount"
+        },
+        "attention_softmax": {
+          "arm": "F4-cache-zcount",
+          "candidate": false,
+          "forward_calls": 128,
+          "backward_calls": 128,
+          "original_qk_calls": 128,
+          "original_bmm_calls": 640,
+          "microbatches": 4,
+          "softmax_compute_kernel_calls": 640,
+          "compute_stream": 7,
+          "original_softmax_calls": 128,
+          "original_softmax_backward_calls": 128,
+          "attention_view_replays": 128,
+          "copy_slices_calls": 132,
+          "global_masked_fill_calls": 276,
+          "global_mul_calls": 660,
+          "gpu_work_ms": {
+            "forward_mask": 6.193389,
+            "forward_softmax": 14.396254999999996,
+            "as_strided_device": 4.566651000000003,
+            "copy_slices_device": 11.914296000000002,
+            "backward_product": 4.5757970000000014,
+            "backward_softmax": 4.814928,
+            "backward_mask": 6.664661
+          },
+          "view_replay_cpu_ms": {
+            "as_strided": 8.320327000000004,
+            "copy_slices": 13.956037000000007
+          },
+          "view_replay_device": {
+            "as_strided": {
+              "kernel_calls": 128,
+              "kernel_ms": 1.399966,
+              "gpu_memcpy_calls": 128,
+              "gpu_memcpy_ms": 3.1666849999999998,
+              "gpu_memcpy_bytes": 4294967296
+            },
+            "copy_slices": {
+              "gpu_memcpy_calls": 512,
+              "gpu_memcpy_ms": 11.914296000000007,
+              "gpu_memcpy_bytes": 17179869184
+            }
+          },
+          "gpu_work_accounting": "Named GPU families have disjoint launch ownership; view replay includes kernel/memcpy/memset and excludes its separately counted backward mask kernel. Their work sum is not a wall-clock critical-path interval.",
+          "limitation": "Profile GPU work and CPU intervals overlap and are perturbed; they are not additive critical-path time or unprofiled step savings."
+        }
+      },
+      "global_cpu_counts": {
+        "aten::masked_fill_": 276,
+        "aten::mul": 660,
+        "MaskedFillBackward0": 128,
+        "AsStridedBackward0": 128,
+        "torch::autograd::CopySlices": 132
+      }
+    },
+    {
+      "rank": 7,
+      "path": "logs/h100/phase6/ma89-v1-cache-zcount-1x-50steps-20261027-104719-859382/fullstep/results/profile-F4-cache-zcount/rank7-profile.json.gz",
+      "sha256": "7e2bd018655b98d0b53a59689fadb269ea4732502e47307b85c5fd23245949ec",
+      "integration": "ma11_fullstep.trace_projection_records",
+      "evidence": {
+        "attn": {
+          "projection_calls": 128,
+          "publication_barriers": 128,
+          "consumer_add_kernels": 0,
+          "layernorm_successors": 128,
+          "fused_consumer": true,
+          "launch": {
+            "gemm_grid": [
+              512,
+              1,
+              1
+            ],
+            "gemm_block": [
+              128,
+              1,
+              1
+            ],
+            "decoder_grid": [
+              2048,
+              1,
+              1
+            ],
+            "decoder_block": [
+              128,
+              1,
+              1
+            ],
+            "decoder_rows": 1,
+            "receiver_variant": 0,
+            "decoder_kernel": "taco_ma4f_decode_consumer_kernel"
+          },
+          "cpu_us": 106.9315,
+          "decoder_us": 11.071,
+          "decoder_start_to_layernorm_end_us": 30.43212890625,
+          "gemm_end_to_layernorm_end_us": 528.270263671875,
+          "backward": {
+            "backward_calls": 128,
+            "bias_kernels": 128,
+            "allgather_kernels": 128,
+            "dgrad_kernels": 128,
+            "wgrad_kernels": 128,
+            "gather_schedule": "baseline",
+            "allowed_cublas_4byte_memsets": 0,
+            "no_gpu_copies": true,
+            "original_order_and_streams": true,
+            "median_us": {
+              "backward_cpu_us": 346.507,
+              "bias_us": 8.912,
+              "allgather_us": 491.918,
+              "dgrad_us": 17.056,
+              "wgrad_us": 16.736
+            }
+          }
+        },
+        "mlp": {
+          "projection_calls": 128,
+          "publication_barriers": 128,
+          "consumer_add_kernels": 0,
+          "layernorm_successors": 128,
+          "fused_consumer": true,
+          "launch": {
+            "gemm_grid": [
+              512,
+              1,
+              1
+            ],
+            "gemm_block": [
+              128,
+              1,
+              1
+            ],
+            "decoder_grid": [
+              2048,
+              1,
+              1
+            ],
+            "decoder_block": [
+              128,
+              1,
+              1
+            ],
+            "decoder_rows": 1,
+            "receiver_variant": 0,
+            "decoder_kernel": "taco_ma4f_decode_consumer_kernel"
+          },
+          "cpu_us": 106.815,
+          "decoder_us": 11.488,
+          "decoder_start_to_layernorm_end_us": 30.68701171875,
+          "gemm_end_to_layernorm_end_us": 275.695556640625,
+          "backward": {
+            "backward_calls": 128,
+            "bias_kernels": 128,
+            "allgather_kernels": 128,
+            "dgrad_kernels": 128,
+            "wgrad_kernels": 128,
+            "gather_schedule": "baseline",
+            "allowed_cublas_4byte_memsets": 128,
+            "no_gpu_copies": true,
+            "original_order_and_streams": true,
+            "median_us": {
+              "backward_cpu_us": 355.88800000000003,
+              "bias_us": 8.864,
+              "allgather_us": 566.318,
+              "dgrad_us": 46.559,
+              "wgrad_us": 49.7595
+            }
+          }
+        },
+        "activation_cache": {
+          "roles": {
+            "qkv": {
+              "calls": 128,
+              "forward_allgather_kernels": 128,
+              "backward_allgather_kernels": 0,
+              "dgrad_reduce_scatter_kernels": 128,
+              "dgrad_kernels": 128,
+              "wgrad_kernels": 128,
+              "bias_gradient_kernels": 128,
+              "allowed_workspace_memsets": {
+                "cublas_4byte": 256,
+                "qkv_bias_48byte": 128
+              },
+              "median_us": {
+                "forward_cpu_us": 297.469,
+                "backward_cpu_us": 428.2045,
+                "forward_allgather_us": 288.623,
+                "dgrad_us": 41.935500000000005,
+                "wgrad_us": 59.84,
+                "backward_allgather_us": 0.0,
+                "allgather_tail_after_dgrad_us": 0.0,
+                "allgather_dgrad_overlap_us": 0.0,
+                "dgrad_end_to_reduce_scatter_us": 5.35986328125,
+                "allgather_end_to_reduce_scatter_us": 0.0,
+                "gpu_chain_us": 879.388427734375
+              },
+              "sum_ms": {
+                "forward_cpu_us": 40.37634899999998,
+                "backward_cpu_us": 54.802589,
+                "forward_allgather_us": 38.293957,
+                "dgrad_us": 5.368779999999999,
+                "wgrad_us": 7.664035000000002,
+                "backward_allgather_us": 0.0,
+                "allgather_tail_after_dgrad_us": 0.0,
+                "allgather_dgrad_overlap_us": 0.0,
+                "dgrad_end_to_reduce_scatter_us": 0.68640087890625,
+                "allgather_end_to_reduce_scatter_us": 0.0,
+                "gpu_chain_us": 113.7081162109375
+              }
+            },
+            "fc1": {
+              "calls": 128,
+              "forward_allgather_kernels": 128,
+              "backward_allgather_kernels": 0,
+              "dgrad_reduce_scatter_kernels": 128,
+              "dgrad_kernels": 128,
+              "wgrad_kernels": 128,
+              "bias_gradient_kernels": 0,
+              "allowed_workspace_memsets": {
+                "cublas_4byte": 256
+              },
+              "median_us": {
+                "forward_cpu_us": 268.0265,
+                "backward_cpu_us": 368.06050000000005,
+                "forward_allgather_us": 331.9185,
+                "dgrad_us": 48.448,
+                "wgrad_us": 71.424,
+                "backward_allgather_us": 0.0,
+                "allgather_tail_after_dgrad_us": 0.0,
+                "allgather_dgrad_overlap_us": 0.0,
+                "dgrad_end_to_reduce_scatter_us": 5.679931640625,
+                "allgather_end_to_reduce_scatter_us": 0.0,
+                "gpu_chain_us": 474.0458984375
+              },
+              "sum_ms": {
+                "forward_cpu_us": 34.377126999999994,
+                "backward_cpu_us": 46.798435999999995,
+                "forward_allgather_us": 44.61773400000002,
+                "dgrad_us": 6.315777999999997,
+                "wgrad_us": 9.148049999999998,
+                "backward_allgather_us": 0.0,
+                "allgather_tail_after_dgrad_us": 0.0,
+                "allgather_dgrad_overlap_us": 0.0,
+                "dgrad_end_to_reduce_scatter_us": 0.727419921875,
+                "allgather_end_to_reduce_scatter_us": 0.0,
+                "gpu_chain_us": 61.73961376953125
+              }
+            }
+          },
+          "column_calls": 256,
+          "retained_forward_allgathers": 256,
+          "backward_allgathers": 0,
+          "retained_reduce_scatters": 256,
+          "no_gpu_copies": true,
+          "original_gemm_order_and_streams": true,
+          "attribution": "raw_autograd_sequence_and_fixed_topology_v2",
+          "original_vocabulary_heads": {
+            "calls": 4,
+            "original_autograd_class": "LinearWithGradAccumulationAndAsyncCommunication",
+            "forward_allgather_kernels": 4,
+            "backward_allgather_kernels": 4,
+            "reduce_scatter_kernels": 4,
+            "excluded_from_target_column_counts": true
+          },
+          "per_call_wrappers_and_annotations": false
+        },
+        "zero_count": {
+          "arm": "F4-cache-zcount",
+          "candidate": true,
+          "rank": 7,
+          "eligible_parameter_count": 194,
+          "original_count_nonzero_calls": 0,
+          "kernel_families": {
+            "fused_chunks": 1,
+            "fused_ordered_total": 1,
+            "allreduce": 1
+          },
+          "compute_kernel_calls": 2,
+          "original_allreduce_calls": 1,
+          "scalar_readbacks": 1,
+          "allowed_original_reduction_memsets": 0,
+          "cpu_statistic_span_ms": 5.864734,
+          "gpu_compute_work_ms": 1.095323,
+          "gpu_allreduce_ms": 1.930169,
+          "gpu_statistic_span_ms": 3.0337802734375,
+          "optimizer_after_statistic": true,
+          "limitation": "Profile proves execution and dependencies; timings are not unprofiled step savings.",
+          "optimizer_source_arm": "F4-zcount"
+        },
+        "attention_softmax": {
+          "arm": "F4-cache-zcount",
+          "candidate": false,
+          "forward_calls": 128,
+          "backward_calls": 128,
+          "original_qk_calls": 128,
+          "original_bmm_calls": 640,
+          "microbatches": 4,
+          "softmax_compute_kernel_calls": 640,
+          "compute_stream": 7,
+          "original_softmax_calls": 128,
+          "original_softmax_backward_calls": 128,
+          "attention_view_replays": 128,
+          "copy_slices_calls": 132,
+          "global_masked_fill_calls": 276,
+          "global_mul_calls": 660,
+          "gpu_work_ms": {
+            "forward_mask": 6.2036199999999955,
+            "forward_softmax": 14.384169000000002,
+            "as_strided_device": 4.5739709999999985,
+            "copy_slices_device": 11.894608000000003,
+            "backward_product": 4.5789930000000005,
+            "backward_softmax": 4.817906000000001,
+            "backward_mask": 6.6263770000000015
+          },
+          "view_replay_cpu_ms": {
+            "as_strided": 7.925340999999999,
+            "copy_slices": 13.868897
+          },
+          "view_replay_device": {
+            "as_strided": {
+              "kernel_calls": 128,
+              "kernel_ms": 1.404031000000001,
+              "gpu_memcpy_calls": 128,
+              "gpu_memcpy_ms": 3.16994,
+              "gpu_memcpy_bytes": 4294967296
+            },
+            "copy_slices": {
+              "gpu_memcpy_calls": 512,
+              "gpu_memcpy_ms": 11.894607999999998,
+              "gpu_memcpy_bytes": 17179869184
+            }
+          },
+          "gpu_work_accounting": "Named GPU families have disjoint launch ownership; view replay includes kernel/memcpy/memset and excludes its separately counted backward mask kernel. Their work sum is not a wall-clock critical-path interval.",
+          "limitation": "Profile GPU work and CPU intervals overlap and are perturbed; they are not additive critical-path time or unprofiled step savings."
+        }
+      },
+      "global_cpu_counts": {
+        "aten::masked_fill_": 276,
+        "aten::mul": 660,
+        "MaskedFillBackward0": 128,
+        "AsStridedBackward0": 128,
+        "torch::autograd::CopySlices": 132
+      }
+    }
+  ],
+  "median_gpu_work_ms": {
+    "forward_mask": 6.203244999999997,
+    "forward_softmax": 14.390708500000004,
+    "as_strided_device": 4.568439,
+    "copy_slices_device": 11.908206500000006,
+    "backward_product": 4.576359999999999,
+    "backward_softmax": 4.819058500000001,
+    "backward_mask": 6.6550235
+  },
+  "median_view_replay_cpu_ms": {
+    "as_strided": 8.177814,
+    "copy_slices": 13.946460000000007
+  },
+  "median_view_replay_device": {
+    "as_strided": {
+      "kernel_calls": 128.0,
+      "kernel_ms": 1.4046505000000007,
+      "gpu_memcpy_calls": 128.0,
+      "gpu_memcpy_ms": 3.1649244999999997,
+      "gpu_memcpy_bytes": 4294967296.0
+    },
+    "copy_slices": {
+      "gpu_memcpy_calls": 512.0,
+      "gpu_memcpy_ms": 11.908206500000013,
+      "gpu_memcpy_bytes": 17179869184.0
+    }
+  },
+  "candidate_gpu_tested": false,
+  "performance_target_validated": false,
+  "limitation": "Launch-correlated original MA89 profile events. CPU intervals overlap GPU work and profiler changes timing; no sum or difference is a prediction of unprofiled critical-path savings or proof of a 2% speedup."
+}

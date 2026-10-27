@@ -1,0 +1,280 @@
+{
+  "completed": true,
+  "gpu_used": false,
+  "gpu_validated": false,
+  "full_flux_linked": false,
+  "compiler": "/data/apps/cuda/12.8/bin/nvcc",
+  "arch": "sm_90",
+  "flags": [
+    "-std=c++17",
+    "-O2",
+    "--use_fast_math",
+    "--expt-relaxed-constexpr",
+    "--expt-extended-lambda"
+  ],
+  "checks": {
+    "runtime_object_compiled": true,
+    "producer_instantiated_compiled": true,
+    "original_producer_compiled": true,
+    "torch_wrapper_object_compiled": true,
+    "runtime_version_script_linked": true,
+    "runtime_library_loaded": true,
+    "all_ma12_and_ma9_exports_resolved": true,
+    "protocol_return": 1
+  },
+  "resources": {
+    "producer_baseline_and_candidate": {
+      "registers": 254,
+      "static_shared_bytes": 4096,
+      "spill_store_bytes": 0,
+      "spill_load_bytes": 0
+    },
+    "candidate_decoder": {
+      "registers": 40,
+      "stack_bytes": 8,
+      "spill_store_bytes": 0,
+      "spill_load_bytes": 0,
+      "compilation": "--use_fast_math, exact runtime flags; earlier diagnostic without fastmath used45 registers"
+    },
+    "wait_reuse": {
+      "registers": 6,
+      "spill_store_bytes": 0,
+      "spill_load_bytes": 0
+    },
+    "publish_done": {
+      "registers": 8,
+      "spill_store_bytes": 0,
+      "spill_load_bytes": 0
+    }
+  },
+  "source_sha256": {
+    "src/gemm_rs/taco_runtime.h": "169caae598ff8a57f03ff3953f555cfd82c5991db6f0d589beff37446d0023b3",
+    "src/gemm_rs/epilogue_evt.hpp": "29a404b01fb939de988a297bd4e134228fcf449e9c810345fc02fcbd97815778",
+    "src/gemm_rs/ma4_f_decode.cuh": "36c99955003a3929a8c720848712e70ff730d0948b13567f1acff23d65376c52",
+    "src/gemm_rs/ths_op/gemm_reduce_scatter.cc": "6cbcb3e018073c1851963e2ad89e01e7420ff40bb7a758e90e1c02221c3379ff",
+    "src/gemm_rs/ma12_tile_ready.cuh": "b9033f36c1328a44671681939731ec900cf1a9df5f58c28ba2b72c71eb43f7ca",
+    "src/gemm_rs/taco_runtime.cu": "9468bd62dd9262286022c6c04505bec62fff0814e20e808385c46b126278b3d2",
+    "src/cuda/version.ld": "004a2d1a1d7e7c8bc09e260627cc568cf691bfd971a5750a2fb7912fe7095a9e"
+  },
+  "inputs": {
+    "ma12_sources.py": "08ce6807c196586c31954486a7b364bdcc0922821171cbafc0d807b6688a85d4",
+    "ma12_tile_ready.cuh": "b9033f36c1328a44671681939731ec900cf1a9df5f58c28ba2b72c71eb43f7ca"
+  },
+  "log_sha256": {
+    "wrapper-compile.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "runtime-compile.log": "b75c08539f4d140e8022801dd6fd1c32d03d805c6101cb148acc33166df2f45c",
+    "producer-compile.log": "44ae9ea034f48156a7b3e790bac03db752191016ee2631a17f3908ac9e21144d",
+    "runtime-shared-compile.log": "fc4646f074d8e54b60dff0868c1606ac3764683471557ee0913c153ab158a4c8",
+    "baseline-producer-compile.log": "0776fa57728803dfb43fd1cfa68654bce6adea6f798176493f51490e86c97d77",
+    "runtime-versioned-compile.log": "2967f5ae0e44f0b761517cf09ace878abab29b42b3d89e6d0cb17e0f8b52e505"
+  },
+  "limitations": [
+    "No GPU kernel execution or multi-GPU numerical validation on this host.",
+    "Standalone runtime library linked; full Flux Python extension not linked.",
+    "Producer resource probe is compile evidence, not throughput or speed evidence."
+  ],
+  "commands": [
+    [
+      "/data/apps/cuda/12.8/bin/nvcc",
+      "-std=c++17",
+      "-O2",
+      "--use_fast_math",
+      "--expt-relaxed-constexpr",
+      "--expt-extended-lambda",
+      "-arch=sm_90",
+      "-Xptxas=-v,-warn-spills",
+      "-DFLUX_TACO_BASELINE",
+      "-I/tmp/ma12-native-source/candidate/src",
+      "-I/tmp/ma12-native-source/F4/src",
+      "-I/tmp/ma12-native-source/F4/include",
+      "-I/tmp/ma12-native-source/F4/3rdparty/cutlass/include",
+      "-I/tmp/ma12-native-source/F4/3rdparty/cutlass/tools/util/include",
+      "-c",
+      "/tmp/ma12-native-source/producer.cu",
+      "-o",
+      "/tmp/ma12-producer.o"
+    ],
+    [
+      "/data/apps/cuda/12.8/bin/nvcc",
+      "-std=c++17",
+      "-O2",
+      "--use_fast_math",
+      "--expt-relaxed-constexpr",
+      "--expt-extended-lambda",
+      "-arch=sm_90",
+      "-Xptxas=-v,-warn-spills",
+      "-DFLUX_TACO_BASELINE",
+      "-I/tmp/ma12-native-source/F4/src",
+      "-I/tmp/ma12-native-source/F4/include",
+      "-I/tmp/ma12-native-source/F4/3rdparty/cutlass/include",
+      "-I/tmp/ma12-native-source/F4/3rdparty/cutlass/tools/util/include",
+      "-c",
+      "/tmp/ma12-native-source/producer.cu",
+      "-o",
+      "/tmp/ma12-baseline-producer.o"
+    ],
+    [
+      "/data/apps/cuda/12.8/bin/nvcc",
+      "-std=c++17",
+      "-O2",
+      "--use_fast_math",
+      "--expt-relaxed-constexpr",
+      "--expt-extended-lambda",
+      "-arch=sm_90",
+      "-Xptxas=-v,-warn-spills",
+      "-I/tmp/ma12-native-source/candidate/src",
+      "-I/tmp/ma12-native-source/F4/src",
+      "-I/tmp/ma12-native-source/F4/include",
+      "-I/tmp/ma12-native-source/F4/3rdparty/cutlass/include",
+      "-I/tmp/ma12-native-source/F4/3rdparty/cutlass/tools/util/include",
+      "-Xcompiler=-fPIC",
+      "--shared",
+      "/tmp/ma12-native-source/candidate/src/gemm_rs/taco_runtime.cu",
+      "-Xlinker",
+      "--version-script=/tmp/ma12-native-source/candidate/src/cuda/version.ld",
+      "-o",
+      "/tmp/ma12-runtime-versioned.so"
+    ],
+    [
+      "g++",
+      "-std=c++17",
+      "-O0",
+      "-fPIC",
+      "-DFLUX_TACO_BASELINE",
+      "-D_GLIBCXX_USE_CXX11_ABI=0",
+      "-I/tmp/ma12-native-source/candidate/src",
+      "-I/tmp/ma12-native-source/F4/src",
+      "-I/tmp/ma12-native-source/F4/include",
+      "-I/data/apps/cuda/12.8/include",
+      "-I/tmp/ma12-native-source/F4/3rdparty/cutlass/include",
+      "-I/tmp/ma12-native-source/F4/3rdparty/cutlass/tools/util/include",
+      "-I/data/run01/scyb672/conda_envs/flux-megatron-a800/lib/python3.10/site-packages/torch/include",
+      "-I/data/run01/scyb672/conda_envs/flux-megatron-a800/lib/python3.10/site-packages/torch/include/torch/csrc/api/include",
+      "-I/data/run01/scyb672/conda_envs/flux-megatron-a800/include/python3.10",
+      "-c",
+      "/tmp/ma12-native-source/candidate/src/gemm_rs/ths_op/gemm_reduce_scatter.cc",
+      "-o",
+      "/tmp/ma12-wrapper.o"
+    ]
+  ],
+  "reproducer": "reproduce_native.py",
+  "reproducer_command": "python3 outputs/h100/phase6/ma12-validation-20261027/reproduce_native.py",
+  "executable_reproducer_passed": true,
+  "executable_reproducer_sha256": "ad341932972c3bd4a519c9cf91e03b96f28ce1e0181797bdc381b54011be1bc5",
+  "reproducer_commands": [
+    {
+      "name": "baseline-producer",
+      "argv": [
+        "/data/apps/cuda/12.8/bin/nvcc",
+        "-std=c++17",
+        "-O2",
+        "--use_fast_math",
+        "--expt-relaxed-constexpr",
+        "--expt-extended-lambda",
+        "-arch=sm_90",
+        "-Xptxas=-v,-warn-spills",
+        "-DFLUX_TACO_BASELINE",
+        "-I/tmp/ma12-native-reproducer-check/build/F4/src",
+        "-I/tmp/ma12-native-reproducer-check/build/F4/include",
+        "-I/tmp/ma12-native-reproducer-check/build/F4/3rdparty/cutlass/include",
+        "-I/tmp/ma12-native-reproducer-check/build/F4/3rdparty/cutlass/tools/util/include",
+        "-c",
+        "/tmp/ma12-native-reproducer-check/producer.cu",
+        "-o",
+        "/tmp/ma12-native-reproducer-check/baseline-producer.o"
+      ]
+    },
+    {
+      "name": "producer",
+      "argv": [
+        "/data/apps/cuda/12.8/bin/nvcc",
+        "-std=c++17",
+        "-O2",
+        "--use_fast_math",
+        "--expt-relaxed-constexpr",
+        "--expt-extended-lambda",
+        "-arch=sm_90",
+        "-Xptxas=-v,-warn-spills",
+        "-DFLUX_TACO_BASELINE",
+        "-I/tmp/ma12-native-reproducer-check/candidate/src",
+        "-I/tmp/ma12-native-reproducer-check/candidate/include",
+        "-I/tmp/ma12-native-reproducer-check/candidate/3rdparty/cutlass/include",
+        "-I/tmp/ma12-native-reproducer-check/candidate/3rdparty/cutlass/tools/util/include",
+        "-c",
+        "/tmp/ma12-native-reproducer-check/producer.cu",
+        "-o",
+        "/tmp/ma12-native-reproducer-check/producer.o"
+      ]
+    },
+    {
+      "name": "runtime",
+      "argv": [
+        "/data/apps/cuda/12.8/bin/nvcc",
+        "-std=c++17",
+        "-O2",
+        "--use_fast_math",
+        "--expt-relaxed-constexpr",
+        "--expt-extended-lambda",
+        "-arch=sm_90",
+        "-Xptxas=-v,-warn-spills",
+        "-I/tmp/ma12-native-reproducer-check/candidate/src",
+        "-I/tmp/ma12-native-reproducer-check/candidate/include",
+        "-I/tmp/ma12-native-reproducer-check/candidate/3rdparty/cutlass/include",
+        "-I/tmp/ma12-native-reproducer-check/candidate/3rdparty/cutlass/tools/util/include",
+        "-c",
+        "/tmp/ma12-native-reproducer-check/candidate/src/gemm_rs/taco_runtime.cu",
+        "-o",
+        "/tmp/ma12-native-reproducer-check/runtime.o"
+      ]
+    },
+    {
+      "name": "runtime-versioned",
+      "argv": [
+        "/data/apps/cuda/12.8/bin/nvcc",
+        "-std=c++17",
+        "-O2",
+        "--use_fast_math",
+        "--expt-relaxed-constexpr",
+        "--expt-extended-lambda",
+        "-arch=sm_90",
+        "-Xptxas=-v,-warn-spills",
+        "-I/tmp/ma12-native-reproducer-check/candidate/src",
+        "-I/tmp/ma12-native-reproducer-check/candidate/include",
+        "-I/tmp/ma12-native-reproducer-check/candidate/3rdparty/cutlass/include",
+        "-I/tmp/ma12-native-reproducer-check/candidate/3rdparty/cutlass/tools/util/include",
+        "-Xcompiler=-fPIC",
+        "--shared",
+        "/tmp/ma12-native-reproducer-check/candidate/src/gemm_rs/taco_runtime.cu",
+        "-Xlinker",
+        "--version-script=/tmp/ma12-native-reproducer-check/candidate/src/cuda/version.ld",
+        "-o",
+        "/tmp/ma12-native-reproducer-check/runtime.so"
+      ]
+    },
+    {
+      "name": "wrapper",
+      "argv": [
+        "g++",
+        "-std=c++17",
+        "-O0",
+        "-fPIC",
+        "-DFLUX_TACO_BASELINE",
+        "-D_GLIBCXX_USE_CXX11_ABI=0",
+        "-I/tmp/ma12-native-reproducer-check/candidate/src",
+        "-I/tmp/ma12-native-reproducer-check/candidate/include",
+        "-I/tmp/ma12-native-reproducer-check/candidate/3rdparty/cutlass/include",
+        "-I/tmp/ma12-native-reproducer-check/candidate/3rdparty/cutlass/tools/util/include",
+        "-I/data/apps/cuda/12.8/include",
+        "-I/data/run01/scyb672/conda_envs/flux-megatron-a800/lib/python3.10/site-packages/torch/include",
+        "-I/data/run01/scyb672/conda_envs/flux-megatron-a800/lib/python3.10/site-packages/torch/include/torch/csrc/api/include",
+        "-I/data/run01/scyb672/conda_envs/flux-megatron-a800/lib/python3.10/site-packages/torch/include/TH",
+        "-I/data/run01/scyb672/conda_envs/flux-megatron-a800/lib/python3.10/site-packages/torch/include/THC",
+        "-I/data/run01/scyb672/conda_envs/flux-megatron-a800/include/python3.10",
+        "-c",
+        "/tmp/ma12-native-reproducer-check/candidate/src/gemm_rs/ths_op/gemm_reduce_scatter.cc",
+        "-o",
+        "/tmp/ma12-native-reproducer-check/wrapper.o"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,86 @@
+{
+  "date": "2026-10-27",
+  "compiler": "/data/apps/cuda/12.8/bin/nvcc",
+  "arch": "sm90",
+  "source_sha256": "9c1327a5da9c579e93713719db58f70f491c404a53df1be7f6bc6833db35eb97",
+  "commands": [
+    [
+      "/data/apps/cuda/12.8/bin/nvcc",
+      "-x",
+      "cu",
+      "-std=c++17",
+      "-arch=sm_90",
+      "-ptx",
+      "/data/run01/scyb672/hjr/TempName/tools/h100/phase6/ma11_softmax.cuh",
+      "-o",
+      "TempName/outputs/h100/phase6/ma11-validation-20261027/softmax-plain.ptx"
+    ],
+    [
+      "/data/apps/cuda/12.8/bin/nvcc",
+      "-x",
+      "cu",
+      "-std=c++17",
+      "-arch=sm_90",
+      "--use_fast_math",
+      "--ftz=false",
+      "--prec-div=true",
+      "--prec-sqrt=true",
+      "-ptx",
+      "/data/run01/scyb672/hjr/TempName/tools/h100/phase6/ma11_softmax.cuh",
+      "-o",
+      "TempName/outputs/h100/phase6/ma11-validation-20261027/softmax-fast-restored.ptx"
+    ],
+    [
+      "/data/apps/cuda/12.8/bin/nvcc",
+      "-x",
+      "cu",
+      "-std=c++17",
+      "-arch=sm_90",
+      "-Xptxas=-v",
+      "-c",
+      "/data/run01/scyb672/hjr/TempName/tools/h100/phase6/ma11_softmax.cuh",
+      "-o",
+      "/tmp/ma11-softmax-resource.o"
+    ],
+    [
+      "python3",
+      "-m",
+      "unittest",
+      "discover",
+      "-s",
+      "/data/run01/scyb672/hjr/TempName/tools/h100/phase6",
+      "-p",
+      "test_ma11_native.py",
+      "-v"
+    ]
+  ],
+  "standalone_compile_passed": true,
+  "ptx_plain_equals_restored_fastmath": true,
+  "cmake_source_flags_follow_global_fastmath": true,
+  "cmake_compile_command": "/data/apps/cuda/12.8/bin/nvcc -forward-unknown-to-host-compiler -Dma11_native_EXPORTS   --use_fast_math -std=c++17 \"--generate-code=arch=compute_90,code=[compute_90,sm_90]\" -Xcompiler=-fPIC --ftz=false --prec-div=true --prec-sqrt=true -x cu -c /tmp/ma11-native-cmake/ma11_softmax.cu -o CMakeFiles/ma11_native.dir/ma11_softmax.cu.o",
+  "actual_shared_library_loaded": true,
+  "native_exports": [
+    "ma11_softmax_protocol",
+    "ma11_softmax_forward_cuda",
+    "ma11_softmax_backward_cuda"
+  ],
+  "protocol": 11,
+  "host_tests": 3,
+  "host_tests_passed": true,
+  "resources": {
+    "forward": {
+      "registers": 30,
+      "shared_memory_bytes": 4224,
+      "spill_bytes": 0
+    },
+    "backward": {
+      "registers": 52,
+      "shared_memory_bytes": 512,
+      "spill_bytes": 0
+    }
+  },
+  "gpu_kernel_executed": false,
+  "gpu_numerical_validated": false,
+  "full_flux_linked": false,
+  "h100_eight_rank_validated": false
+}
